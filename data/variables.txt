@@ -1,0 +1,12 @@
+Gene	Rule
+Gata2	Gata2 and (not(Pu1 or (Gata1 and Fog1)))
+Gata1	(Gata1 or Gata2 or Fli1) and (not(Pu1))
+Fog1	Gata1
+Eklf	Gata1 and (not(Fli1))
+Fli1	Gata1 and (not(Eklf))
+Scl	Gata1 and (not(Pu1))
+Cebpa	Cebpa and (not(Scl or (Fog1 and Gata1)))
+Pu1	(Cebpa or Pu1) and (not(Gata1 or Gata2))
+cJun	Pu1 and (not(Gfi1))
+EgrNab	(Pu1 and cJun) and (not(Gfi1))
+Gfi1	Cebpa and (not(EgrNab))
