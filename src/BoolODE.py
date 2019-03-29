@@ -8,13 +8,13 @@ import scipy as sc
 import matplotlib.pyplot as plt
 import pandas as pd
 from itertools import combinations
-
+from scipy.integrate import odeint
 # Uncomment on Aditya's machine
 #sys.path.insert(0, "/home/adyprat/anaconda3/envs/pyDSTool/lib/python3.6/site-packages/")
 import PyDSTool as dst
 
 def readBooleanRules(path):
-    DF = pd.read_csv("variables.txt",sep='\t')
+    DF = pd.read_csv(path,sep='\t')
     return DF
 
 def getSaneNval(lo=1.,hi=10.,mu=2.,sig=2.):
@@ -26,13 +26,52 @@ def getSaneNval(lo=1.,hi=10.,mu=2.,sig=2.):
     while k < lo or k > hi:
         k = np.random.normal(mu, sig)
     return k
+def createModelObject(ModelSpec,isStochastic):
+    if isStochastic:
+        tdomain = [0,200]
+        times = dst.linspace(tdomain[0], tdomain[1],2000)
+        xData = {'noise':np.random.randn(len(times))}
+        my_input = dst.InterpolateTable({'tdata': times,
+                                         'ics': xData,
+                                         'name': 'interp'}).compute('interp')
+        # plt.plot(my_input.sample()['noise'])
+        # plt.show()
+        # sys.exit()
+        ModelDef = dst.args(name='bool',
+                            varspecs=ModelSpec['varspecs'],
+                            pars=ModelSpec['pars'],
+                            ics=ModelSpec['ics'],
+                            tdata=tdomain,
+                            inputs={'noise':my_input.variables['noise']})
+        DS = dst.Vode_ODEsystem(ModelDef)
+    else:
+        ModelDef = dst.args(name='bool',
+                            varspecs=ModelSpec['varspecs'],
+                            pars=ModelSpec['pars'],
+                            ics=ModelSpec['ics'],
+                            tdata=tdomain)
+        DS = dst.Vode_ODEsystem(ModelDef)
+        return DS
 
-def generateModelDict(DF):
-    geneList = set(DF['Gene'].values)
+def simulateModel(DS):
+    traj = DS.compute('test')
+    points = traj.sample()
+    return points
+
+def plotSimulation(points,varsToPlot=[]):
+    if len(varsToPlot) == 0:
+        varsToPlot = list(points.keys())
+
+    for v in varsToPlot:
+        if v != 't':
+            plt.plot(points['t'],points[v],label=v)
+    plt.legend()
+    plt.show()
+
+def generateModelDict(DF,isStochastic):
+    genes = set(DF['Gene'].values)
     # Variables:
     varspecs = {'x_' + g:'' for g in genes}
-    varspecs.update({'p_' + g:'r_'+g+'*'+'x_' +g + '- l_p_'+g+'*'+'p_' + g
-                     for g in genes})
 
     par = {'n_'+g:getSaneNval() for g in genes}
     # Common Thresholds, uniform dist
@@ -43,17 +82,16 @@ def generateModelDict(DF):
     par.update({'r_' + g:getSaneNval(lo=0.,hi=0.25,mu=0.0,sig=0.05) for g in genes})
     
     # mRNA degradation rates, currently identical for all mRNAs?
-    #par.update({'l_x_' + g:np.log(2)/getSaneNval(mu=5,sig=10.,lo=0,hi=100) for g in genes})
-    lx = np.log(2)/getSaneNval(mu=5,sig=10.,lo=0,hi=100)
-    par.update({'l_x_' + g:lx for g in genes})
+    par.update({'l_x_' + g:np.log(2)/getSaneNval(mu=5,sig=10.,lo=0,hi=100) for g in genes})
+    #lx = np.log(2)/getSaneNval(mu=5,sig=10.,lo=0,hi=100)
+    #par.update({'l_x_' + g:lx for g in genes})
 
     # protein degradation rates, currently identical for all proteins?
-    #par.update({'l_p_' + g:np.log(2)/getSaneNval(mu=5,sig=10.,lo=0,hi=100) for g in genes})
-    lp = np.log(2)/getSaneNval(mu=5,sig=10.,lo=0,hi=100)
-    par.update({'l_p_' + g:lp for g in genes})
+    par.update({'l_p_' + g:np.log(2)/getSaneNval(mu=5,sig=10.,lo=0,hi=100) for g in genes})
+    #lp = np.log(2)/getSaneNval(mu=5,sig=10.,lo=0,hi=100)
+    #par.update({'l_p_' + g:lp for g in genes})
 
-    
-    par.update({'m_' + g:1.0 for g in genes})
+    par.update({'m_' + g:getSaneNval(mu=5,sig=10.,lo=0,hi=100) for g in genes})
     
     for i,row in DF.iterrows():
         rhs = row['Rule']
@@ -80,7 +118,17 @@ def generateModelDict(DF):
         num += ' )'
         den += ' )'
         #varspecs['x_' + currGen] = 'l_x_'+ currGen + '*' + num + '/' + den + '-' + 'l_x_'  + currGen +'*x_' + currGen
-        varspecs['x_' + currGen] = 'l_x_'+ currGen + '*(' + num + '/' + den + '-' + 'x_' + currGen +')'
+        Production = 'm_'+ currGen + '*(' +num + '/' + den + ')'
+        Degradation = 'l_x_'  + currGen + '*x_' + currGen
+        varspecs['x_' + currGen] =  Production \
+                                   + '-' + Degradation \
+                                   + stochasticTerm(isStochastic,Production,Degradation)\
+                                   
+
+    varspecs.update({'p_' + g:'r_'+g+'*'+'x_' +g + '- l_p_'+g+'*'+'p_' + g\
+                     + stochasticTerm(isStochastic, 'r_'+g+'*'+'x_' +g,
+                                      'l_p_'+g+'*'+'p_' + g)
+                     for g in genes})
         
     # Initialize variables between 0 and 1, Doesn't matter.
     ics = {'x_' + g:getSaneNval(lo=0.,hi=1,mu=0.0,sig=1) for g in genes}
@@ -88,49 +136,70 @@ def generateModelDict(DF):
 
     ModelSpec = {}
     ModelSpec['varspecs'] = varspecs
-    ModelSpec['pars'] = pars
+    ModelSpec['pars'] = par
     ModelSpec['ics'] = ics
     # Default time
-    ModelSpec['tdata'] = [0,200]
     return ModelSpec
+
+def writeModelToFile(ModelSpec):
+    with open('src/model.py','w') as out:
+        out.write('#####################################################\n')
+        out.write('import numpy as np\n')
+        out.write('# This file is created automatically\n')
+        out.write('def Model(Y,t,pars):\n')
+        out.write('    # Parameters\n')
+        for i,p in enumerate(ModelSpec['pars'].keys()):
+            out.write('    ' + p + ' = pars[' + str(i) + ']\n')
+        outstr = ''
+        out.write('    # Variables\n')
+        for i,v in enumerate(ModelSpec['varspecs'].keys()):
+            out.write('    ' + v + ' = Y[' + str(i) + ']\n')
+            out.write('    if ' + v + ' < 0.0 :\n')
+            out.write('        ' + v + ' = 0.0\n')            
+        
+        for v,vdef in ModelSpec['varspecs'].iteritems():
+            d =vdef.replace('noise','np.random.normal(scale=0.001)')
+            d = d.replace('^','**')
+            out.write('    ' + 'd' + v + ' = ' + d  + '\n')
+            outstr += 'd' + v + ', '
+        out.write('    dY = [' + outstr+ ']\n')
+        out.write('    return(dY)\n')
+        out.write('#####################################################')
+        
+        
+def stochasticTerm(isStochastic,Production, Degradation):
+    c = 0.05 # From GNW 
+    if isStochastic:
+        # return(' + ' + str(c) \
+        #        + '*noise*(('+Production+')^0.5 + ('+Degradation+')^0.5)')
+        return(' + ' + str(c) \
+               + '*noise*(('+Production+ '+'+Degradation+')^0.5)')        
+    else:
+        return('')
     
-def createModelObject(ModelSpec):
-    ModelDef = dst.args(name='bool',
-                        varspecs=ModelSpec['varspecs'],
-                        pars=ModelSpec['par'],
-                        ics=ModelSpec['ics'],
-                        tdata=ModelSpec['tdata'])
-    DS = dst.Vode_ODEsystem(ModelDef)
-    return DS
-
-def simulateModel(DS):
-    traj = DS.compute('test')
-    points = traj.sample()
-    return points
-
-def plotSimulation(points,varsToPlot):
-    if len(varsToPlot) == 0:
-        varsToPlot = list(points.keys())
-
-    for v in varsToPlot:
-        if v != 't':
-            plt.plot(points['t'],points[v],label=v)
-    plt.legend()
-    plt.show()
 
 def writeParametersToFile(ModelSpec,outname='parameters.txt'):
-    with ('output/' + outname,'w') as out:
+    with ('../' + outname,'w') as out:
         for k, v in ModelSpec['parameters']:
             out.write(k+'\t'+str(v))
 
 def main():
-    path = '../data/variables.txt'
+    path = 'data/variables.txt'
     DF = readBooleanRules(path)
-    ModelSpec = generateModelDict(DF)
-    DS = createModelObject(ModelSpec)
-    points = simulateModel(DS)
-    plotSimulation(points)
+    isStochastic = True
+    ModelSpec = generateModelDict(DF,isStochastic)
+    writeModelToFile(ModelSpec)
+    t= np.linspace(0,1,10)
+    import model
+    y0 = ModelSpec['ics'].values()
+    pars = ModelSpec['pars'].values()
+    P = odeint(model.Model,y0,t,args=(pars,))
+    plt.plot(t,P[:,0])
+    plt.plot(t,P[:,1])
+    plt.plot(t,P[:,2])        
+    plt.show()
                         
 if __name__ == "__main__":
     main()
 
+# c in stoch sim is 0.05
