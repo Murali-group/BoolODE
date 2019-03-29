@@ -9,9 +9,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from itertools import combinations
 from scipy.integrate import odeint
+import time
 # Uncomment on Aditya's machine
 #sys.path.insert(0, "/home/adyprat/anaconda3/envs/pyDSTool/lib/python3.6/site-packages/")
 import PyDSTool as dst
+from tqdm import tqdm
 
 def readBooleanRules(path):
     DF = pd.read_csv(path,sep='\t')
@@ -154,26 +156,29 @@ def writeModelToFile(ModelSpec):
         out.write('    # Variables\n')
         for i,v in enumerate(ModelSpec['varspecs'].keys()):
             out.write('    ' + v + ' = Y[' + str(i) + ']\n')
-            out.write('    if ' + v + ' < 0.0 :\n')
-            out.write('        ' + v + ' = 0.0\n')            
         
         for v,vdef in ModelSpec['varspecs'].iteritems():
-            d =vdef.replace('noise','np.random.normal(scale=0.001)')
+            d =vdef.replace('noise','np.random.normal()')
             d = d.replace('^','**')
             out.write('    ' + 'd' + v + ' = ' + d  + '\n')
             outstr += 'd' + v + ', '
+        for i,v in enumerate(ModelSpec['varspecs'].keys()):
+            out.write('    if ' + v + ' < 0.0 :\n')
+            # Reset to non zero value
+            out.write('        ' + v + ' = Y['+str(i)+']\n')            
+
         out.write('    dY = [' + outstr+ ']\n')
         out.write('    return(dY)\n')
         out.write('#####################################################')
         
         
 def stochasticTerm(isStochastic,Production, Degradation):
-    c = 0.05 # From GNW 
+    c = 1 # 0.05From GNW 
     if isStochastic:
         # return(' + ' + str(c) \
         #        + '*noise*(('+Production+')^0.5 + ('+Degradation+')^0.5)')
         return(' + ' + str(c) \
-               + '*noise*(('+Production+ '+'+Degradation+')^0.5)')        
+               + '*noise*((abs('+Production+ ')+abs('+Degradation+'))^0.5)')        
     else:
         return('')
     
@@ -183,20 +188,55 @@ def writeParametersToFile(ModelSpec,outname='parameters.txt'):
         for k, v in ModelSpec['parameters']:
             out.write(k+'\t'+str(v))
 
+
+def rk4(yVector,currentTime,stepSize,Function,P):
+    k1=np.array(Function(yVector,currentTime,P))
+    V2=2.0*np.ones(len(k1))
+    V3=6.0*np.ones(len(k1))
+    k2=np.array(Function(yVector+0.5*np.ones(len(k1))*k1*stepSize,currentTime+stepSize*0.5,P))
+    k3=np.array(Function(yVector+0.5*np.ones(len(k1))*k2*stepSize,currentTime+stepSize*0.5,P))
+    k4=np.array(Function(yVector+k3*stepSize,currentTime+stepSize,P))
+    yVectorNext=yVector+(k1+2.0*k2+2.0*k3+k4)*stepSize/6.0
+    return yVectorNext
+
+def solver(InitialCondition,TimeRange,stepSize,Function,P):
+    startTime,stopTime=TimeRange
+    Time=np.arange(startTime+stepSize,stopTime,stepSize)
+    yVals=[InitialCondition]
+    # for t in tqdm(Time):
+    #     yVals.append(list(rk4(yVals[-1],t,stepSize,Function)))
+    Y=InitialCondition
+    t=startTime+stepSize
+    PTIME=time.clock()
+    for t in tqdm(Time):
+        Y=list(rk4(yVals[-1],t,stepSize,Function,P))
+        yVals.append(Y)
+        #t=t+stepSize
+        TOTALPTIME=time.clock()-PTIME
+    return(yVals)
+
 def main():
     path = 'data/variables.txt'
+    # path = 'data/test_vars.txt'
     DF = readBooleanRules(path)
     isStochastic = True
     ModelSpec = generateModelDict(DF,isStochastic)
     writeModelToFile(ModelSpec)
-    t= np.linspace(0,1,10)
+    # t= np.linspace(0,100,1000)
     import model
     y0 = ModelSpec['ics'].values()
     pars = ModelSpec['pars'].values()
-    P = odeint(model.Model,y0,t,args=(pars,))
-    plt.plot(t,P[:,0])
-    plt.plot(t,P[:,1])
-    plt.plot(t,P[:,2])        
+    #P = odeint(model.Model,y0,t,args=(pars,))
+    
+    tmin = 0
+    tmax = 200.0
+    stepsize = 0.01
+    
+    P,T = solver(y0, [tmin,tmax],stepsize,model.Model,pars)
+
+    for i in range(0,len(P[0])):
+        plt.plot(t,[p[i] for p in P])
+
     plt.show()
                         
 if __name__ == "__main__":
