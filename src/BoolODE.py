@@ -70,7 +70,7 @@ def plotSimulation(points,varsToPlot=[]):
     plt.legend()
     plt.show()
 
-def generateModelDict(DF,isStochastic):
+def generateModelDict(DF):
     genes = set(DF['Gene'].values)
     # Variables:
     varspecs = {'x_' + g:'' for g in genes}
@@ -80,7 +80,7 @@ def generateModelDict(DF,isStochastic):
     par.update({'k_'+g:getSaneNval(lo=0.01,hi=1.0,mu=0,sig=0.02) for g in genes})
     
     # basal activations, gaussian dist
-    par.update({'a_'+g:getSaneNval(mu=0.25,sig=1.,lo=0,hi=1) for g in genes})
+    par.update({'alpha_'+g:getSaneNval(mu=0.25,sig=1.,lo=0,hi=1) for g in genes})
     par.update({'r_' + g:getSaneNval(lo=0.,hi=0.25,mu=0.0,sig=0.05) for g in genes})
     
     # mRNA degradation rates, currently identical for all mRNAs?
@@ -94,7 +94,7 @@ def generateModelDict(DF,isStochastic):
     #par.update({'l_p_' + g:lp for g in genes})
 
     par.update({'m_' + g:getSaneNval(mu=5,sig=10.,lo=0,hi=100) for g in genes})
-    
+
     for i,row in DF.iterrows():
         rhs = row['Rule']
         rhs = rhs.replace('(',' ')
@@ -105,7 +105,7 @@ def generateModelDict(DF,isStochastic):
         # keywd = ['and','not', 'or', '']    
         reg = [t for t in tokens if t in genes]
         currGen = row['Gene']
-        num = '( a_' + currGen
+        num = '( alpha_' + currGen
         den = '( 1'
         for i in range(1,len(reg) + 1):
             for c in combinations(reg,i):
@@ -123,13 +123,13 @@ def generateModelDict(DF,isStochastic):
         Production = 'm_'+ currGen + '*(' +num + '/' + den + ')'
         Degradation = 'l_x_'  + currGen + '*x_' + currGen
         varspecs['x_' + currGen] =  Production \
-                                   + '-' + Degradation \
-                                   + stochasticTerm(isStochastic,Production,Degradation)\
+                                   + '-' + Degradation #\
+                                   # + stochasticTerm(isStochastic,Production,Degradation)\
                                    
 
     varspecs.update({'p_' + g:'r_'+g+'*'+'x_' +g + '- l_p_'+g+'*'+'p_' + g\
-                     + stochasticTerm(isStochastic, 'r_'+g+'*'+'x_' +g,
-                                      'l_p_'+g+'*'+'p_' + g)
+                     # + stochasticTerm(isStochastic, 'r_'+g+'*'+'x_' +g,
+                     #                  'l_p_'+g+'*'+'p_' + g)
                      for g in genes})
         
     # Initialize variables between 0 and 1, Doesn't matter.
@@ -144,6 +144,9 @@ def generateModelDict(DF,isStochastic):
     return ModelSpec
 
 def writeModelToFile(ModelSpec):
+    varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
+    parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
+    
     with open('src/model.py','w') as out:
         out.write('#####################################################\n')
         out.write('import numpy as np\n')
@@ -154,89 +157,101 @@ def writeModelToFile(ModelSpec):
             out.write('    ' + p + ' = pars[' + str(i) + ']\n')
         outstr = ''
         out.write('    # Variables\n')
-        for i,v in enumerate(ModelSpec['varspecs'].keys()):
-            out.write('    ' + v + ' = Y[' + str(i) + ']\n')
-        
-        for v,vdef in ModelSpec['varspecs'].iteritems():
-            d =vdef.replace('noise','np.random.normal()')
-            d = d.replace('^','**')
-            out.write('    ' + 'd' + v + ' = ' + d  + '\n')
-            outstr += 'd' + v + ', '
-        for i,v in enumerate(ModelSpec['varspecs'].keys()):
-            out.write('    if ' + v + ' < 0.0 :\n')
-            # Reset to non zero value
-            out.write('        ' + v + ' = Y['+str(i)+']\n')            
-
-        out.write('    dY = [' + outstr+ ']\n')
+        for i in range(len(varmapper.keys())):
+            out.write('    ' + varmapper[i] + ' = Y[' + str(i) + ']\n')
+            outstr += 'd' + varmapper[i] + ','
+        for i in range(len(varmapper.keys())):
+            vdef = ModelSpec['varspecs'][varmapper[i]]
+            vdef = vdef.replace('^','**')
+            out.write('    d' + varmapper[i] + ' = '+vdef+'\n')
+            
+        out.write('    dY = np.array([' + outstr+ '])\n')
         out.write('    return(dY)\n')
         out.write('#####################################################')
+    return varmapper,parmapper
         
         
-def stochasticTerm(isStochastic,Production, Degradation):
-    c = 1 # 0.05From GNW 
-    if isStochastic:
-        # return(' + ' + str(c) \
-        #        + '*noise*(('+Production+')^0.5 + ('+Degradation+')^0.5)')
-        return(' + ' + str(c) \
-               + '*noise*((abs('+Production+ ')+abs('+Degradation+'))^0.5)')        
-    else:
-        return('')
-    
-
 def writeParametersToFile(ModelSpec,outname='parameters.txt'):
     with ('../' + outname,'w') as out:
         for k, v in ModelSpec['parameters']:
             out.write(k+'\t'+str(v))
 
+def noise(x,t):
 
-def rk4(yVector,currentTime,stepSize,Function,P):
-    k1=np.array(Function(yVector,currentTime,P))
-    V2=2.0*np.ones(len(k1))
-    V3=6.0*np.ones(len(k1))
-    k2=np.array(Function(yVector+0.5*np.ones(len(k1))*k1*stepSize,currentTime+stepSize*0.5,P))
-    k3=np.array(Function(yVector+0.5*np.ones(len(k1))*k2*stepSize,currentTime+stepSize*0.5,P))
-    k4=np.array(Function(yVector+k3*stepSize,currentTime+stepSize,P))
-    yVectorNext=yVector+(k1+2.0*k2+2.0*k3+k4)*stepSize/6.0
-    return yVectorNext
+    return (1*np.sqrt(x))
 
-def solver(InitialCondition,TimeRange,stepSize,Function,P):
-    startTime,stopTime=TimeRange
-    Time=np.arange(startTime+stepSize,stopTime,stepSize)
-    yVals=[InitialCondition]
-    # for t in tqdm(Time):
-    #     yVals.append(list(rk4(yVals[-1],t,stepSize,Function)))
-    Y=InitialCondition
-    t=startTime+stepSize
-    PTIME=time.clock()
-    for t in tqdm(Time):
-        Y=list(rk4(yVals[-1],t,stepSize,Function,P))
-        yVals.append(Y)
-        #t=t+stepSize
-        TOTALPTIME=time.clock()-PTIME
-    return(yVals)
 
+
+def deltaW(N, m, h):
+    # From sdeint implementation
+    """Generate sequence of Wiener increments for m independent Wiener
+    processes W_j(t) j=0..m-1 for each of N time intervals of length h.    
+    Returns:
+      dW (array of shape (N, m)): The [n, j] element has the value
+      W_j((n+1)*h) - W_j(n*h) 
+    """
+    return np.random.normal(0.0, np.sqrt(h), (N, m))
+
+def eulersde(f,G,y0,tspan,pars,dW=None):
+    # From sdeint implementation
+    N = len(tspan)
+    h = (tspan[N-1] - tspan[0])/(N - 1)
+    # allocate space for result
+    d = len(y0)
+    y = np.zeros((N, d), dtype=type(y0[0]))
+
+    if dW is None:
+        # pre-generate Wiener increments (for d independent Wiener processes):
+        dW = deltaW(N - 1, d, h)
+    y[0] = y0
+    for n in range(0, N-1):
+        tn = tspan[n]
+        yn = y[n]
+        dWn = dW[n,:]
+
+        print(np.multiply(G(yn, tn),dWn))
+        y[n+1] = yn + f(yn, tn,pars)*h + np.multiply(G(yn, tn),dWn)
+        for i in range(len(y[n+1])):
+            if y[n+1][i] < 0:
+                y[n+1][i] = yn[i]
+    return y
+def minmaxnorm(X):
+    mix = min(X)
+    mx = max(X)
+    N = [(x-mix)/(mx-mix) for x in X]
+    return N
+    
 def main():
     path = 'data/variables.txt'
-    # path = 'data/test_vars.txt'
+    #path = 'data/test_vars.txt'
     DF = readBooleanRules(path)
-    isStochastic = True
-    ModelSpec = generateModelDict(DF,isStochastic)
-    writeModelToFile(ModelSpec)
-    # t= np.linspace(0,100,1000)
+    isStochastic = False
+    ModelSpec = generateModelDict(DF)
+    varmapper, parmapper = writeModelToFile(ModelSpec)
     import model
-    y0 = ModelSpec['ics'].values()
+    variables = list(ModelSpec['ics'].keys())
+    y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
+    
+    rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
+    
+    proteinIndex = [i for i in range(len(variables)) if 'y_' in variables[i]]    
     pars = ModelSpec['pars'].values()
-    #P = odeint(model.Model,y0,t,args=(pars,))
-    
-    tmin = 0
-    tmax = 200.0
-    stepsize = 0.01
-    
-    P,T = solver(y0, [tmin,tmax],stepsize,model.Model,pars)
+    t = np.linspace(0,100,1000)
+    if not isStochastic:
+        P = odeint(model.Model,y0,t,args=(pars,))
+    else:
+        P = eulersde(model.Model,noise,y0,t,pars)
+        
+    Pnorm = []
+    # Min Max normalize
+    for i in range(np.shape(P)[1]):
+        Pnorm.append(minmaxnorm(P[:,i]))
 
-    for i in range(0,len(P[0])):
-        plt.plot(t,[p[i] for p in P])
-
+        
+    for ind in rnaIndex:
+        plt.plot(t,Pnorm[ind],label=varmapper[ind])
+        
+    plt.legend()
     plt.show()
                         
 if __name__ == "__main__":
