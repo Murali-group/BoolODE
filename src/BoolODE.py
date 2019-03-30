@@ -220,41 +220,101 @@ def minmaxnorm(X):
     mx = max(X)
     N = [(x-mix)/(mx-mix) for x in X]
     return N
+
+def parseArgs(args):
+    parser = OptionParser(usage=usage)
+    parser.add_option('', '--max-time', type='int',
+                      help='Total time of simulation')
+    parser.add_option('', '--num-timepoints', type='int',
+                      help='Number of time points to sample')
+    parser.add_option('', '--num-experiments', type='int',
+                      help='Number of experiments to perform')
     
-def main():
-    path = 'data/variables.txt'
-    #path = 'data/test_vars.txt'
-    DF = readBooleanRules(path)
-    isStochastic = False
-    ModelSpec = generateModelDict(DF)
-    varmapper, parmapper = writeModelToFile(ModelSpec)
-    import model
-    variables = list(ModelSpec['ics'].keys())
-    y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
-    
-    rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
-    
-    proteinIndex = [i for i in range(len(variables)) if 'y_' in variables[i]]    
-    pars = ModelSpec['pars'].values()
-    t = np.linspace(0,100,1000)
+    parser.add_option('', '--path', type='int',
+                      help='Path to boolean model file')    
+    (opts, args) = parser.parse_args(args)
+
+    return opts, args
+
+def simulateModel(Model, y0, parameters,isStochastic, tspan):
     if not isStochastic:
-        P = odeint(model.Model,y0,t,args=(pars,))
+        P = odeint(Model,y0,t,args=(pars,))
     else:
-        P = eulersde(model.Model,noise,y0,t,pars)
-        
+        P = eulersde(Model,noise,y0,t,pars)
+
+def normalizeData(P):
     Pnorm = []
-    # Min Max normalize
     for i in range(np.shape(P)[1]):
         Pnorm.append(minmaxnorm(P[:,i]))
+    return Pnorm
 
+def get_ss(P, rnaIndex):
+    ss = []
+    for ind in rnaIndex:
+        ss.append(P[rnaIndex][-1])
         
+def Experiment(Model, ModelSpec,tspan, num_experiments,
+               varmapper,parmapper,):
+    pars = ModelSpec['pars'].values()
+    
+    rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
+    revvarmapper = {v,k for k,v in varmapper.iteritems()}
+    proteinIndex = [i for i in range(len(varmapper.keys())) if 'p_' in varmapper[i]]
+    
+    y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
+    
+    # First do the ODE simulations, no noise, then stoch
+    for isStochastic in [False,True]:
+        ss = get_ss(simulateModel(Model, y0, pars, isStochastic, tspan))
+        for e in range(num_experiments):
+            new_ics = [0 for _ in range(Model)]
+            # Set the mRNA ics
+            for ind in rnaIndex:
+                new_ics[ind] = ss[ind] + ss[ind]*np.random.normal(0,0.5)
+                if new_ics[ind] < 0:
+                    new_ics[ind] = 0
+            # Set the Protein ics based on mRNA levels
+            proteinss = {}
+            for i in range(len(varmapper.keys())):
+                genename = varmapper[i].replace('x_','')
+                proteinname = 'p_' + genename
+                proteinss[proteinname] = (ModelSpec['pars']['r_' + genename])/(ModelSpec['pars']['l_p_' + genename])*new_ics[revmapper[genename]]
+            for ind in proteinIndex:
+                new_ics[ind] = proteinss[varmapper[ind]]
+
+            # DONE setting ICS
+            print('Implement the actualt simulation next')
+
+
+    # Min Max normalize; Do this last!
+    Pnorm = normalizeData(P)
+    # Visualize
     for ind in rnaIndex:
         plt.plot(t,Pnorm[ind],label=varmapper[ind])
         
     plt.legend()
     plt.show()
+    
+def main():
+    opts, args = parseArgs(args)
+    
+    path = opts.path
+    tmax = opts.max_time
+    num_samples = opts.num_samples
+    num_experiments = opt.num_experiments
+    
+    DF = readBooleanRules(path)
+
+    ModelSpec = generateModelDict(DF)
+    varmapper, parmapper = writeModelToFile(ModelSpec)
+    
+    import model
+    
+    tspan = np.linspace(0,tmax,tmax*10)
+
+    Experiment(model.Model,ModelSpec,tspan,num_experiments, varmapper,parmapper)
                         
 if __name__ == "__main__":
-    main()
+    main(sys.argv)
 
 # c in stoch sim is 0.05
