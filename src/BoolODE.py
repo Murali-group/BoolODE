@@ -14,6 +14,7 @@ import time
 #sys.path.insert(0, "/home/adyprat/anaconda3/envs/pyDSTool/lib/python3.6/site-packages/")
 import PyDSTool as dst
 from tqdm import tqdm
+from optparse import OptionParser
 
 def readBooleanRules(path):
     DF = pd.read_csv(path,sep='\t')
@@ -28,37 +29,6 @@ def getSaneNval(lo=1.,hi=10.,mu=2.,sig=2.):
     while k < lo or k > hi:
         k = np.random.normal(mu, sig)
     return k
-def createModelObject(ModelSpec,isStochastic):
-    if isStochastic:
-        tdomain = [0,200]
-        times = dst.linspace(tdomain[0], tdomain[1],2000)
-        xData = {'noise':np.random.randn(len(times))}
-        my_input = dst.InterpolateTable({'tdata': times,
-                                         'ics': xData,
-                                         'name': 'interp'}).compute('interp')
-        # plt.plot(my_input.sample()['noise'])
-        # plt.show()
-        # sys.exit()
-        ModelDef = dst.args(name='bool',
-                            varspecs=ModelSpec['varspecs'],
-                            pars=ModelSpec['pars'],
-                            ics=ModelSpec['ics'],
-                            tdata=tdomain,
-                            inputs={'noise':my_input.variables['noise']})
-        DS = dst.Vode_ODEsystem(ModelDef)
-    else:
-        ModelDef = dst.args(name='bool',
-                            varspecs=ModelSpec['varspecs'],
-                            pars=ModelSpec['pars'],
-                            ics=ModelSpec['ics'],
-                            tdata=tdomain)
-        DS = dst.Vode_ODEsystem(ModelDef)
-        return DS
-
-def simulateModel(DS):
-    traj = DS.compute('test')
-    points = traj.sample()
-    return points
 
 def plotSimulation(points,varsToPlot=[]):
     if len(varsToPlot) == 0:
@@ -170,17 +140,14 @@ def writeModelToFile(ModelSpec):
         out.write('#####################################################')
     return varmapper,parmapper
         
-        
 def writeParametersToFile(ModelSpec,outname='parameters.txt'):
     with ('../' + outname,'w') as out:
         for k, v in ModelSpec['parameters']:
             out.write(k+'\t'+str(v))
 
 def noise(x,t):
-
-    return (1*np.sqrt(x))
-
-
+    c = 1.0
+    return (c*np.sqrt(x))
 
 def deltaW(N, m, h):
     # From sdeint implementation
@@ -209,7 +176,6 @@ def eulersde(f,G,y0,tspan,pars,dW=None):
         yn = y[n]
         dWn = dW[n,:]
 
-        print(np.multiply(G(yn, tn),dWn))
         y[n+1] = yn + f(yn, tn,pars)*h + np.multiply(G(yn, tn),dWn)
         for i in range(len(y[n+1])):
             if y[n+1][i] < 0:
@@ -222,7 +188,7 @@ def minmaxnorm(X):
     return N
 
 def parseArgs(args):
-    parser = OptionParser(usage=usage)
+    parser = OptionParser()
     parser.add_option('', '--max-time', type='int',
                       help='Total time of simulation')
     parser.add_option('', '--num-timepoints', type='int',
@@ -230,7 +196,7 @@ def parseArgs(args):
     parser.add_option('', '--num-experiments', type='int',
                       help='Number of experiments to perform')
     
-    parser.add_option('', '--path', type='int',
+    parser.add_option('', '--path', type='str',
                       help='Path to boolean model file')    
     (opts, args) = parser.parse_args(args)
 
@@ -238,56 +204,97 @@ def parseArgs(args):
 
 def simulateModel(Model, y0, parameters,isStochastic, tspan):
     if not isStochastic:
-        P = odeint(Model,y0,t,args=(pars,))
+        P = odeint(Model,y0,tspan,args=(parameters,))
     else:
-        P = eulersde(Model,noise,y0,t,pars)
+        P = eulersde(Model,noise,y0,tspan,parameters)
+    return(P)
 
 def normalizeData(P):
+    """
+    Calls minmaxnorm() for each time series
+    """
     Pnorm = []
     for i in range(np.shape(P)[1]):
         Pnorm.append(minmaxnorm(P[:,i]))
     return Pnorm
 
-def get_ss(P, rnaIndex):
+def get_ss(P):
+    """
+    Returns the last entry in each time series list 
+    """
     ss = []
+    ss = [p for p in P[-1,:]]
+    return(ss)
+
+def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarmapper):
+    # Initialize
+    new_ics = [0 for _ in range(len(varmapper.keys()))]
+    # Set the mRNA ics
     for ind in rnaIndex:
-        ss.append(P[rnaIndex][-1])
-        
+        new_ics[ind] = ss[ind] + ss[ind]*np.random.normal(0,0.5)
+        if new_ics[ind] < 0:
+            new_ics[ind] = 0
+    # Calculate the Protein ics based on mRNA levels
+    proteinss = {}
+    for i in rnaIndex:
+        genename = varmapper[i].replace('x_','')
+        proteinname = 'p_' + genename
+        proteinss[proteinname] = ((ModelSpec['pars']['r_' + genename])/(ModelSpec['pars']['l_p_' + genename]))*new_ics[revvarmapper['x_' + genename]]
+    # Finally record the protein ics values
+    for ind in proteinIndex:
+        new_ics[ind] = proteinss[varmapper[ind]]
+    return(new_ics)
+
 def Experiment(Model, ModelSpec,tspan, num_experiments,
-               varmapper,parmapper,):
+               num_timepoints,
+               varmapper,parmapper):
     pars = ModelSpec['pars'].values()
     
     rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
-    revvarmapper = {v,k for k,v in varmapper.iteritems()}
+    revvarmapper = {v:k for k,v in varmapper.iteritems()}
     proteinIndex = [i for i in range(len(varmapper.keys())) if 'p_' in varmapper[i]]
     
     y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
-    
+    result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
+    frames = []
     # First do the ODE simulations, no noise, then stoch
-    for isStochastic in [False,True]:
+    for isStochastic in [False,True]: 
+        # "WT" simulation
         ss = get_ss(simulateModel(Model, y0, pars, isStochastic, tspan))
-        for e in range(num_experiments):
-            new_ics = [0 for _ in range(Model)]
-            # Set the mRNA ics
-            for ind in rnaIndex:
-                new_ics[ind] = ss[ind] + ss[ind]*np.random.normal(0,0.5)
-                if new_ics[ind] < 0:
-                    new_ics[ind] = 0
-            # Set the Protein ics based on mRNA levels
-            proteinss = {}
-            for i in range(len(varmapper.keys())):
-                genename = varmapper[i].replace('x_','')
-                proteinname = 'p_' + genename
-                proteinss[proteinname] = (ModelSpec['pars']['r_' + genename])/(ModelSpec['pars']['l_p_' + genename])*new_ics[revmapper[genename]]
-            for ind in proteinIndex:
-                new_ics[ind] = proteinss[varmapper[ind]]
-
-            # DONE setting ICS
-            print('Implement the actualt simulation next')
-
-
-    # Min Max normalize; Do this last!
-    Pnorm = normalizeData(P)
+        for expnum in range(num_experiments):
+            y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarmapper)
+            P = simulateModel(Model, y0_exp, pars, isStochastic, tspan)
+            # Min Max normalize; Do this last!
+            Pnorm = normalizeData(P)
+            # Extract Time points
+            sampleDF = sampleTimeSeries(num_timepoints,expnum,tspan,rnaIndex,Pnorm,varmapper)
+            sampleDF = sampleDF.T
+            frames.append(sampleDF)
+        every = len(tspan)/num_timepoints
+        timeIndex = [i for i in range(len(tspan)) if i%every == 0]
+        columns = []
+        for expnum in range(num_experiments):
+            for tpoint in timeIndex:
+                columns.append('E' + str(expnum) + '_' + str(int(tspan[tpoint])))
+        result = pd.concat(frames,axis=1)
+        result = result[columns]
+        if isStochastic:
+            name = 'stoch'
+        else:
+            name = 'ode'
+        result.to_csv(name + '_experiment.txt',sep='\t')
+            
+def sampleTimeSeries(num_timepoints,expnum,tspan,rnaIndex,P, varmapper):
+    every = len(tspan)/num_timepoints
+    timeIndex = [i for i in range(len(tspan)) if i%every == 0]
+    sampleDict = {}
+    for ri in rnaIndex:
+        sampleDict[varmapper[ri]] = {'E'+str(expnum)+'_'+str(int(tspan[ti])):\
+                                     P[ri][ti] for ti in timeIndex}
+    sampleDF = pd.DataFrame(sampleDict)
+    return(sampleDF)
+    
+def plotRNA(Pnorm, rnaIndex):
     # Visualize
     for ind in rnaIndex:
         plt.plot(t,Pnorm[ind],label=varmapper[ind])
@@ -295,14 +302,13 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
     plt.legend()
     plt.show()
     
-def main():
+def main(args):
     opts, args = parseArgs(args)
     
     path = opts.path
     tmax = opts.max_time
-    num_samples = opts.num_samples
-    num_experiments = opt.num_experiments
-    
+    num_experiments = opts.num_experiments
+    num_timepoints = opts.num_timepoints
     DF = readBooleanRules(path)
 
     ModelSpec = generateModelDict(DF)
@@ -312,7 +318,7 @@ def main():
     
     tspan = np.linspace(0,tmax,tmax*10)
 
-    Experiment(model.Model,ModelSpec,tspan,num_experiments, varmapper,parmapper)
+    Experiment(model.Model,ModelSpec,tspan,num_experiments,num_timepoints, varmapper,parmapper)
                         
 if __name__ == "__main__":
     main(sys.argv)
