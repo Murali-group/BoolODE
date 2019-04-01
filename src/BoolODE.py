@@ -50,7 +50,6 @@ def generateModelDict(DF):
     par.update({'k_'+g:getSaneNval(lo=0.01,hi=1.0,mu=0,sig=0.02) for g in genes})
     
     # basal activations, gaussian dist
-    par.update({'alpha_'+g:getSaneNval(mu=0.25,sig=1.,lo=0,hi=1) for g in genes})
     par.update({'r_' + g:getSaneNval(lo=0.,hi=0.25,mu=0.0,sig=0.05) for g in genes})
     
     # mRNA degradation rates, currently identical for all mRNAs?
@@ -64,7 +63,21 @@ def generateModelDict(DF):
     #par.update({'l_p_' + g:lp for g in genes})
 
     par.update({'m_' + g:getSaneNval(mu=5,sig=10.,lo=0,hi=100) for g in genes})
+    
+    for i,row in DF.iterrows():
+        exec(row['Gene'] + ' = 0') in globals(),locals()
+        
+    for i,row in DF.iterrows():
+        # Basal alpha
+        booleval = 0
+        exec('booleval = 1') in globals()
+        print(booleval)
+        booleval = 0
+        print(booleval)
+        exec('booleval = ' + row['Rule']) in locals(), globals()
+        par['alpha_'+row['Gene']] = int(booleval)#getSaneNval(mu=0.25,sig=1.,lo=0,hi=1) for g in genes})
 
+        
     for i,row in DF.iterrows():
         rhs = row['Rule']
         rhs = rhs.replace('(',' ')
@@ -85,8 +98,16 @@ def generateModelDict(DF):
                 # Create Numerator and Denominator
                 den += ' +' +  mult                
                 num += ' + a_' + currGen +'_'  + '_'.join(list(c)) + '*' + mult
-                # TODO: For non random alphas to represent bool funcs modify this:
-                par['a_' + currGen +'_'  + '_'.join(list(c))] = getSaneNval(mu=0.25,sig=1.,lo=0,hi=1) 
+                
+                for i,row in DF.iterrows():
+                    exec(row['Gene'] + ' = 0') in globals(),locals()
+                
+                for geneInList in c:
+                    exec(geneInList + ' = 1') in globals(),locals()
+                booleval = 0
+                exec('booleval = ' + row['Rule']) in globals(),locals()
+                par['a_' + currGen +'_'  + '_'.join(list(c))] = booleval#getSaneNval(mu=0.25,sig=1.,lo=0,hi=1)
+                
         num += ' )'
         den += ' )'
         #varspecs['x_' + currGen] = 'l_x_'+ currGen + '*' + num + '/' + den + '-' + 'l_x_'  + currGen +'*x_' + currGen
@@ -141,9 +162,9 @@ def writeModelToFile(ModelSpec):
     return varmapper,parmapper
         
 def writeParametersToFile(ModelSpec,outname='parameters.txt'):
-    with ('../' + outname,'w') as out:
-        for k, v in ModelSpec['parameters']:
-            out.write(k+'\t'+str(v))
+    with open(outname,'w') as out:
+        for k, v in ModelSpec['pars'].iteritems():
+            out.write(k+'\t'+str(v) + '\n')
 
 def noise(x,t):
     c = 1.0
@@ -231,7 +252,9 @@ def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarm
     new_ics = [0 for _ in range(len(varmapper.keys()))]
     # Set the mRNA ics
     for ind in rnaIndex:
-        new_ics[ind] = ss[ind] + ss[ind]*np.random.normal(0,0.5)
+        if ss[ind] < 0:
+            ss[ind] = 1
+        new_ics[ind] =  np.random.normal(ss[ind],ss[ind]*0.5)
         if new_ics[ind] < 0:
             new_ics[ind] = 0
     # Calculate the Protein ics based on mRNA levels
@@ -255,11 +278,13 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
     proteinIndex = [i for i in range(len(varmapper.keys())) if 'p_' in varmapper[i]]
     
     y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
-    result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
-    frames = []
     # First do the ODE simulations, no noise, then stoch
-    for isStochastic in [False,True]: 
-        # "WT" simulation
+    for isStochastic in [False]: 
+        # "WT" simulation\
+        #result = None
+        result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
+        frames = []
+        
         ss = get_ss(simulateModel(Model, y0, pars, isStochastic, tspan))
         for expnum in range(num_experiments):
             y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarmapper)
@@ -271,7 +296,7 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
             sampleDF = sampleDF.T
             frames.append(sampleDF)
         every = len(tspan)/num_timepoints
-        timeIndex = [i for i in range(len(tspan)) if i%every == 0]
+        timeIndex = [i for i in range(1,len(tspan)) if i%every == 0]
         columns = []
         for expnum in range(num_experiments):
             for tpoint in timeIndex:
@@ -286,7 +311,7 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
             
 def sampleTimeSeries(num_timepoints,expnum,tspan,rnaIndex,P, varmapper):
     every = len(tspan)/num_timepoints
-    timeIndex = [i for i in range(len(tspan)) if i%every == 0]
+    timeIndex = [i for i in range(1,len(tspan)) if i%every == 0]
     sampleDict = {}
     for ri in rnaIndex:
         sampleDict[varmapper[ri]] = {'E'+str(expnum)+'_'+str(int(tspan[ti])):\
@@ -312,6 +337,9 @@ def main(args):
     DF = readBooleanRules(path)
 
     ModelSpec = generateModelDict(DF)
+    
+    writeParametersToFile(ModelSpec)
+    
     varmapper, parmapper = writeModelToFile(ModelSpec)
     
     import model
