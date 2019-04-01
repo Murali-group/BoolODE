@@ -2,7 +2,7 @@
 Git Repo for simulating Boolean Models
 
 # Usage
-`python src/BoolODE.py 3 --path=data/variables.txt --max-time=200 --num-timepoints=10 --num-experiments=3`
+`python src/BoolODE.py --path=data/variables.txt --max-time=200 --num-timepoints=10 --num-experiments=3`
 
 # Output
 Produces two files by default, `stoch_experiment.txt` and `ode_experient.txt`. Each output
