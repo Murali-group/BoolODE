@@ -1,4 +1,4 @@
 Gene	Rule
 a	not(c)
-b	not(a)
 c	not(b)
+b	not(a)

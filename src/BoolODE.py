@@ -11,12 +11,13 @@ from itertools import combinations
 from scipy.integrate import odeint
 import time
 # Uncomment on Aditya's machine
-#sys.path.insert(0, "/home/adyprat/anaconda3/envs/pyDSTool/lib/python3.6/site-packages/")
-import PyDSTool as dst
+sys.path.insert(0, "/home/adyprat/anaconda3/envs/pyDSTool/lib/python3.6/site-packages/")
+#import PyDSTool as dst
 from tqdm import tqdm
 from optparse import OptionParser
 
 def readBooleanRules(path):
+    print(path)
     DF = pd.read_csv(path,sep='\t')
     return DF
 
@@ -64,20 +65,22 @@ def generateModelDict(DF):
 
     par.update({'m_' + g:getSaneNval(mu=5,sig=10.,lo=0,hi=100) for g in genes})
     
+
+    genespace = {}
     for i,row in DF.iterrows():
-        exec(row['Gene'] + ' = 0') in globals(),locals()
-        
+        tempStr = row['Gene'] + " = 0"  
+        exec(tempStr, genespace)
+
+    
+    
     for i,row in DF.iterrows():
         # Basal alpha
-        booleval = 0
-        exec('booleval = 1') in globals()
-        print(booleval)
-        booleval = 0
-        print(booleval)
-        exec('booleval = ' + row['Rule']) in locals(), globals()
-        par['alpha_'+row['Gene']] = int(booleval)#getSaneNval(mu=0.25,sig=1.,lo=0,hi=1) for g in genes})
-
-        
+        #exec('booleval = 1', genespace) 
+        #print(genespace['booleval'])
+        #print(booleval)
+        exec('booleval = ' + row['Rule'], genespace) 
+        par['alpha_'+row['Gene']] = int(genespace['booleval'])#getSaneNval(mu=0.25,sig=1.,lo=0,hi=1) for g in genes})
+    
     for i,row in DF.iterrows():
         rhs = row['Rule']
         rhs = rhs.replace('(',' ')
@@ -99,15 +102,18 @@ def generateModelDict(DF):
                 den += ' +' +  mult                
                 num += ' + a_' + currGen +'_'  + '_'.join(list(c)) + '*' + mult
                 
-                for i,row in DF.iterrows():
-                    exec(row['Gene'] + ' = 0') in globals(),locals()
-                
+                for i1, row1 in DF.iterrows():
+                    exec(row1['Gene'] + ' = 0', genespace)
+                #print(genespace['a'],genespace['b'],genespace['c']) 
+
                 for geneInList in c:
-                    exec(geneInList + ' = 1') in globals(),locals()
-                booleval = 0
-                exec('booleval = ' + row['Rule']) in globals(),locals()
-                par['a_' + currGen +'_'  + '_'.join(list(c))] = booleval#getSaneNval(mu=0.25,sig=1.,lo=0,hi=1)
-                
+                    exec(geneInList + ' = 1', genespace)
+                #print(genespace['a'],genespace['b'],genespace['c']) 
+                #print(row['Rule'])
+                exec('boolval = ' + row['Rule'], genespace)
+
+                par['a_' + currGen +'_'  + '_'.join(list(c))] = int(genespace['boolval']) #getSaneNval(mu=0.25,sig=1.,lo=0,hi=1)
+                #print(par['a_'+currGen+'_'+'_'.join(list(c))], genespace['boolval'])
         num += ' )'
         den += ' )'
         #varspecs['x_' + currGen] = 'l_x_'+ currGen + '*' + num + '/' + den + '-' + 'l_x_'  + currGen +'*x_' + currGen
@@ -163,11 +169,11 @@ def writeModelToFile(ModelSpec):
         
 def writeParametersToFile(ModelSpec,outname='parameters.txt'):
     with open(outname,'w') as out:
-        for k, v in ModelSpec['pars'].iteritems():
+        for k, v in ModelSpec['pars'].items():
             out.write(k+'\t'+str(v) + '\n')
 
 def noise(x,t):
-    c = 1.0
+    c = 0.05
     return (c*np.sqrt(x))
 
 def deltaW(N, m, h):
@@ -271,15 +277,14 @@ def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarm
 def Experiment(Model, ModelSpec,tspan, num_experiments,
                num_timepoints,
                varmapper,parmapper):
-    pars = ModelSpec['pars'].values()
-    
+    pars = list(ModelSpec['pars'].values())
     rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
-    revvarmapper = {v:k for k,v in varmapper.iteritems()}
+    revvarmapper = {v:k for k,v in varmapper.items()}
     proteinIndex = [i for i in range(len(varmapper.keys())) if 'p_' in varmapper[i]]
     
     y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
     # First do the ODE simulations, no noise, then stoch
-    for isStochastic in [False]: 
+    for isStochastic in [False, True]: 
         # "WT" simulation\
         #result = None
         result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
@@ -335,6 +340,9 @@ def main(args):
     num_experiments = opts.num_experiments
     num_timepoints = opts.num_timepoints
     DF = readBooleanRules(path)
+    
+    genesDict = {}
+       	
 
     ModelSpec = generateModelDict(DF)
     
