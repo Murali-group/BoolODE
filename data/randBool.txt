@@ -1,0 +1,11 @@
+Gene	Rule
+G96	(( G93 ) and not( G15 ))
+G94	( G15 or G85 )
+G92	(( G85 or G88 or G93 ) and not( G47 or G87 ))
+G56	(( G87 ) and not( G47 or G96 ))
+G85	( G93 )
+G15	( G92 )
+G47	not ( G15 )
+G88	( G94 )
+G93	not ( G56 )
+G87	( G47 )
