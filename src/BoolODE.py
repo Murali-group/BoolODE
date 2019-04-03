@@ -222,7 +222,8 @@ def parseArgs(args):
                       help='Number of time points to sample')
     parser.add_option('', '--num-experiments', type='int',
                       help='Number of experiments to perform')
-    
+    parser.add_option('', '--outPrefix', type = 'str',
+                      help='Prefix for output files.')
     parser.add_option('', '--path', type='str',
                       help='Path to boolean model file')    
     (opts, args) = parser.parse_args(args)
@@ -260,7 +261,7 @@ def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarm
     for ind in rnaIndex:
         if ss[ind] < 0:
             ss[ind] = 1
-        new_ics[ind] =  np.random.normal(ss[ind],ss[ind]*0.5)
+        new_ics[ind] =  np.random.normal(ss[ind],ss[ind]*0.25)
         if new_ics[ind] < 0:
             new_ics[ind] = 0
     # Calculate the Protein ics based on mRNA levels
@@ -276,7 +277,7 @@ def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarm
 
 def Experiment(Model, ModelSpec,tspan, num_experiments,
                num_timepoints,
-               varmapper,parmapper):
+               varmapper, parmapper, outPrefix = ''):
     pars = list(ModelSpec['pars'].values())
     rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
     revvarmapper = {v:k for k,v in varmapper.items()}
@@ -284,7 +285,7 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
     
     y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
     # First do the ODE simulations, no noise, then stoch
-    for isStochastic in [False, True]: 
+    for isStochastic in [True]: 
         # "WT" simulation\
         #result = None
         result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
@@ -312,7 +313,7 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
             name = 'stoch'
         else:
             name = 'ode'
-        result.to_csv(name + '_experiment.txt',sep='\t')
+        result.to_csv(outPrefix + name +'_experiment.txt',sep='\t')
             
 def sampleTimeSeries(num_timepoints,expnum,tspan,rnaIndex,P, varmapper):
     every = len(tspan)/num_timepoints
@@ -354,7 +355,7 @@ def main(args):
     
     tspan = np.linspace(0,tmax,tmax*10)
 
-    Experiment(model.Model,ModelSpec,tspan,num_experiments,num_timepoints, varmapper,parmapper)
+    Experiment(model.Model,ModelSpec,tspan,num_experiments,num_timepoints, varmapper,parmapper, opts.outPrefix) 
                         
 if __name__ == "__main__":
     main(sys.argv)
