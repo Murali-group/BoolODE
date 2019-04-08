@@ -285,7 +285,7 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
     
     y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
     # First do the ODE simulations, no noise, then stoch
-    for isStochastic in [True]: 
+    for isStochastic in [True,False]: 
         # "WT" simulation\
         #result = None
         result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))

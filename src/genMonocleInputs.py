@@ -27,11 +27,13 @@ geneDF.to_csv(outPrefix + 'Genes.txt', sep = '\t')
 
 ProcessOutputFlag =  sys.argv[3]
 
+inDFT = inDF.T
 if ProcessOutputFlag == 'True':
-    inDFCounts = inDF*np.random.randint(1000,1200,inDF.shape)/inDF.mean()
+    print(inDFT.mean())
+    inDFCounts = inDFT*np.random.randint(low =1000, high = 1001, size = inDFT.shape)/inDFT.mean()
     print(inDFCounts.head())
     inDFCountsInt = inDFCounts.apply(np.int64)
-    inDFCountsInt.to_csv(outPrefix + 'ExprMat.txt', sep = '\t')
+    inDFCountsInt.T.to_csv(outPrefix + 'ExprMat.txt', sep = '\t')
 
 
 
