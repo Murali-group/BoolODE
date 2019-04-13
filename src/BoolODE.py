@@ -5,15 +5,19 @@ __author__ = 'Amogh Jalihal'
 import sys
 import numpy as np
 import scipy as sc
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import pandas as pd
 from itertools import combinations
 from scipy.integrate import odeint
 import time
+import importlib
+import warnings
 # Uncomment on Aditya's machine
 sys.path.insert(0, "/home/adyprat/anaconda3/envs/pyDSTool/lib/python3.6/site-packages/")
 from tqdm import tqdm
 from optparse import OptionParser
+
+np.seterr(all='raise')
 
 def readBooleanRules(path):
     print(path)
@@ -29,16 +33,6 @@ def getSaneNval(lo=1.,hi=10.,mu=2.,sig=2.):
     while k < lo or k > hi:
         k = np.random.normal(mu, sig)
     return k
-
-def plotSimulation(points,varsToPlot=[]):
-    if len(varsToPlot) == 0:
-        varsToPlot = list(points.keys())
-
-    for v in varsToPlot:
-        if v != 't':
-            plt.plot(points['t'],points[v],label=v)
-    plt.legend()
-    plt.show()
 
 def generateModelDict(DF):
     genes = set(DF['Gene'].values)
@@ -311,37 +305,35 @@ def sampleTimeSeries(num_timepoints,expnum,tspan,rnaIndex,P, varmapper):
     sampleDF = pd.DataFrame(sampleDict)
     return(sampleDF)
     
-def plotRNA(Pnorm, rnaIndex):
-    # Visualize
-    for ind in rnaIndex:
-        plt.plot(t,Pnorm[ind],label=varmapper[ind])
-        
-    plt.legend()
-    plt.show()
-    
 def main(args):
     opts, args = parseArgs(args)
-    
     path = opts.path
     tmax = opts.max_time
     num_experiments = opts.num_experiments
     num_timepoints = opts.num_timepoints
+    tspan = np.linspace(0,tmax,tmax*10)    
     DF = readBooleanRules(path)
-    
-    genesDict = {}
-    
-    ModelSpec = generateModelDict(DF)
-    
+    it = 0
+    someexception = True
+    while someexception:
+        try:
+            genesDict = {}
+            
+            ModelSpec = generateModelDict(DF)
+            varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
+            parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
+            writeModelToFile(ModelSpec)
+            import model
+            Experiment(model.Model,ModelSpec,tspan,num_experiments,
+                       num_timepoints, varmapper, parmapper, opts.outPrefix)
+            print('Success!')
+            someexception= False
+        except FloatingPointError as e:
+            it +=1 
+            print(e,"\nattempt %d" %it)
+        
     writeParametersToFile(ModelSpec)
-    
-    varmapper, parmapper = writeModelToFile(ModelSpec)
-    
-    import model
-    
-    tspan = np.linspace(0,tmax,tmax*10)
 
-    Experiment(model.Model,ModelSpec,tspan,num_experiments,num_timepoints, varmapper,parmapper, opts.outPrefix) 
-                        
 if __name__ == "__main__":
     main(sys.argv)
 
