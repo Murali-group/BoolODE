@@ -196,13 +196,13 @@ def minmaxnorm(X):
 
 def parseArgs(args):
     parser = OptionParser()
-    parser.add_option('', '--max-time', type='int',
+    parser.add_option('', '--max-time', type='int',default=100,
                       help='Total time of simulation')
-    parser.add_option('', '--num-timepoints', type='int',
+    parser.add_option('', '--num-timepoints', type='int',default=10,
                       help='Number of time points to sample')
-    parser.add_option('', '--num-experiments', type='int',
+    parser.add_option('', '--num-experiments', type='int',default=10,
                       help='Number of experiments to perform')
-    parser.add_option('', '--outPrefix', type = 'str',
+    parser.add_option('', '--outPrefix', type = 'str',default='',
                       help='Prefix for output files.')
     parser.add_option('', '--path', type='str',
                       help='Path to boolean model file')    
@@ -308,6 +308,10 @@ def sampleTimeSeries(num_timepoints,expnum,tspan,rnaIndex,P, varmapper):
 def main(args):
     opts, args = parseArgs(args)
     path = opts.path
+    if path is None or len(path) == 0:
+        print("Please specify path to Boolean model")
+        sys.exit()
+
     tmax = opts.max_time
     num_experiments = opts.num_experiments
     num_timepoints = opts.num_timepoints
