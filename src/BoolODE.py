@@ -20,40 +20,51 @@ from optparse import OptionParser
 np.seterr(all='raise')
 
 def readBooleanRules(path):
-    print(path)
     DF = pd.read_csv(path,sep='\t')
     return DF
 
-def getSaneNval(lo=1.,hi=10.,mu=2.,sig=2.):
+def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
     """
     Generates a gaussian random number which is
     bounded by lo and hi
     """
-    k = np.random.normal(mu, sig)
-    while k < lo or k > hi:
+    
+    if identicalPars:
         k = np.random.normal(mu, sig)
-    return k
+        while k < lo or k > hi:
+            k = np.random.normal(mu, sig)
+        K = [k for i in range(size)]
+    else:
+        K = []
+        for _ in range(size):
+            k = np.random.normal(mu, sig)
+            while k < lo or k > hi:
+                k = np.random.normal(mu, sig)
+            K.append(k)
+    return K
 
-def generateModelDict(DF):
+def generateModelDict(DF,identicalPars):
     genes = set(DF['Gene'].values)
     # Variables:
     varspecs = {'x_' + g:'' for g in genes}
-
-    par = {'n_'+g:getSaneNval() for g in genes}
-    # Common Thresholds, uniform dist
-    par.update({'k_'+g:getSaneNval(lo=0.01,hi=1.0,mu=0,sig=0.02) for g in genes})
-
-    # Protein translation rate
-    par.update({'r_' + g:getSaneNval(lo=0.,hi=0.25,mu=0.0,sig=0.05) for g in genes})
-    
-    # mRNA degradation rates
-    par.update({'l_x_' + g:np.log(2)/getSaneNval(mu=5,sig=10.,lo=0,hi=100) for g in genes})
-
-    # protein degradation rates
-    par.update({'l_p_' + g:np.log(2)/getSaneNval(mu=5,sig=10.,lo=0,hi=100) for g in genes})
-
+    # Hill coefficients
+    N = getSaneNval(len(genes),identicalPars=identicalPars)
+    par = {'n_'+g:n for g,n in zip(genes,N)}
+    # Thresholds
+    kvals = getSaneNval(len(genes),identicalPars=identicalPars,lo=0.01,hi=1.0,mu=0.5,sig=0.02)
+    par.update({'k_'+g:k for g,k in zip(genes,kvals)})
     # mRNA transcription rates
-    par.update({'m_' + g:getSaneNval(mu=5,sig=10.,lo=0,hi=100) for g in genes})
+    mvals = getSaneNval(len(genes),identicalPars=identicalPars,mu=10,sig=5.,lo=0,hi=100)
+    par.update({'m_' + g:m for g,m in zip(genes,mvals)})
+    # mRNA degradation rates
+    lxvals = getSaneNval(len(genes),identicalPars=identicalPars,mu=10,sig=5.,lo=0,hi=100)
+    par.update({'l_x_' + g:np.log(2)/lx for g,lx in zip(genes,lxvals)})
+    # Protein translation rate
+    rvals = getSaneNval(len(genes),identicalPars=identicalPars,lo=50.,hi=100.0,mu=75.0,sig=10)
+    par.update({'r_' + g:r for g,r in zip(genes,rvals)})
+    # protein degradation rates
+    lpvals = getSaneNval(len(genes),identicalPars=identicalPars,mu=10,sig=5.,lo=0,hi=100)
+    par.update({'l_p_' + g:np.log(2)/lp for g,lp in zip(genes,lpvals)})
     
     # Initialize new namespace
     genespace = {}
@@ -96,7 +107,7 @@ def generateModelDict(DF):
                     
                 exec('boolval = ' + row['Rule'], genespace)
 
-                par['a_' + currGen +'_'  + '_'.join(list(c))] = int(genespace['boolval']) #getSaneNval(mu=0.25,sig=1.,lo=0,hi=1)
+                par['a_' + currGen +'_'  + '_'.join(list(c))] = int(genespace['boolval']) 
 
         num += ' )'
         den += ' )'
@@ -110,7 +121,8 @@ def generateModelDict(DF):
                      for g in genes})
         
     # Initialize variables between 0 and 1, Doesn't matter.
-    ics = {'x_' + g:getSaneNval(lo=0.,hi=1,mu=0.0,sig=1) for g in genes}
+    xvals = getSaneNval(len(genes),identicalPars=identicalPars,lo=0.,hi=100,mu=10.0,sig=5)
+    ics = {'x_' + g:x for g,x in zip(genes,xvals)}
     ics.update({'p_' + g:ics['x_'+g]*par['r_'+g]/par['l_p_'+g] for g in genes})
 
     ModelSpec = {}
@@ -152,7 +164,7 @@ def writeParametersToFile(ModelSpec,outname='parameters.txt'):
             out.write(k+'\t'+str(v) + '\n')
 
 def noise(x,t):
-    c = 0.05
+    c = 1e-2
     return (c*np.sqrt(x))
 
 def deltaW(N, m, h):
@@ -202,6 +214,8 @@ def parseArgs(args):
                       help='Number of time points to sample')
     parser.add_option('', '--num-experiments', type='int',default=10,
                       help='Number of experiments to perform')
+    parser.add_option('-i', '--identical-pars', action="store_true",default=False,
+                      help='Set single value to similar parameters')    
     parser.add_option('', '--outPrefix', type = 'str',default='',
                       help='Prefix for output files.')
     parser.add_option('', '--path', type='str',
@@ -240,7 +254,7 @@ def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarm
     # Set the mRNA ics
     for ind in rnaIndex:
         if ss[ind] < 0:
-            ss[ind] = 1
+            ss[ind] = 1#1
         new_ics[ind] =  np.random.normal(ss[ind],ss[ind]*0.25)
         if new_ics[ind] < 0:
             new_ics[ind] = 0
@@ -257,7 +271,7 @@ def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarm
 
 def Experiment(Model, ModelSpec,tspan, num_experiments,
                num_timepoints,
-               varmapper, parmapper, outPrefix = ''):
+               varmapper, parmapper, outPrefix):
     pars = list(ModelSpec['pars'].values())
     rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
     revvarmapper = {v:k for k,v in varmapper.items()}
@@ -265,13 +279,14 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
     
     y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
     
-    # First do the ODE simulations, no noise, then stoch
+    # First do an ODE simulation to get ss
+    ss = get_ss(simulateModel(Model, y0, pars, False, np.linspace(0,200,1000)))
+
     for isStochastic in [True,False]: 
         # "WT" simulation
         result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
         frames = []
         
-        ss = get_ss(simulateModel(Model, y0, pars, isStochastic, tspan))
         for expnum in range(num_experiments):
             y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarmapper)
             P = simulateModel(Model, y0_exp, pars, isStochastic, tspan)
@@ -315,7 +330,8 @@ def main(args):
     tmax = opts.max_time
     num_experiments = opts.num_experiments
     num_timepoints = opts.num_timepoints
-    tspan = np.linspace(0,tmax,tmax*10)    
+    tspan = np.linspace(0,tmax,tmax*10)
+    identicalPars = opts.identical_pars
     DF = readBooleanRules(path)
     it = 0
     someexception = True
@@ -323,13 +339,14 @@ def main(args):
         try:
             genesDict = {}
             
-            ModelSpec = generateModelDict(DF)
+            ModelSpec = generateModelDict(DF,identicalPars)
             varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
             parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
             writeModelToFile(ModelSpec)
             import model
             Experiment(model.Model,ModelSpec,tspan,num_experiments,
-                       num_timepoints, varmapper, parmapper, opts.outPrefix)
+                       num_timepoints, varmapper, parmapper,
+                       opts.outPrefix)
             print('Success!')
             someexception= False
         except FloatingPointError as e:
