@@ -12,7 +12,6 @@ from scipy.integrate import odeint
 import time
 # Uncomment on Aditya's machine
 sys.path.insert(0, "/home/adyprat/anaconda3/envs/pyDSTool/lib/python3.6/site-packages/")
-#import PyDSTool as dst
 from tqdm import tqdm
 from optparse import OptionParser
 
@@ -49,37 +48,32 @@ def generateModelDict(DF):
     par = {'n_'+g:getSaneNval() for g in genes}
     # Common Thresholds, uniform dist
     par.update({'k_'+g:getSaneNval(lo=0.01,hi=1.0,mu=0,sig=0.02) for g in genes})
-    
-    # basal activations, gaussian dist
+
+    # Protein translation rate
     par.update({'r_' + g:getSaneNval(lo=0.,hi=0.25,mu=0.0,sig=0.05) for g in genes})
     
-    # mRNA degradation rates, currently identical for all mRNAs?
+    # mRNA degradation rates
     par.update({'l_x_' + g:np.log(2)/getSaneNval(mu=5,sig=10.,lo=0,hi=100) for g in genes})
-    #lx = np.log(2)/getSaneNval(mu=5,sig=10.,lo=0,hi=100)
-    #par.update({'l_x_' + g:lx for g in genes})
 
-    # protein degradation rates, currently identical for all proteins?
+    # protein degradation rates
     par.update({'l_p_' + g:np.log(2)/getSaneNval(mu=5,sig=10.,lo=0,hi=100) for g in genes})
-    #lp = np.log(2)/getSaneNval(mu=5,sig=10.,lo=0,hi=100)
-    #par.update({'l_p_' + g:lp for g in genes})
 
+    # mRNA transcription rates
     par.update({'m_' + g:getSaneNval(mu=5,sig=10.,lo=0,hi=100) for g in genes})
     
-
+    # Initialize new namespace
     genespace = {}
     for i,row in DF.iterrows():
+        # Initialize variables to 0
         tempStr = row['Gene'] + " = 0"  
         exec(tempStr, genespace)
-
-    
     
     for i,row in DF.iterrows():
-        # Basal alpha
-        #exec('booleval = 1', genespace) 
-        #print(genespace['booleval'])
-        #print(booleval)
+        # Basal alpha:
+        # Execute the rule to figure out
+        # the value of alpha
         exec('booleval = ' + row['Rule'], genespace) 
-        par['alpha_'+row['Gene']] = int(genespace['booleval'])#getSaneNval(mu=0.25,sig=1.,lo=0,hi=1) for g in genes})
+        par['alpha_'+row['Gene']] = int(genespace['booleval'])
     
     for i,row in DF.iterrows():
         rhs = row['Rule']
@@ -87,8 +81,6 @@ def generateModelDict(DF):
         rhs = rhs.replace(')',' ')
         tokens = rhs.split(' ')
 
-        # This is currently unused
-        # keywd = ['and','not', 'or', '']    
         reg = [t for t in tokens if t in genes]
         currGen = row['Gene']
         num = '( alpha_' + currGen
@@ -104,29 +96,23 @@ def generateModelDict(DF):
                 
                 for i1, row1 in DF.iterrows():
                     exec(row1['Gene'] + ' = 0', genespace)
-                #print(genespace['a'],genespace['b'],genespace['c']) 
 
                 for geneInList in c:
                     exec(geneInList + ' = 1', genespace)
-                #print(genespace['a'],genespace['b'],genespace['c']) 
-                #print(row['Rule'])
+                    
                 exec('boolval = ' + row['Rule'], genespace)
 
                 par['a_' + currGen +'_'  + '_'.join(list(c))] = int(genespace['boolval']) #getSaneNval(mu=0.25,sig=1.,lo=0,hi=1)
-                #print(par['a_'+currGen+'_'+'_'.join(list(c))], genespace['boolval'])
+
         num += ' )'
         den += ' )'
-        #varspecs['x_' + currGen] = 'l_x_'+ currGen + '*' + num + '/' + den + '-' + 'l_x_'  + currGen +'*x_' + currGen
+        
         Production = 'm_'+ currGen + '*(' +num + '/' + den + ')'
         Degradation = 'l_x_'  + currGen + '*x_' + currGen
         varspecs['x_' + currGen] =  Production \
-                                   + '-' + Degradation #\
-                                   # + stochasticTerm(isStochastic,Production,Degradation)\
+                                   + '-' + Degradation
                                    
-
     varspecs.update({'p_' + g:'r_'+g+'*'+'x_' +g + '- l_p_'+g+'*'+'p_' + g\
-                     # + stochasticTerm(isStochastic, 'r_'+g+'*'+'x_' +g,
-                     #                  'l_p_'+g+'*'+'p_' + g)
                      for g in genes})
         
     # Initialize variables between 0 and 1, Doesn't matter.
@@ -137,7 +123,6 @@ def generateModelDict(DF):
     ModelSpec['varspecs'] = varspecs
     ModelSpec['pars'] = par
     ModelSpec['ics'] = ics
-    # Default time
     return ModelSpec
 
 def writeModelToFile(ModelSpec):
@@ -208,6 +193,7 @@ def eulersde(f,G,y0,tspan,pars,dW=None):
             if y[n+1][i] < 0:
                 y[n+1][i] = yn[i]
     return y
+
 def minmaxnorm(X):
     mix = min(X)
     mx = max(X)
@@ -284,10 +270,10 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
     proteinIndex = [i for i in range(len(varmapper.keys())) if 'p_' in varmapper[i]]
     
     y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
+    
     # First do the ODE simulations, no noise, then stoch
     for isStochastic in [True,False]: 
-        # "WT" simulation\
-        #result = None
+        # "WT" simulation
         result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
         frames = []
         
@@ -343,8 +329,7 @@ def main(args):
     DF = readBooleanRules(path)
     
     genesDict = {}
-       	
-
+    
     ModelSpec = generateModelDict(DF)
     
     writeParametersToFile(ModelSpec)
@@ -360,4 +345,3 @@ def main(args):
 if __name__ == "__main__":
     main(sys.argv)
 
-# c in stoch sim is 0.05
