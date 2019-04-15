@@ -49,22 +49,28 @@ def generateModelDict(DF,identicalPars):
     varspecs = {'x_' + g:'' for g in genes}
     # Hill coefficients
     N = getSaneNval(len(genes),identicalPars=identicalPars)
-    par = {'n_'+g:n for g,n in zip(genes,N)}
+    #par = {'n_'+g:n for g,n in zip(genes,N)}
+    par = {'n_'+g:10 for g,n in zip(genes,N)}
     # Thresholds
-    kvals = getSaneNval(len(genes),identicalPars=identicalPars,lo=0.01,hi=1.0,mu=0.5,sig=0.02)
-    par.update({'k_'+g:k for g,k in zip(genes,kvals)})
+    kvals = getSaneNval(len(genes),identicalPars=identicalPars,lo=5,hi=20.0,mu=10,sig=3)
+    #par.update({'k_'+g:k for g,k in zip(genes,kvals)})
+    par.update({'k_'+g:10. for g,k in zip(genes,kvals)})    
     # mRNA transcription rates
     mvals = getSaneNval(len(genes),identicalPars=identicalPars,mu=10,sig=5.,lo=0,hi=100)
-    par.update({'m_' + g:m for g,m in zip(genes,mvals)})
+    #par.update({'m_' + g:m for g,m in zip(genes,mvals)})
+    par.update({'m_' + g:20 for g,m in zip(genes,mvals)})
     # mRNA degradation rates
     lxvals = getSaneNval(len(genes),identicalPars=identicalPars,mu=10,sig=5.,lo=0,hi=100)
-    par.update({'l_x_' + g:np.log(2)/lx for g,lx in zip(genes,lxvals)})
+    #par.update({'l_x_' + g:np.log(2)/lx for g,lx in zip(genes,lxvals)})
+    par.update({'l_x_' + g:10 for g,lx in zip(genes,lxvals)})
     # Protein translation rate
     rvals = getSaneNval(len(genes),identicalPars=identicalPars,lo=50.,hi=100.0,mu=75.0,sig=10)
-    par.update({'r_' + g:r for g,r in zip(genes,rvals)})
+    #par.update({'r_' + g:r for g,r in zip(genes,rvals)})
+    par.update({'r_' + g:10 for g,r in zip(genes,rvals)})    
     # protein degradation rates
     lpvals = getSaneNval(len(genes),identicalPars=identicalPars,mu=10,sig=5.,lo=0,hi=100)
-    par.update({'l_p_' + g:np.log(2)/lp for g,lp in zip(genes,lpvals)})
+    #par.update({'l_p_' + g:np.log(2)/lp for g,lp in zip(genes,lpvals)})
+    par.update({'l_p_' + g:1. for g,lp in zip(genes,lpvals)})
     
     # Initialize new namespace
     genespace = {}
@@ -121,7 +127,8 @@ def generateModelDict(DF,identicalPars):
                      for g in genes})
         
     # Initialize variables between 0 and 1, Doesn't matter.
-    xvals = getSaneNval(len(genes),identicalPars=identicalPars,lo=0.,hi=100,mu=10.0,sig=5)
+    #xvals = getSaneNval(len(genes),identicalPars=identicalPars,lo=0.,hi=100,mu=10.0,sig=5)
+    xvals = [0.1 for _ in range(len(genes))]
     ics = {'x_' + g:x for g,x in zip(genes,xvals)}
     ics.update({'p_' + g:ics['x_'+g]*par['r_'+g]/par['l_p_'+g] for g in genes})
 
@@ -164,8 +171,8 @@ def writeParametersToFile(ModelSpec,outname='parameters.txt'):
             out.write(k+'\t'+str(v) + '\n')
 
 def noise(x,t):
-    c = 1e-2
-    return (c*np.sqrt(x))
+    c = 4.
+    return (c*np.sqrt(abs(x)))
 
 def deltaW(N, m, h):
     # From sdeint implementation
@@ -175,29 +182,39 @@ def deltaW(N, m, h):
       dW (array of shape (N, m)): The [n, j] element has the value
       W_j((n+1)*h) - W_j(n*h) 
     """
-    return np.random.normal(0.0, np.sqrt(h), (N, m))
+    return np.random.normal(0.0, h, (N, m))
 
 def eulersde(f,G,y0,tspan,pars,dW=None):
     # From sdeint implementation
     N = len(tspan)
     h = (tspan[N-1] - tspan[0])/(N - 1)
+    #h = 0.01
+    maxtime = tspan[-1]
     # allocate space for result
     d = len(y0)
-    y = np.zeros((N, d), dtype=type(y0[0]))
+    y = np.zeros((N+1, d), dtype=type(y0[0]))
 
     if dW is None:
         # pre-generate Wiener increments (for d independent Wiener processes):
-        dW = deltaW(N - 1, d, h)
+        dW = deltaW(N, d, h)
     y[0] = y0
-    for n in range(0, N-1):
-        tn = tspan[n]
+    currtime = 0
+    #for n in range(0, N-1):
+    n = 0
+    print(maxtime)
+    while currtime < maxtime:
+        #tn = tspan[n]
+        tn = currtime
         yn = y[n]
         dWn = dW[n,:]
 
+        #y[n+1] = yn + f(yn, tn,pars)*h + np.multiply(G(yn, tn),dWn)
         y[n+1] = yn + f(yn, tn,pars)*h + np.multiply(G(yn, tn),dWn)
         for i in range(len(y[n+1])):
             if y[n+1][i] < 0:
                 y[n+1][i] = yn[i]
+        currtime += h
+        n += 1 
     return y
 
 def minmaxnorm(X):
@@ -240,6 +257,19 @@ def normalizeData(P):
         Pnorm.append(minmaxnorm(P[:,i]))
     return Pnorm
 
+def normalizeExp(DF):
+    """
+    Calls minmaxnorm() for each time series
+    """
+    genes = DF.index
+    newDF = DF.copy()
+    Pnorm = []
+    for g in genes:
+        P = DF.loc[g].values
+        newDF.loc[g] = minmaxnorm(P)
+        
+    return newDF
+
 def get_ss(P):
     """
     Returns the last entry in each time series list 
@@ -254,8 +284,9 @@ def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarm
     # Set the mRNA ics
     for ind in rnaIndex:
         if ss[ind] < 0:
-            ss[ind] = 1#1
-        new_ics[ind] =  np.random.normal(ss[ind],ss[ind]*0.25)
+            ss[ind] = 0.0
+        #new_ics[ind] =  np.random.normal(ss[ind],ss[ind]*0.25)
+        new_ics[ind] =  ss[ind]
         if new_ics[ind] < 0:
             new_ics[ind] = 0
     # Calculate the Protein ics based on mRNA levels
@@ -280,9 +311,10 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
     y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
     
     # First do an ODE simulation to get ss
-    ss = get_ss(simulateModel(Model, y0, pars, False, np.linspace(0,200,1000)))
-
-    for isStochastic in [True,False]: 
+    #ss = get_ss(simulateModel(Model, y0, pars, False, np.linspace(0,200,1000)))
+    ss = [1. for v in varmapper.keys()]
+    #ss = list(np.array(ss)*0 + np.ones(len(ss)))
+    for isStochastic in [True]: 
         # "WT" simulation
         result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
         frames = []
@@ -291,31 +323,37 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
             y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarmapper)
             P = simulateModel(Model, y0_exp, pars, isStochastic, tspan)
             # Min Max normalize; Do this last!
-            Pnorm = normalizeData(P)
+            Pnorm = P.T
+            #Pnorm = normalizeData(P)
             # Extract Time points
             sampleDF = sampleTimeSeries(num_timepoints,expnum,tspan,rnaIndex,Pnorm,varmapper)
             sampleDF = sampleDF.T
             frames.append(sampleDF)
         every = len(tspan)/num_timepoints
-        timeIndex = [i for i in range(1,len(tspan)) if i%every == 0]
-        columns = []
-        for expnum in range(num_experiments):
-            for tpoint in timeIndex:
-                columns.append('E' + str(expnum) + '_' + str(int(tspan[tpoint])))
+        timeIndex = [i for i in range(len(tspan)) if i%every == 0]
+
+        header = ['E' + str(expnum) + '_' + str(round(tspan[tpoint],3)).replace('.','|')\
+                  for expnum in range(num_experiments)\
+                  for tpoint in timeIndex]
+        # for expnum in range(num_experiments):
+        #     for tpoint in timeIndex:
+        #         columns.append('E' + str(expnum) + '_' + str(int(tspan[tpoint])))
         result = pd.concat(frames,axis=1)
-        result = result[columns]
+        result = result[header]
+        resultN = result
+        #resultN = normalizeExp(result)
         if isStochastic:
             name = 'stoch'
         else:
             name = 'ode'
-        result.to_csv(outPrefix + name +'_experiment.txt',sep='\t')
+        resultN.to_csv(outPrefix + name +'_experiment.txt',sep='\t')
             
 def sampleTimeSeries(num_timepoints,expnum,tspan,rnaIndex,P, varmapper):
-    every = len(tspan)/num_timepoints
-    timeIndex = [i for i in range(1,len(tspan)) if i%every == 0]
+    every = int(len(tspan)/num_timepoints)
+    timeIndex = [i for i in range(0,len(tspan)) if float(i)%float(every) == 0]
     sampleDict = {}
     for ri in rnaIndex:
-        sampleDict[varmapper[ri]] = {'E'+str(expnum)+'_'+str(int(tspan[ti])):\
+        sampleDict[varmapper[ri]] = {'E'+str(expnum)+'_'+str(round(tspan[ti],3)).replace('.','|'):\
                                      P[ri][ti] for ti in timeIndex}
     sampleDF = pd.DataFrame(sampleDict)
     return(sampleDF)
@@ -330,7 +368,8 @@ def main(args):
     tmax = opts.max_time
     num_experiments = opts.num_experiments
     num_timepoints = opts.num_timepoints
-    tspan = np.linspace(0,tmax,tmax*10)
+    timesteps = 100
+    tspan = np.linspace(0,tmax,tmax*timesteps)
     identicalPars = opts.identical_pars
     DF = readBooleanRules(path)
     it = 0
