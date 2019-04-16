@@ -187,7 +187,6 @@ def eulersde(f,G,y0,tspan,pars,dW=None):
     # From sdeint implementation
     N = len(tspan)
     h = (tspan[N-1] - tspan[0])/(N - 1)
-    #h = 0.01
     maxtime = tspan[-1]
     # allocate space for result
     d = len(y0)
@@ -198,17 +197,14 @@ def eulersde(f,G,y0,tspan,pars,dW=None):
         dW = deltaW(N, d, h)
     y[0] = y0
     currtime = 0
-    #for n in range(0, N-1):
     n = 0
     print(maxtime)
     while currtime < maxtime:
-        #tn = tspan[n]
         tn = currtime
         yn = y[n]
         dWn = dW[n,:]
-
-        #y[n+1] = yn + f(yn, tn,pars)*h + np.multiply(G(yn, tn),dWn)
         y[n+1] = yn + f(yn, tn,pars)*h + np.multiply(G(yn, tn),dWn)
+        # Ensure positive terms
         for i in range(len(y[n+1])):
             if y[n+1][i] < 0:
                 y[n+1][i] = yn[i]
