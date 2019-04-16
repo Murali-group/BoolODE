@@ -5,7 +5,6 @@ __author__ = 'Amogh Jalihal'
 import sys
 import numpy as np
 import scipy as sc
-#import matplotlib.pyplot as plt
 import pandas as pd
 from itertools import combinations
 from scipy.integrate import odeint
