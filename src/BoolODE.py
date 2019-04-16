@@ -185,9 +185,9 @@ def generateModelDict(DF,identicalPars,samplePars):
                      for g in genes})
         
     # Initialize variables between 0 and 1, Doesn't matter.
-    #xvals = getSaneNval(len(genes),identicalPars=identicalPars,lo=0.,hi=100,mu=10.0,sig=5)
-    xvals = [0.1 for _ in range(len(genes))]
+    xvals = [1. for _ in range(len(genes))]
     ics = {'x_' + g:x for g,x in zip(genes,xvals)}
+    # This is reset in Experiment()
     ics.update({'p_' + g:ics['x_'+g]*par['r_'+g]/par['l_p_'+g] for g in genes})
 
     ModelSpec = {}
@@ -257,7 +257,7 @@ def eulersde(f,G,y0,tspan,pars,dW=None):
     y[0] = y0
     currtime = 0
     n = 0
-    print(maxtime)
+   
     while currtime < maxtime:
         tn = currtime
         yn = y[n]
@@ -324,7 +324,7 @@ def normalizeData(P):
 
 def normalizeExp(DF):
     """
-    Calls minmaxnorm() for each time series
+    Calls minmaxnorm() for each gene across all experiments
     """
     genes = DF.index
     newDF = DF.copy()
@@ -350,7 +350,6 @@ def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarm
     for ind in rnaIndex:
         if ss[ind] < 0:
             ss[ind] = 0.0
-        #new_ics[ind] =  np.random.normal(ss[ind],ss[ind]*0.25)
         new_ics[ind] =  ss[ind]
         if new_ics[ind] < 0:
             new_ics[ind] = 0
@@ -380,12 +379,12 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
 
     y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
     
-    # First do an ODE simulation to get ss
     ss = np.zeros(len(varmapper.keys()))
     for i,k in varmapper.items():
         if 'x_' in k:
-            ss[i] = 2.
+            ss[i] = 1.
 
+    outputfilenames = []
     for isStochastic in [True]: 
         # "WT" simulation
         result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
@@ -431,6 +430,8 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
         else:
             name = 'ode'
         resultN.to_csv(outPrefix + name +'_experiment.txt',sep='\t')
+        outputfilenames.append(outPrefix + name +'_experiment.txt')
+    return outputfilenames
             
 def sampleTimeSeries(num_timepoints, expnum,\
                      tspan,  P,\
@@ -455,7 +456,67 @@ def sampleTimeSeries(num_timepoints, expnum,\
 
     sampleDF = pd.DataFrame(sampleDict)
     return(sampleDF)
-    
+
+def generateInputFiles(outputfilenames, BoolDF, outPrefix=''):
+    for f in outputfilenames:
+        syntheticDF = pd.read_csv(f,sep='\t',index_col=0)
+        
+        # ExpressionData.csv
+        
+        ExpDF = syntheticDF.copy()
+        columns = list(ExpDF.columns)
+        columns = [c.replace('|','_') for c in columns]
+        ExpDF.columns = columns
+        ExpDF.to_csv(outPrefix+'ExpressionData.csv',sep=',')
+        
+        # PseudoTime.csv
+        cellID = list(syntheticDF.columns)
+        time = [float(c.split('_')[1].replace('|','.')) for c in cellID]
+        experiment = [int(c.split('_')[0].split('E')[1]) for c in cellID]
+        pseudotime = minmaxnorm(time)
+        cellID = [c.replace('|','_') for c in cellID]
+        
+
+        PseudoTimeDict = {'Cell ID':cellID, 'PseudoTime':pseudotime,
+                          'Time':time,'Experiment':experiment}
+        PseudoTimeDF = pd.DataFrame(PseudoTimeDict)
+        PseudoTimeDF.to_csv(outPrefix + 'PseudoTime.csv',sep=',',index=False)
+
+        # refnetwork
+        refnet = []
+        genes = set(BoolDF['Gene'].values)
+
+        for g in genes:
+            row = BoolDF[BoolDF['Gene'] == g]
+            rhs = list(row['Rule'].values)[0]
+            rule = list(row['Rule'].values)[0]
+            rhs = rhs.replace('(',' ')
+            rhs = rhs.replace(')',' ')
+            tokens = rhs.split(' ')
+            regulators = [t for t in tokens if t in genes if t not in ['and','or', 'not', '']]
+            if 'not' in tokens:
+                whereisnot = tokens.index('not')
+            else:
+                whereisnot = None
+            for r in regulators:
+                if whereisnot is None:
+                    ty = '+'
+                else:
+                    if type(whereisnot) is int:
+                        whereisnot = [whereisnot]
+                    
+                    if tokens.index(r) < whereisnot[0]:
+                        ty = '+'
+                    else:
+                        ty = '-'
+                refnet.append({'Gene1':g,
+                               'Gene2':r,
+                               'Type':ty})
+        refNetDF = pd.DataFrame(refnet)
+        refNetDF.to_csv(outPrefix + 'refNetwork.csv',sep=',',index=False)
+            
+        
+
 def main(args):
     opts, args = parseArgs(args)
     path = opts.path
@@ -470,6 +531,7 @@ def main(args):
     burnin = opts.burn_in
     samplePars = opts.sample_pars
     outPrefix = opts.outPrefix
+
     writeProtein = opts.write_protein
     normalizeTrajectory = opts.normalize_trajectory
     
@@ -488,13 +550,16 @@ def main(args):
             parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
             writeModelToFile(ModelSpec)
             import model
-            Experiment(model.Model,ModelSpec,tspan,numExperiments,
-                       numTimepoints, varmapper, parmapper,
-                       outPrefix,burnin=burnin,
-                       writeProtein=writeProtein,
-                       normalizeTrajectory=normalizeTrajectory)
+            outputfilenames = Experiment(model.Model,ModelSpec,tspan,numExperiments,
+                                         numTimepoints, varmapper, parmapper,
+                                         outPrefix,burnin=burnin,
+                                         writeProtein=writeProtein,
+                                         normalizeTrajectory=normalizeTrajectory)
+            generateInputFiles(outputfilenames,DF, outPrefix=outPrefix)
             print('Success!')
+            
             someexception= False
+            
         except FloatingPointError as e:
             it +=1 
             print(e,"\nattempt %d" %it)
