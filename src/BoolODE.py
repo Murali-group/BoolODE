@@ -405,7 +405,6 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
         for expnum in range(num_experiments):
             y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarmapper)
             P = simulateModel(Model, y0_exp, pars, isStochastic, tspan)
-            # Min Max normalize; Do this last!
             P = P.T
             # Extract Time points
             sampleDF = sampleTimeSeries(num_timepoints,expnum,\
@@ -416,9 +415,11 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
             frames.append(sampleDF)
         every = len(tspan)/num_timepoints
 
-
         result = pd.concat(frames,axis=1)
         result = result[header]
+        indices = result.index
+        newindices = [i.replace('x_','') for i in indices]
+        result.index = pd.Index(newindices)
 
         if normalizeTrajectory:
             resultN = normalizeExp(result)
