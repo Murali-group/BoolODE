@@ -398,7 +398,7 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
             startat = 0
             
         timeIndex = [i for i in range(startat,len(tspan)) if float(i)%float(every) == 0]
-        header = ['E' + str(expnum) + '_' + str(round(tspan[tpoint],3)).replace('.','|')\
+        header = ['E' + str(expnum) + '_' + str(round(tspan[tpoint],3)).replace('.','-')\
                   for expnum in range(num_experiments)\
                   for tpoint in timeIndex]
         
@@ -465,17 +465,16 @@ def generateInputFiles(outputfilenames, BoolDF, outPrefix=''):
         
         ExpDF = syntheticDF.copy()
         columns = list(ExpDF.columns)
-        columns = [c.replace('|','_') for c in columns]
+        columns = [c.replace('-','_') for c in columns]
         ExpDF.columns = columns
         ExpDF.to_csv(outPrefix+'ExpressionData.csv',sep=',')
         
         # PseudoTime.csv
         cellID = list(syntheticDF.columns)
-        time = [float(c.split('_')[1].replace('|','.')) for c in cellID]
+        time = [float(c.split('_')[1].replace('-','.')) for c in cellID]
         experiment = [int(c.split('_')[0].split('E')[1]) for c in cellID]
         pseudotime = minmaxnorm(time)
-        cellID = [c.replace('|','_') for c in cellID]
-        
+        cellID = [c.replace('-','_') for c in cellID]
 
         PseudoTimeDict = {'Cell ID':cellID, 'PseudoTime':pseudotime,
                           'Time':time,'Experiment':experiment}
