@@ -1,0 +1,7 @@
+Gene	Rule
+g1	not (g5)
+g2	not (g1)
+g3	not (g2)
+g4	g3
+g5	g4
+g6	g1
