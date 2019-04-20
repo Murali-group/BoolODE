@@ -229,7 +229,7 @@ def writeParametersToFile(ModelSpec,outname='parameters.txt'):
             out.write(k+'\t'+str(v) + '\n')
 
 def noise(x,t):
-    c = 4.
+    c = 10.#4.
     return (c*np.sqrt(abs(x)))
 
 def deltaW(N, m, h):
