@@ -30,4 +30,4 @@ for g,a in zip(genes,ax):
 
 a.set_xlabel('STOCH')
 print(inFile.split('.')[1])
-plt.savefig(inFile.split('.')[0] + '_time-course.png')
+plt.savefig(inFile.split('.csv')[0] + '_time-course.png')

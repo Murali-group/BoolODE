@@ -64,4 +64,4 @@ for e in experiments:
     #plot_colourline(toplotX[:-1],toplotY[:-1],colors)
     
 plt.legend()
-plt.savefig(inFile.split('/')[1].split('.')[0] + '_dimensionality-reduction.png')
+plt.savefig(inFile.split('.csv')[0] + '_dimensionality-reduction.png')
