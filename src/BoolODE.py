@@ -14,7 +14,7 @@ import warnings
 # Uncomment on Aditya's machine
 sys.path.insert(0, "/home/adyprat/anaconda3/envs/pyDSTool/lib/python3.6/site-packages/")
 from tqdm import tqdm
-from optparse import OptionParser
+from optparse import OptionParser 
 
 np.seterr(all='raise')
 

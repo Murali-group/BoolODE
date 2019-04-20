@@ -5,6 +5,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import pandas as pd
+from optparse import OptionParser 
+parser = OptionParser()
+parser.add_option('-p','--prefix',default='',type=str,
+                  help='Specify file name prefix [prefix]stoch_experiment.txt')
+(opts, args) = parser.parse_args()
+prefix = opts.prefix
+
+
+
 # names = ['ode',
 #          'stoch']
 names = ['ode',
@@ -78,7 +87,7 @@ def plot_colourline(x,y,c):
 #     a.set_title(n)
 
 n = 'stoch'
-path = 'mutin_wpro_' +n+'_experiment.txt'
+path = prefix +n+'_experiment.txt'
 #path = 'success-1/tsne' +n+'_experiment.txt'    
 DF = pd.read_csv(path,sep='\t',index_col=0)
 Cells = DF.T.values
@@ -93,8 +102,8 @@ embed = TSNE(n_components=2,
 
 colors = [float(h.split('_')[1].replace('|','.')) for h in DF.columns]
 experiments = set([h.split('_')[0] for h in DF.columns])
-#PCDF = pd.DataFrame(PC,columns=['PC1','PC2'],index=pd.Index(list(DF.columns)))
-PCDF = pd.DataFrame(embed,columns=['PC1','PC2'],index=pd.Index(list(DF.columns)))
+PCDF = pd.DataFrame(PC,columns=['PC1','PC2'],index=pd.Index(list(DF.columns)))
+#PCDF = pd.DataFrame(embed,columns=['PC1','PC2'],index=pd.Index(list(DF.columns)))
 
 for e in experiments:
     toplotX = []

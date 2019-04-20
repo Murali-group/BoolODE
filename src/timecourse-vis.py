@@ -1,15 +1,19 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import sys
+from optparse import OptionParser
+parser = OptionParser()
+parser.add_option('-p','--prefix',default='',type=str,
+                  help='Specify file name prefix [prefix]stoch_experiment.txt')
+(opts, args) = parser.parse_args()
+prefix = opts.prefix
 
-#pre = 'success-1/tsne'
-pre = ''
 
 odefn = 'ode_experiment.txt'
 stochfn = 'stoch_experiment.txt'
 
 #DF = pd.read_csv(pre + odefn, sep='\t',index_col=0)
-DF = pd.read_csv(pre + stochfn, sep='\t',index_col=0)
+DF = pd.read_csv(prefix + stochfn, sep='\t',index_col=0)
 genes = DF.index
 genes = genes#[0:-1]
 f,ax = plt.subplots(len(genes),2,figsize=(10,10))
