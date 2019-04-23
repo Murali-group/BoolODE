@@ -402,7 +402,7 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
                   for expnum in range(num_experiments)\
                   for tpoint in timeIndex]
         
-        for expnum in range(num_experiments):
+        for expnum in tqdm(range(num_experiments)):
             y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarmapper)
             P = simulateModel(Model, y0_exp, pars, isStochastic, tspan)
             P = P.T
