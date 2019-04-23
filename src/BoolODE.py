@@ -555,7 +555,8 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
                           'Time':time,'Experiment':experiment}
         PseudoTimeDF = pd.DataFrame(PseudoTimeDict)
         PseudoTimeDF.to_csv(outPrefix + 'PseudoTime.csv',sep=',',index=False)
-
+        PseudoTimeDF.index = PseudoTimeDF['Cell ID']
+        PseudoTimeDF.loc[ExpDF.columns].to_csv(outPrefix + 'PseudoTime-dropped.csv', sep = ',', index = False)
         # refnetwork
         refnet = []
         genes = set(BoolDF['Gene'].values)
