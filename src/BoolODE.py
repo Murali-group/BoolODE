@@ -17,7 +17,7 @@ from tqdm import tqdm
 from optparse import OptionParser 
 import ast
 np.seterr(all='raise')
-
+import os
 def readBooleanRules(path, parameterInputsPath):
     DF = pd.read_csv(path,sep='\t')
     withRules = list(DF['Gene'].values)
@@ -488,6 +488,15 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
             name = 'stoch'
         else:
             name = 'ode'
+
+        # if output directory doesn't exist
+        # create one!
+
+        outDir = '/'.join(outPrefix.split('/')[:-1])
+        if not os.path.exists(outDir):
+            print(outDir, "does not exist, creating it...")
+            os.makedirs(outDir, exist_ok = True)
+
         resultN.to_csv(outPrefix + name +'_experiment.txt',sep='\t')
         outputfilenames.append(outPrefix + name +'_experiment.txt')
     return outputfilenames
@@ -523,6 +532,7 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
         syntheticDF = pd.read_csv(f,sep='\t',index_col=0)
         
         # ExpressionData.csv
+
         
         ExpDF = syntheticDF.copy()
         columns = list(ExpDF.columns)
