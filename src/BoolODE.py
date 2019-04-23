@@ -13,7 +13,7 @@ import importlib
 import warnings
 # Uncomment on Aditya's machine
 sys.path.insert(0, "/home/adyprat/anaconda3/envs/pyDSTool/lib/python3.6/site-packages/")
-from tqdm import tqdm
+from tqdm import tqdm 
 from optparse import OptionParser 
 
 np.seterr(all='raise')
@@ -33,8 +33,9 @@ def readBooleanRules(path):
 
     withoutRules = allnodes.difference(set(withRules))
     for n in withoutRules:
+        print(n, "has no rule, adding self-activation..")
         DF = DF.append({'Gene':n,'Rule':n},ignore_index=True)
-    return DF
+    return DF, withoutRules
 
 def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
     """
@@ -144,13 +145,13 @@ def generateModelDict(DF,identicalPars,samplePars):
         exec('booleval = ' + row['Rule'], genespace) 
         par['alpha_'+row['Gene']] = int(genespace['booleval'])
     
-    for i,row in DF.iterrows():
+    for i,row in tqdm(DF.iterrows()):
         rhs = row['Rule']
         rhs = rhs.replace('(',' ')
         rhs = rhs.replace(')',' ')
         tokens = rhs.split(' ')
 
-        reg = [t for t in tokens if t in genes]
+        reg = set([t for t in tokens if t in genes])
         currGen = row['Gene']
         num = '( alpha_' + currGen
         den = '( 1'
@@ -168,7 +169,6 @@ def generateModelDict(DF,identicalPars,samplePars):
 
                 for geneInList in c:
                     exec(geneInList + ' = 1', genespace)
-                    
                 exec('boolval = ' + row['Rule'], genespace)
 
                 par['a_' + currGen +'_'  + '_'.join(list(c))] = int(genespace['boolval']) 
@@ -458,7 +458,7 @@ def sampleTimeSeries(num_timepoints, expnum,\
     sampleDF = pd.DataFrame(sampleDict)
     return(sampleDF)
 
-def generateInputFiles(outputfilenames, BoolDF, outPrefix=''):
+def generateInputFiles(outputfilenames, BoolDF, withoutRules, outPrefix=''):
     for f in outputfilenames:
         syntheticDF = pd.read_csv(f,sep='\t',index_col=0)
         
@@ -468,6 +468,7 @@ def generateInputFiles(outputfilenames, BoolDF, outPrefix=''):
         columns = list(ExpDF.columns)
         columns = [c.replace('-','_') for c in columns]
         ExpDF.columns = columns
+        ExpDF = ExpDF.drop(withoutRules, axis=0)
         ExpDF.to_csv(outPrefix+'ExpressionData.csv',sep=',')
         
         # PseudoTime.csv
@@ -485,6 +486,8 @@ def generateInputFiles(outputfilenames, BoolDF, outPrefix=''):
         # refnetwork
         refnet = []
         genes = set(BoolDF['Gene'].values)
+        
+        genes = genes.difference(set(withoutRules))
 
         for g in genes:
             row = BoolDF[BoolDF['Gene'] == g]
@@ -538,7 +541,7 @@ def main(args):
     timesteps = 100
     tspan = np.linspace(0,tmax,tmax*timesteps)
     
-    DF = readBooleanRules(path)
+    DF, withoutRules = readBooleanRules(path)
     it = 0
     someexception = True
     while someexception:
@@ -555,7 +558,7 @@ def main(args):
                                          outPrefix,burnin=burnin,
                                          writeProtein=writeProtein,
                                          normalizeTrajectory=normalizeTrajectory)
-            generateInputFiles(outputfilenames,DF, outPrefix=outPrefix)
+            generateInputFiles(outputfilenames,DF, withoutRules, outPrefix=outPrefix)
             print('Success!')
             
             someexception= False
