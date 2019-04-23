@@ -56,8 +56,8 @@ for s in tqdm(subsample):
             for _ in range(100):
                 exps.append(experiments[ei])
         PseudoTimeDict = {'Cell ID':cell_id, 'PseudoTime':ptime,
-                          'Time':time,'Experiment':[c.split('_')[0] for c in cell_id]}
+                          'Time':time,'Experiment':[c.split('_')[0].replace('E','') for c in cell_id]}
         PseudoTimeDF = pd.DataFrame(PseudoTimeDict)
-        PseudoTimeDF.to_csv(path +'/PseudoTime.csv',index=False)
+        PseudoTimeDF[['Cell ID','PseudoTime','Time','Experiment']].to_csv(path +'/PseudoTime.csv',index=False)
         refdf.to_csv(path + '/refNetwork.csv',index=False)
 
