@@ -15,10 +15,10 @@ import warnings
 sys.path.insert(0, "/home/adyprat/anaconda3/envs/pyDSTool/lib/python3.6/site-packages/")
 from tqdm import tqdm 
 from optparse import OptionParser 
-
+import ast
 np.seterr(all='raise')
 
-def readBooleanRules(path):
+def readBooleanRules(path, parameterInputsPath):
     DF = pd.read_csv(path,sep='\t')
     withRules = list(DF['Gene'].values)
     allnodes = set()
@@ -33,8 +33,11 @@ def readBooleanRules(path):
 
     withoutRules = allnodes.difference(set(withRules))
     for n in withoutRules:
-        print(n, "has no rule, adding self-activation..")
-        DF = DF.append({'Gene':n,'Rule':n},ignore_index=True)
+        if len(parameterInputsPath) == 0:
+            print(n, "has no rule, adding self-activation.")
+            DF = DF.append({'Gene':n,'Rule':n},ignore_index=True)
+        else:
+            print("Treating %s as parameter" % {n})
     return DF, withoutRules
 
 def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
@@ -57,7 +60,10 @@ def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
             K.append(k)
     return K
 
-def generateModelDict(DF,identicalPars,samplePars):
+def generateModelDict(DF,identicalPars,
+                      samplePars,
+                      withoutRules,
+                      parameterInputsDF):
     mRNATranscription = 20.
     mRNADegradation = mRNATranscription/2.
     proteinTranslation = 10
@@ -68,6 +74,22 @@ def generateModelDict(DF,identicalPars,samplePars):
     # Variables:
     varspecs = {'x_' + g:'' for g in genes}
     par = dict()
+    parameterInputs  = {}
+    if parameterInputsDF is not None:
+        for i, row in parameterInputsDF.iterrows():
+            # initialize
+            parameterInputs[i] = {p:0 for p in withoutRules}
+            inputParams = ast.literal_eval(row['Inputs'])
+            inputValues = ast.literal_eval(row['Values'])
+            # Set to a high value
+            parameterInputs[i].update({p:hillThreshold*2 for p,v in zip(inputParams,inputValues) if v > 0})
+            
+        # Add input parameters, set to 0 by default
+        par.update({p:0 for p in parameterInputs[0].keys()})
+        par.update({'k_'+p:hillThreshold for p in parameterInputs[0].keys()})
+        par.update({'n_'+p:hillCoefficient for p in parameterInputs[0].keys()})
+
+            
     if not samplePars:
         # Hill coefficients
         par.update({'n_'+g:hillCoefficient for g in genes})
@@ -130,35 +152,55 @@ def generateModelDict(DF,identicalPars,samplePars):
                              sig=0.5*proteinDegradation,
                              identicalPars=identicalPars)
         par.update({'l_p_' + g:lp for g,lp in zip(genes,lpvals)})
-    
+
     # Initialize new namespace
     genespace = {}
     for i,row in DF.iterrows():
         # Initialize variables to 0
         tempStr = row['Gene'] + " = 0"  
         exec(tempStr, genespace)
-    
+
+    if parameterInputsDF is not None:
+        for k in parameterInputs[0].keys():
+            # Initialize variables to 0
+            tempStr = k + " = 0"  
+            exec(tempStr, genespace)
+
     for i,row in DF.iterrows():
         # Basal alpha:
         # Execute the rule to figure out
         # the value of alpha
         exec('booleval = ' + row['Rule'], genespace) 
         par['alpha_'+row['Gene']] = int(genespace['booleval'])
-    
+
+    if parameterInputsDF is  None:
+        inputs = set()
+        
+    else:
+        inputs = set(withoutRules)
+
     for i,row in tqdm(DF.iterrows()):
         rhs = row['Rule']
         rhs = rhs.replace('(',' ')
         rhs = rhs.replace(')',' ')
         tokens = rhs.split(' ')
 
-        reg = set([t for t in tokens if t in genes])
+        allreg = set([t for t in tokens if (t in genes or t in inputs)])
+        genereg = set([t for t in tokens if t in genes])
+        inputreg = set([t for t in tokens if t in inputs])
         currGen = row['Gene']
         num = '( alpha_' + currGen
         den = '( 1'
-        for i in range(1,len(reg) + 1):
-            for c in combinations(reg,i):
+        for i in range(1,len(allreg) + 1):
+            for c in combinations(allreg,i):
                 # Create the hill function terms for each regulator
-                hills = ['(p_'+ci+'/k_'+ci+')^n_'+ci for ci in c]
+                hills = []
+                for ci in c:
+                    if ci in genereg:
+                        hills.append('(p_'+ci+'/k_'+ci+')^n_'+ci)
+                    elif ci in inputreg:
+                        hills.append('('+ci+'/k_'+ci+')^n_'+ci)
+                #hills = ['(p_'+ci+'/k_'+ci+')^n_'+ci for ci in c]
                 mult = '*'.join(hills)
                 # Create Numerator and Denominator
                 den += ' +' +  mult                
@@ -194,7 +236,7 @@ def generateModelDict(DF,identicalPars,samplePars):
     ModelSpec['varspecs'] = varspecs
     ModelSpec['pars'] = par
     ModelSpec['ics'] = ics
-    return ModelSpec
+    return ModelSpec, parameterInputs
 
 def writeModelToFile(ModelSpec):
     varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
@@ -301,7 +343,11 @@ def parseArgs(args):
     parser.add_option('', '--outPrefix', type = 'str',default='',
                       help='Prefix for output files.')
     parser.add_option('', '--path', type='str',
-                      help='Path to boolean model file')    
+                      help='Path to boolean model file')
+    parser.add_option('', '--inputs', type='str',default='',
+                      help='Path to input parameter files')    
+    parser.add_option('', '--ics', type='str',default='',
+                      help='Path to list of initial conditions')    
     (opts, args) = parser.parse_args(args)
 
     return opts, args
@@ -368,7 +414,7 @@ def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarm
 
 def Experiment(Model, ModelSpec,tspan, num_experiments,
                num_timepoints,
-               varmapper, parmapper, outPrefix,
+               varmapper, parmapper, outPrefix,icsDF,
                burnin=False,writeProtein=False,
                normalizeTrajectory=False):
     pars = list(ModelSpec['pars'].values())
@@ -378,11 +424,23 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
 
 
     y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
-    
     ss = np.zeros(len(varmapper.keys()))
     for i,k in varmapper.items():
         if 'x_' in k:
-            ss[i] = 1.
+            ss[i] = 1.0
+            
+    if icsDF is not None:
+        icsspec = icsDF.loc[0]
+        genes = ast.literal_eval(icsspec['Genes'])
+        values = ast.literal_eval(icsspec['Values'])
+        icsmap = {g:v for g,v in zip(genes,values)}
+        for i,k in varmapper.items():
+            if 'x_' in k:
+                if k.replace('x_','') in genes:
+                    ss[i] = icsmap[k.replace('x_','')]
+                else:
+                    ss[i] = 0.01
+        
 
     outputfilenames = []
     for isStochastic in [True]: 
@@ -458,7 +516,9 @@ def sampleTimeSeries(num_timepoints, expnum,\
     sampleDF = pd.DataFrame(sampleDict)
     return(sampleDF)
 
-def generateInputFiles(outputfilenames, BoolDF, withoutRules, outPrefix=''):
+def generateInputFiles(outputfilenames, BoolDF, withoutRules,
+                       parameterInputsPath,
+                       outPrefix=''):
     for f in outputfilenames:
         syntheticDF = pd.read_csv(f,sep='\t',index_col=0)
         
@@ -468,8 +528,11 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules, outPrefix=''):
         columns = list(ExpDF.columns)
         columns = [c.replace('-','_') for c in columns]
         ExpDF.columns = columns
-        ExpDF = ExpDF.drop(withoutRules, axis=0)
+        if len(parameterInputsPath) == 0:
+            ExpDF = ExpDF.drop(withoutRules, axis=0)
         ExpDF.to_csv(outPrefix+'ExpressionData.csv',sep=',')
+        ExpDF.drop([col for col in ExpDF.columns if ExpDF[col].max() < 0.1*ExpDF.values.max()],axis=1,inplace=True)
+        ExpDF.to_csv(outPrefix+'ExpressionData-dropped.csv',sep=',')        
         
         # PseudoTime.csv
         cellID = list(syntheticDF.columns)
@@ -488,6 +551,7 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules, outPrefix=''):
         genes = set(BoolDF['Gene'].values)
         
         genes = genes.difference(set(withoutRules))
+        inputs = withoutRules
 
         for g in genes:
             row = BoolDF[BoolDF['Gene'] == g]
@@ -496,7 +560,7 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules, outPrefix=''):
             rhs = rhs.replace('(',' ')
             rhs = rhs.replace(')',' ')
             tokens = rhs.split(' ')
-            regulators = [t for t in tokens if t in genes if t not in ['and','or', 'not', '']]
+            regulators = [t for t in tokens if (t in genes or t in inputs) if t not in ['and','or', 'not', '']]
             if 'not' in tokens:
                 whereisnot = tokens.index('not')
             else:
@@ -534,31 +598,53 @@ def main(args):
     burnin = opts.burn_in
     samplePars = opts.sample_pars
     outPrefix = opts.outPrefix
-
+    parameterInputsPath = opts.inputs
+    icsPath = opts.ics    
     writeProtein = opts.write_protein
     normalizeTrajectory = opts.normalize_trajectory
-    
+
+    if len(parameterInputsPath) > 0: 
+        parameterInputsDF = pd.read_csv(parameterInputsPath,sep='\t')
+    else:
+        parameterInputsDF = None
+
+    if len(icsPath) > 0: 
+        icsDF = pd.read_csv(icsPath,sep='\t')
+    else:
+        icsDF = None
+
     timesteps = 100
     tspan = np.linspace(0,tmax,tmax*timesteps)
     
-    DF, withoutRules = readBooleanRules(path)
+    DF, withoutRules = readBooleanRules(path, parameterInputsPath)
     it = 0
     someexception = True
     while someexception:
         try:
             genesDict = {}
             
-            ModelSpec = generateModelDict(DF,identicalPars,samplePars)
+            ModelSpec, parameterInputs = generateModelDict(DF,identicalPars,
+                                          samplePars,
+                                          withoutRules,
+                                          parameterInputsDF)
+
+            # Hardcoded. We only care about one input vector, say the first one
+            if len(parameterInputsPath) > 0:
+                ModelSpec['pars'].update(parameterInputs[0])
             varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
             parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
             writeModelToFile(ModelSpec)
             import model
             outputfilenames = Experiment(model.Model,ModelSpec,tspan,numExperiments,
                                          numTimepoints, varmapper, parmapper,
-                                         outPrefix,burnin=burnin,
+                                         outPrefix, icsDF,
+                                         burnin=burnin,
                                          writeProtein=writeProtein,
                                          normalizeTrajectory=normalizeTrajectory)
-            generateInputFiles(outputfilenames,DF, withoutRules, outPrefix=outPrefix)
+            generateInputFiles(outputfilenames,DF,
+                               withoutRules,
+                               parameterInputsPath,
+                               outPrefix=outPrefix)
             print('Success!')
             
             someexception= False
