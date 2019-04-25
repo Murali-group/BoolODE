@@ -19,7 +19,7 @@ import ast
 np.seterr(all='raise')
 import os
 def readBooleanRules(path, parameterInputsPath):
-    DF = pd.read_csv(path,sep='\t')
+    DF = pd.read_csv(path,sep='\t',engine='python')
     withRules = list(DF['Gene'].values)
     allnodes = set()
     for ind,row in DF.iterrows():
@@ -238,11 +238,11 @@ def generateModelDict(DF,identicalPars,
     ModelSpec['ics'] = ics
     return ModelSpec, parameterInputs
 
-def writeModelToFile(ModelSpec):
+def writeModelToFile(ModelSpec, prefix=''):
     varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
     parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
     
-    with open('src/model.py','w') as out:
+    with open('src/'+prefix+'model.py','w') as out:
         out.write('#####################################################\n')
         out.write('import numpy as np\n')
         out.write('# This file is created automatically\n')
@@ -491,11 +491,12 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
 
         # if output directory doesn't exist
         # create one!
-
-        outDir = '/'.join(outPrefix.split('/')[:-1])
-        if not os.path.exists(outDir):
-            print(outDir, "does not exist, creating it...")
-            os.makedirs(outDir, exist_ok = True)
+        if len(outPrefix) > 0:
+            if '/' in outPrefix:
+                outDir = '/'.join(outPrefix.split('/')[:-1])
+                if not os.path.exists(outDir):
+                    print(outDir, "does not exist, creating it...")
+                    os.makedirs(outDir)
 
         resultN.to_csv(outPrefix + name +'_experiment.txt',sep='\t')
         outputfilenames.append(outPrefix + name +'_experiment.txt')
@@ -529,7 +530,7 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
                        parameterInputsPath,
                        outPrefix=''):
     for f in outputfilenames:
-        syntheticDF = pd.read_csv(f,sep='\t',index_col=0)
+        syntheticDF = pd.read_csv(f,sep='\t',index_col=0,engine='python')
         
         # ExpressionData.csv
 
@@ -571,7 +572,8 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
             rhs = rhs.replace('(',' ')
             rhs = rhs.replace(')',' ')
             tokens = rhs.split(' ')
-            regulators = [t for t in tokens if (t in genes or t in inputs) if t not in ['and','or', 'not', '']]
+            avoidthese = list(wihoutRules).extend(['and','or', 'not', ''])
+            regulators = [t for t in tokens if (t in genes or t in inputs) if t not in avoidthese]
             if 'not' in tokens:
                 whereisnot = tokens.index('not')
             else:
@@ -620,7 +622,7 @@ def main(args):
         parameterInputsDF = None
 
     if len(icsPath) > 0: 
-        icsDF = pd.read_csv(icsPath,sep='\t')
+        icsDF = pd.read_csv(icsPath,sep='\t',engine='python')
     else:
         icsDF = None
 
