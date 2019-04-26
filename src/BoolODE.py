@@ -563,6 +563,7 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
         genes = set(BoolDF['Gene'].values)
         
         genes = genes.difference(set(withoutRules))
+        
         inputs = withoutRules
 
         for g in genes:
@@ -572,7 +573,11 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
             rhs = rhs.replace('(',' ')
             rhs = rhs.replace(')',' ')
             tokens = rhs.split(' ')
-            avoidthese = list(wihoutRules).extend(['and','or', 'not', ''])
+            if withoutRules == []:
+                inputs = []
+                avoidthese = ['and','or', 'not', '']
+            else:
+                avoidthese = list(withoutRules).extend(['and','or', 'not', ''])
             regulators = [t for t in tokens if (t in genes or t in inputs) if t not in avoidthese]
             if 'not' in tokens:
                 whereisnot = tokens.index('not')
@@ -630,6 +635,8 @@ def main(args):
     tspan = np.linspace(0,tmax,tmax*timesteps)
     
     DF, withoutRules = readBooleanRules(path, parameterInputsPath)
+    if len(withoutRules) == 0:
+        withoutRules = []
     it = 0
     someexception = True
     while someexception:
