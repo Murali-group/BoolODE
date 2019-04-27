@@ -1,0 +1,11 @@
+Gene1	Gene2	Strength
+g4	g4	10
+g5	g5	10
+g4	g5	100
+g5	g4	100
+g6	g4	0.25
+g7	g5	0.25
+g8	g8	10
+g4	g8	10
+g5	g8	10
+g1	g9	10

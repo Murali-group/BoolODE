@@ -18,7 +18,22 @@ from optparse import OptionParser
 import ast
 np.seterr(all='raise')
 import os
+
 def readBooleanRules(path, parameterInputsPath):
+    """
+    Parameters
+    ----------
+    path : str
+        Path to Boolean Rule file
+    parameterInputsPath : str
+        Path to file containing input parameters to the model
+    Returns
+    -------
+    DF : pandas DataFrame
+        Dataframe containing rules
+    withoutrules : list
+        list of nodes in input file without rules
+    """
     DF = pd.read_csv(path,sep='\t',engine='python')
     withRules = list(DF['Gene'].values)
     allnodes = set()
@@ -63,18 +78,22 @@ def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
 def generateModelDict(DF,identicalPars,
                       samplePars,
                       withoutRules,
-                      parameterInputsDF):
+                      parameterInputsDF,
+                      interactionStrengthDF):
     mRNATranscription = 20.
     mRNADegradation = mRNATranscription/2.
     proteinTranslation = 10
     proteinDegradation = 1
     hillThreshold = (proteinTranslation/proteinDegradation)*(mRNATranscription/mRNADegradation)/2
     hillCoefficient = 10
+    interactionStrength = 1.0
     genes = set(DF['Gene'].values)
     # Variables:
     varspecs = {'x_' + g:'' for g in genes}
     par = dict()
     parameterInputs  = {}
+    interactionStrengths = {}
+    
     if parameterInputsDF is not None:
         for i, row in parameterInputsDF.iterrows():
             # initialize
@@ -87,14 +106,30 @@ def generateModelDict(DF,identicalPars,
         # Add input parameters, set to 0 by default
         par.update({p:0 for p in parameterInputs[0].keys()})
         par.update({'k_'+p:hillThreshold for p in parameterInputs[0].keys()})
+        # Add interaction specific thresholds if supplied
+        if interactionStrengthDF is not None:
+            for i,row in interactionStrengthDF:
+                regulator = row['Gene2']
+                target = row['Gene1']
+                interactionStrength = row['Strength']
+                par.update({'k_' + regulator + '_' + target: hillThreshold/interactionStrength})
+        
         par.update({'n_'+p:hillCoefficient for p in parameterInputs[0].keys()})
 
             
     if not samplePars:
+        print("Fixing rate parameters to defaults")
         # Hill coefficients
         par.update({'n_'+g:hillCoefficient for g in genes})
         # Thresholds
         par.update({'k_'+g:hillThreshold for g in genes})
+        # Add interaction specific thresholds if supplied
+        if interactionStrengthDF is not None:
+            for i,row in interactionStrengthDF.iterrows():
+                regulator = row['Gene2']
+                target = row['Gene1']
+                interactionStrength = row['Strength']
+                par.update({'k_' + regulator + '_' + target: hillThreshold/interactionStrength})
         # mRNA transcription rates
         par.update({'m_' + g:mRNATranscription for g in genes})
         # mRNA degradation rates
@@ -113,6 +148,7 @@ def generateModelDict(DF,identicalPars,
                         identicalPars=identicalPars)
         par.update({'n_'+g:n for g,n in zip(genes,Nvals)})
         # Thresholds
+        # We ignore any supplied interactionStrengthDF 
         kvals = getSaneNval(len(genes),\
                             lo=0.5*hillThreshold,
                             hi=1.5*hillThreshold,
@@ -120,6 +156,7 @@ def generateModelDict(DF,identicalPars,
                             sig=0.5*hillThreshold,
                             identicalPars=identicalPars)
         par.update({'k_'+g:k for g,k in zip(genes,kvals)})
+
         # mRNA transcription rates
         mvals = getSaneNval(len(genes),\
                             lo=0.5*mRNATranscription,
@@ -173,9 +210,8 @@ def generateModelDict(DF,identicalPars,
         exec('booleval = ' + row['Rule'], genespace) 
         par['alpha_'+row['Gene']] = int(genespace['booleval'])
 
-    if parameterInputsDF is None: # or len(withoutRules) == 0  :
+    if parameterInputsDF is None:
         inputs = set()
-        
     else:
         inputs = set(withoutRules)
 
@@ -188,19 +224,37 @@ def generateModelDict(DF,identicalPars,
         allreg = set([t for t in tokens if (t in genes or t in inputs)])
         genereg = set([t for t in tokens if t in genes])
         inputreg = set([t for t in tokens if t in inputs])
+        
         currGen = row['Gene']
         num = '( alpha_' + currGen
         den = '( 1'
+
+        strengthSpecified = False
+        
+        if interactionStrengthDF is not None:
+            if currGen in interactionStrengthDF['Gene1'].values:
+                strengthSpecified = True
+                print(currGen)                
+                # Get the list of regulators of currGen
+                # whose interaction strengths have been specified
+                regulators = set(interactionStrengthDF[interactionStrengthDF['Gene1'] == currGen]['Gene2'].values)
+                print(regulators)
         for i in range(1,len(allreg) + 1):
             for c in combinations(allreg,i):
                 # Create the hill function terms for each regulator
                 hills = []
                 for ci in c:
+                    if strengthSpecified:
+                        if ci in regulators:
+                            
+                            hillThreshold = 'k_' + ci + '_' + currGen
+                    else:
+                        hillThreshold = 'k_' + ci
+                        
                     if ci in genereg:
-                        hills.append('(p_'+ci+'/k_'+ci+')^n_'+ci)
+                       hills.append('(p_'+ci+'/'+hillThreshold+')^n_'+ci)
                     elif ci in inputreg:
-                        hills.append('('+ci+'/k_'+ci+')^n_'+ci)
-                #hills = ['(p_'+ci+'/k_'+ci+')^n_'+ci for ci in c]
+                        hills.append('('+ci+'/'+hillThreshold+')^n_'+ci)
                 mult = '*'.join(hills)
                 # Create Numerator and Denominator
                 den += ' +' +  mult                
@@ -347,7 +401,9 @@ def parseArgs(args):
     parser.add_option('', '--inputs', type='str',default='',
                       help='Path to input parameter files')    
     parser.add_option('', '--ics', type='str',default='',
-                      help='Path to list of initial conditions')    
+                      help='Path to list of initial conditions')
+    parser.add_option('', '--strengths', type='str',default='',
+                      help='Path to list of interaction strengths')
     (opts, args) = parser.parse_args(args)
 
     return opts, args
@@ -622,7 +678,8 @@ def main(args):
     icsPath = opts.ics    
     writeProtein = opts.write_protein
     normalizeTrajectory = opts.normalize_trajectory
-
+    interactionStrengthPath = opts.strengths
+    
     if len(parameterInputsPath) > 0: 
         parameterInputsDF = pd.read_csv(parameterInputsPath,sep='\t')
     else:
@@ -633,6 +690,12 @@ def main(args):
     else:
         icsDF = None
 
+    if len(interactionStrengthPath) > 0:
+        print("Interaction Strengths are supplied")
+        interactionStrengthDF = pd.read_csv(interactionStrengthPath,sep='\t',engine='python')
+    else:
+        interactionStrengthDF = None
+        
     timesteps = 100
     tspan = np.linspace(0,tmax,tmax*timesteps)
     
@@ -646,10 +709,11 @@ def main(args):
             genesDict = {}
             
             ModelSpec, parameterInputs = generateModelDict(DF,identicalPars,
-                                          samplePars,
-                                          withoutRules,
-                                          parameterInputsDF)
-
+                                                           samplePars,
+                                                           withoutRules,
+                                                           parameterInputsDF,
+                                                           interactionStrengthDF)
+            # FIXME : ask user to pass row if parameter input file
             # Hardcoded. We only care about one input vector, say the first one
             if len(parameterInputsPath) > 0:
                 ModelSpec['pars'].update(parameterInputs[0])

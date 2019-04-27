@@ -10,16 +10,13 @@ inFile = opts.inFile
 
 DF = pd.read_csv(inFile, sep=',',index_col=0)
 genes = DF.index
-genes = genes
-
-f,ax = plt.subplots(len(genes),1,figsize=(10,10))
+f,ax = plt.subplots(len(genes),1,figsize=(2*len(genes),10))
 
 tp = DF.columns
 experiments = set([t.split('_')[0] for t in tp])
 times = sorted(list(set([float(t.split('_')[1]+'.'+t.split('_')[2]) for t in tp])))
 for g,a in zip(genes,ax):
     V = DF.loc[g].values
-
     for e in experiments:
         toplot = []
         for h,v in zip(tp,V):

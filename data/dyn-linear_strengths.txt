@@ -1,0 +1,3 @@
+Gene1	Gene2	Strength
+g7	g7	5
+g1	g7	5

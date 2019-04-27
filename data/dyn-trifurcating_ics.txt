@@ -1,0 +1,2 @@
+Genes	Values
+['g1','g7']	[1,1]
