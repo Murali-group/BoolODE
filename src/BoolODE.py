@@ -173,7 +173,7 @@ def generateModelDict(DF,identicalPars,
         exec('booleval = ' + row['Rule'], genespace) 
         par['alpha_'+row['Gene']] = int(genespace['booleval'])
 
-    if parameterInputsDF is  None:
+    if parameterInputsDF is None: # or len(withoutRules) == 0  :
         inputs = set()
         
     else:
@@ -573,11 +573,13 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
             rhs = rhs.replace('(',' ')
             rhs = rhs.replace(')',' ')
             tokens = rhs.split(' ')
-            if withoutRules == []:
+            if len(withoutRules) == 0:
                 inputs = []
                 avoidthese = ['and','or', 'not', '']
             else:
-                avoidthese = list(withoutRules).extend(['and','or', 'not', ''])
+                avoidthese = list(withoutRules)
+                avoidthese.extend(['and','or', 'not', ''])
+
             regulators = [t for t in tokens if (t in genes or t in inputs) if t not in avoidthese]
             if 'not' in tokens:
                 whereisnot = tokens.index('not')
