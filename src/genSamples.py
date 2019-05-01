@@ -39,6 +39,10 @@ def parseArgs(args):
     parser.add_option('-c', '--nClusters', type='int',default='1',
                       help='Number of expected clusters in the dataset.')    
     
+            
+    parser.add_option('', '--noEnd', action='store_true',default= False,
+                      help='Do not force SlingShot to have an end state.')    
+    
     (opts, args) = parser.parse_args(args)
 
     return opts, args
@@ -82,11 +86,11 @@ def genSamples(opts):
         
         # Compute PseudoTime using slingshot
         # TODO: Add other methods
-        computeSSPT(SampleDF, ptDF, opts.nClusters, path)
+        computeSSPT(SampleDF, ptDF, opts.nClusters, path, opts.noEnd)
         
         
 
-def computeSSPT(ExpDF, ptDF, nClust, outPath):
+def computeSSPT(ExpDF, ptDF, nClust, outPath, noEnd = False):
     '''
     Compute PseudoTime using 'slingshot'.
     Needs the input GenexCells expression data frame.
@@ -128,12 +132,19 @@ def computeSSPT(ExpDF, ptDF, nClust, outPath):
 
         DimRedDF.to_csv('temp/rd.tsv', columns = ['dim1','dim2'],sep='\t')
         DimRedDF.to_csv('temp/cl.tsv', columns = ['cl'],sep='\t')
-        
-        cmdToRun= " ".join(["docker run --rm -v", str(Path.cwd())+"/temp/:/data/temp",
-                            "slingshot:base /bin/sh -c \"Rscript data/run_slingshot.R",
-                            "--input=/data/temp/rd.tsv --input-type=matrix",
-                            "--cluster-labels=/data/temp/cl.tsv",
-                            "--start-clus="+startClust, "--end-clus="+endClust+'\"'])
+        if noEnd:
+            cmdToRun= " ".join(["docker run --rm -v", str(Path.cwd())+"/temp/:/data/temp",
+                    "slingshot:base /bin/sh -c \"Rscript data/run_slingshot.R",
+                    "--input=/data/temp/rd.tsv --input-type=matrix",
+                    "--cluster-labels=/data/temp/cl.tsv",
+                    "--start-clus="+startClust+'\"'])
+
+        else:
+            cmdToRun= " ".join(["docker run --rm -v", str(Path.cwd())+"/temp/:/data/temp",
+                                "slingshot:base /bin/sh -c \"Rscript data/run_slingshot.R",
+                                "--input=/data/temp/rd.tsv --input-type=matrix",
+                                "--cluster-labels=/data/temp/cl.tsv",
+                                "--start-clus="+startClust, "--end-clus="+endClust+'\"'])
         print(cmdToRun)
         os.system(cmdToRun)
         os.system("mv temp/PseudoTime.csv "+outPath+"/PseudoTime.csv")
