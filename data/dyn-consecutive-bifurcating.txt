@@ -2,7 +2,7 @@ Gene	Rule
 g2	( g1 )
 g3	( ( g2 or g3 ) and not (g4) )
 g4	( ( g2 or g4 ) and not (g3) )
-g5	( g4 )
+g5	( g3 )
 g6	( g5 or g6 and not (g4 or g7) )
 g7	( g5 or g7 and not (g6 or g4) )
 g8	( g7 )
