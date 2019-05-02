@@ -59,6 +59,27 @@ def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
     """
     Generates a gaussian random number which is
     bounded by lo and hi
+    Parameters
+    ----------
+    size : int
+        number of random numbers to generate
+    lo : float
+        lower bound of sample range
+    hi : float
+        upper bound of sample range
+    mu : float
+        Mean of Gaussian distribution to be 
+        sampled from
+    sigma : float
+        Standard deviation of Gausssian distribution
+        to be sampled from
+    identicalPars : bool
+        Flag to sample single value and return a 
+        list of identical values
+    Returns 
+    -------
+    K : list
+        list of sampled values
     """
     
     if identicalPars:
@@ -75,121 +96,179 @@ def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
             K.append(k)
     return K
 
+def getParameters(DF,identicalPars,
+                  samplePars,
+                  withoutRules,
+                  parameterInputsDF,
+                  interactionStrengthDF):
+    """
+    Create dictionary of parameters and values. Assigns
+    parameter values by evaluating the Boolean expression
+    for each variable.
+    Parameters:
+    -----------
+    DF : pandas DataFrame
+        Table of values with two columns, 'Gene' specifies
+        target, 'Rule' specifies Boolean function
+    identicalPars : bool
+        Passed to getSaneNval to set identical parameters
+    samplePars : bool
+        Sample kinetic parameters using a Gaussian distribution 
+        centered around the default parameters
+    parameterInputsDF : pandas DataFrame
+        Optional table that specifies parameter values. Useful to specify
+        experimental conditions.
+    interactionStrengthDF : pandas DataFrame
+        Optional table that specifies interaction strengths. When
+        not specified, default strength is set to 1.
+    Returns:
+    --------
+    pars : dict
+        Dictionary of parameters 
+    """
+    ## Set default parameters
+    mRNATranscription = 20.
+    mRNADegradation = mRNATranscription/2.
+    proteinTranslation = 10
+    proteinDegradation = 1
+    ## The threshold is calculated as the max value of the species
+    ## divided by 2.
+    hillThreshold = (proteinTranslation/proteinDegradation)*\
+                    (mRNATranscription/mRNADegradation)/2
+    hillCoefficient = 10
+    interactionStrength = 1.0
+
+    parameterNamePrefixAndDefaults = {
+        # Hill coefficients
+        'n_':hillCoefficient,
+        # Thresholds
+        'k_':hillThreshold,
+        # mRNA transcription rates
+        'm_':mRNATranscription,
+        # mRNA degradation rates
+        'l_x_':mRNADegradation,
+        # Protein translation rate
+        'r_':proteinTranslation,
+        # protein degradation rates
+        'l_p_':proteinDegradation
+    }     
+    
+    par = dict()
+    parameterInputsDict  = {}
+    interactionStrengths = {}
+
+    ## Get set of species which have rules specified for them
+    species = set(DF['Gene'].values)
+    
+    ## Check 1:
+    ## If a parameter input file is specified,
+    ## Every row in parameterInputsDF contains two
+    ## columns:
+    ##     'Inputs' is a python list of strings
+    ## specifying the parameters.
+    ##     'Values' is a python list of floats
+    ## each corresponding to the value of a parameter.
+    ## Now, we create a fake hill term for this input, even
+    ## though there is no equation corresponding to it. Thus,
+    ## we create a hillThreshold and hillCoefficient 
+    ## term for it. This is useful so we can treat this input
+    ## parameter as a "regulator" and leave the structure of
+    ## the logic term unchanged.
+    if parameterInputsDF is not None:
+        for i, row in parameterInputsDF.iterrows():
+            # initialize
+            parameterInputsDict[i] = {p:0 for p in withoutRules}
+            inputParams = ast.literal_eval(row['Inputs'])
+            inputValues = ast.literal_eval(row['Values'])
+            # Set to a max value
+            parameterInputsDict[i].update({p:hillThreshold*2 for p,v in\
+                                       zip(inputParams,inputValues) if v > 0})
+            
+        # Add input parameters, set to 0 by default
+        par.update({p:0 for p in parameterInputsDict[0].keys()})
+        par.update({'k_'+p:hillThreshold for p in parameterInputsDict[0].keys()})
+        par.update({'n_'+p:hillCoefficient for p in parameterInputsDict[0].keys()})
+
+
+    ## Check 2:
+    ## If interaction strengths are specified.
+    ## Create a new parameter specifying the strength
+    ## of a given interaction. For all other equations in
+    ## which "regulator" appears in, its hillThreshold value
+    ## will remain the default value.
+    if interactionStrengthDF is not None:
+        for i,row in interactionStrengthDF.iterrows():
+            regulator = row['Gene2']
+            target = row['Gene1']
+            interactionStrength = row['Strength']
+            par.update({'k_' + regulator + '_' + target: hillThreshold/interactionStrength})
+
+    ## Check 3:
+    ## Whether to sample random parameters or stick to defaults
+    if samplePars:
+        print("Sampling parameters")        
+        for parPrefix, parDefault in parameterNamePrefixAndDefaults.items():
+            sampledParameterValues = getSaneNval(len(species),\
+                                                 lo=0.5*parDefault,\
+                                                 hi=1.5*parDefault,\
+                                                 mu=parDefault,\
+                                                 sig=0.5*parDefault,\
+                                                 identicalPars=identicalPars)
+            for sp, sparval in zip(species, sampledParameterValues):
+                par[parPrefix + sp] = sparval                
+    else:
+        print("Fixing rate parameters to defaults")
+        for parPrefix, parDefault in parameterNamePrefixAndDefaults.items():
+            for sp in species:
+                par[parPrefix + sp] = parDefault
+
+    return par, parameterInputsDict
+
 def generateModelDict(DF,identicalPars,
                       samplePars,
                       withoutRules,
                       parameterInputsDF,
                       interactionStrengthDF):
-    mRNATranscription = 20.
-    mRNADegradation = mRNATranscription/2.
-    proteinTranslation = 10
-    proteinDegradation = 1
-    hillThreshold = (proteinTranslation/proteinDegradation)*(mRNATranscription/mRNADegradation)/2
-    hillCoefficient = 10
-    interactionStrength = 1.0
+    """
+    Take a DataFrame object with Boolean rules,
+    construct ODE equations for each variable.
+    Takes optional parameter inputs and interaction
+    strengths
+    Parameters:
+    ----------
+    DF : pandas DataFrame
+        Table of values with two columns, 'Gene' specifies
+        target, 'Rule' specifies Boolean function
+    identicalPars : bool
+        Passed to getSaneNval to set identical parameters
+    samplePars : bool
+        Sample kinetic parameters using a Gaussian distribution 
+        centered around the default parameters
+    parameterInputsDF : pandas DataFrame
+        Optional table that specifies parameter values. Useful to specify
+        experimental conditions.
+    interactionStrengthDF : pandas DataFrame
+        Optional table that specifies interaction strengths. When
+        not specified, default strength is set to 1.
+    Returns:
+    --------
+    ModelSpec : dict
+        Dictionary of dictionaries. 
+        'varspecs' {variable:ODE equation}
+        'ics' {variable:initial condition}
+        'pars' {parameter:parameter value}
+
+    """
     genes = set(DF['Gene'].values)
     # Variables:
     varspecs = {'x_' + g:'' for g in genes}
-    par = dict()
-    parameterInputs  = {}
-    interactionStrengths = {}
     
-    if parameterInputsDF is not None:
-        for i, row in parameterInputsDF.iterrows():
-            # initialize
-            parameterInputs[i] = {p:0 for p in withoutRules}
-            inputParams = ast.literal_eval(row['Inputs'])
-            inputValues = ast.literal_eval(row['Values'])
-            # Set to a high value
-            parameterInputs[i].update({p:hillThreshold*2 for p,v in zip(inputParams,inputValues) if v > 0})
-            
-        # Add input parameters, set to 0 by default
-        par.update({p:0 for p in parameterInputs[0].keys()})
-        par.update({'k_'+p:hillThreshold for p in parameterInputs[0].keys()})
-        # Add interaction specific thresholds if supplied
-        if interactionStrengthDF is not None:
-            for i,row in interactionStrengthDF:
-                regulator = row['Gene2']
-                target = row['Gene1']
-                interactionStrength = row['Strength']
-                par.update({'k_' + regulator + '_' + target: hillThreshold/interactionStrength})
-        
-        par.update({'n_'+p:hillCoefficient for p in parameterInputs[0].keys()})
-
-            
-    if not samplePars:
-        print("Fixing rate parameters to defaults")
-        # Hill coefficients
-        par.update({'n_'+g:hillCoefficient for g in genes})
-        # Thresholds
-        par.update({'k_'+g:hillThreshold for g in genes})
-        # Add interaction specific thresholds if supplied
-        if interactionStrengthDF is not None:
-            for i,row in interactionStrengthDF.iterrows():
-                regulator = row['Gene2']
-                target = row['Gene1']
-                interactionStrength = row['Strength']
-                par.update({'k_' + regulator + '_' + target: hillThreshold/interactionStrength})
-        # mRNA transcription rates
-        par.update({'m_' + g:mRNATranscription for g in genes})
-        # mRNA degradation rates
-        par.update({'l_x_' + g:mRNADegradation for g in genes})
-        # Protein translation rate
-        par.update({'r_' + g:proteinTranslation for g in genes})
-        # protein degradation rates
-        par.update({'l_p_' + g:proteinDegradation for g in genes})
-    else:
-        # Hill coefficients
-        Nvals = getSaneNval(len(genes),\
-                        lo=0.5*hillCoefficient,\
-                        hi=1.5*hillCoefficient,\
-                        mu=hillCoefficient,\
-                        sig=0.5*hillCoefficient,\
-                        identicalPars=identicalPars)
-        par.update({'n_'+g:n for g,n in zip(genes,Nvals)})
-        # Thresholds
-        # We ignore any supplied interactionStrengthDF 
-        kvals = getSaneNval(len(genes),\
-                            lo=0.5*hillThreshold,
-                            hi=1.5*hillThreshold,
-                            mu=hillThreshold,
-                            sig=0.5*hillThreshold,
-                            identicalPars=identicalPars)
-        par.update({'k_'+g:k for g,k in zip(genes,kvals)})
-
-        # mRNA transcription rates
-        mvals = getSaneNval(len(genes),\
-                            lo=0.5*mRNATranscription,
-                            hi=1.5*mRNATranscription,
-                            mu=mRNATranscription,
-                            sig=0.5*mRNATranscription,
-                            identicalPars=identicalPars)
-        par.update({'m_' + g:m for g,m in zip(genes,mvals)})
-        # mRNA degradation rates
-        lxvals = getSaneNval(len(genes),\
-                             lo=0.5*mRNADegradation,
-                             hi=1.5*mRNADegradation,
-                             mu=mRNADegradation,
-                             sig=0.5*mRNADegradation,
-                             identicalPars=identicalPars)
-        par.update({'l_x_' + g:lx for g,lx in zip(genes,lxvals)})
-        # Protein translation rate
-        rvals = getSaneNval(len(genes),\
-                            lo=0.5*proteinTranslation,
-                            hi=1.5*proteinTranslation,
-                            mu=proteinTranslation,
-                            sig=0.5*proteinTranslation,
-                            identicalPars=identicalPars)
-        par.update({'r_' + g:r for g,r in zip(genes,rvals)})
-        # protein degradation rates
-        lpvals = getSaneNval(len(genes),\
-                             lo=0.5*proteinDegradation,
-                             hi=1.5*proteinDegradation,
-                             mu=proteinDegradation,
-                             sig=0.5*proteinDegradation,
-                             identicalPars=identicalPars)
-        par.update({'l_p_' + g:lp for g,lp in zip(genes,lpvals)})
-
+    par, parameterInputs = getParameters(DF,identicalPars,
+                         samplePars,
+                         withoutRules,
+                         parameterInputsDF,
+                         interactionStrengthDF)
+    
     # Initialize new namespace
     genespace = {}
     for i,row in DF.iterrows():
@@ -197,12 +276,15 @@ def generateModelDict(DF,identicalPars,
         tempStr = row['Gene'] + " = 0"  
         exec(tempStr, genespace)
 
-    if parameterInputsDF is not None:
+    if parameterInputsDF is None:
+        inputs = set()
+    else:
+        inputs = set(withoutRules)
         for k in parameterInputs[0].keys():
             # Initialize variables to 0
             tempStr = k + " = 0"  
             exec(tempStr, genespace)
-
+        
     for i,row in DF.iterrows():
         # Basal alpha:
         # Execute the rule to figure out
@@ -210,10 +292,7 @@ def generateModelDict(DF,identicalPars,
         exec('booleval = ' + row['Rule'], genespace) 
         par['alpha_'+row['Gene']] = int(genespace['booleval'])
 
-    if parameterInputsDF is None:
-        inputs = set()
-    else:
-        inputs = set(withoutRules)
+
 
     for i,row in tqdm(DF.iterrows()):
         rhs = row['Rule']
@@ -327,6 +406,8 @@ def writeParametersToFile(ModelSpec,outname='parameters.txt'):
             out.write(k+'\t'+str(v) + '\n')
 
 def noise(x,t):
+    # Controls noise proportional to
+    # square root of activity
     c = 10.#4.
     return (c*np.sqrt(abs(x)))
 
