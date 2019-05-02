@@ -1,9 +1,16 @@
-import pandas as pd
-import numpy as np
+
 import os
-from tqdm import tqdm
-from optparse import OptionParser 
 import sys
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+from pathlib import Path
+from sklearn.cluster import KMeans
+from sklearn.manifold import TSNE
+
+from optparse import OptionParser 
+
+
 seed = 0
 np.random.seed(seed)
 
@@ -25,9 +32,16 @@ def parseArgs(args):
     parser.add_option('-n', '--nCells', type='int',default='100',
                       help='Number of cells to sample.')    
     
-    
     parser.add_option('-s', '--nSamples', type='int',default='10',
                       help='Number of random samples of size n.')    
+    
+        
+    parser.add_option('-c', '--nClusters', type='int',default='1',
+                      help='Number of expected clusters in the dataset.')    
+    
+            
+    parser.add_option('', '--noEnd', action='store_true',default= False,
+                      help='Do not force SlingShot to have an end state.')    
     
     (opts, args) = parser.parse_args(args)
 
@@ -69,9 +83,73 @@ def genSamples(opts):
         # New samples
         SampleDF = ExprDF.sample(n = opts.nCells, axis = 'columns')
         SampleDF.to_csv(path +'/ExpressionData.csv')
-        samplePtDF = ptDF.loc[SampleDF.columns,:]
-        samplePtDF.to_csv(path +'/PseudoTime.csv')
         
+        # Compute PseudoTime using slingshot
+        # TODO: Add other methods
+        computeSSPT(SampleDF, ptDF, opts.nClusters, path, opts.noEnd)
+        
+        
+
+def computeSSPT(ExpDF, ptDF, nClust, outPath, noEnd = False):
+    '''
+    Compute PseudoTime using 'slingshot'.
+    Needs the input GenexCells expression data frame.
+    Needs number of clusters to be expected in the 
+    dataset. 
+    E.g., Linear: k=1 (no PseudoTime inference is done)
+    E.g., Bifurcating: k=3 (1 initial and 2 terminal)
+    E.g., Trifurcating: k=4 (1 initial and 3 terminal)
+    '''
+    if nClust == 1:
+        # Return simulation time as PseduoTime
+        ptDF.loc[ExpDF.columns,:].to_csv(outPath+"/PseduoTime.csv")
+    else:
+        ### Compute PseudoTime ordering using slingshot
+        
+        # Step-1: Compute dimensionality reduction
+        # Currently only does TSNE
+        # TODO: Add PCA
+        DimRedRes = TSNE(n_components = 2).fit_transform(ExpDF.T)
+
+        # Step-2: Convert TSNE results to a dataframe
+        DimRedDF = pd.DataFrame(DimRedRes,columns=['dim1','dim2'],
+                                 index=pd.Index(list(ExpDF.columns)))
+        
+        # Step-3: Compute kMeans clustering
+        DimRedDF.loc[:,'cl'] = KMeans(n_clusters = nClust).fit(ExpDF.T).labels_
+        DimRedDF.loc[:,'pt'] = ptDF.loc[DimRedDF.index,'Time']
+        
+        # Step-4: Identify cells corresponding to initial and final states
+        # Cells in initial states are identified from cluster with smallest
+        # mean experimental time
+        # Cells in final states are rest of the clusters
+        startClust = DimRedDF.groupby('cl').mean()['pt'].idxmin()
+        endClust = ','.join([str(ix) for ix in DimRedDF.groupby('cl').mean()['pt'].index if ix != startClust])
+        startClust = str(startClust)
+        
+        # Step-5: Create a temporary directory and write files necessary to run slingshot
+        os.makedirs("temp/", exist_ok = True)
+
+        DimRedDF.to_csv('temp/rd.tsv', columns = ['dim1','dim2'],sep='\t')
+        DimRedDF.to_csv('temp/cl.tsv', columns = ['cl'],sep='\t')
+        if noEnd:
+            cmdToRun= " ".join(["docker run --rm -v", str(Path.cwd())+"/temp/:/data/temp",
+                    "slingshot:base /bin/sh -c \"Rscript data/run_slingshot.R",
+                    "--input=/data/temp/rd.tsv --input-type=matrix",
+                    "--cluster-labels=/data/temp/cl.tsv",
+                    "--start-clus="+startClust+'\"'])
+
+        else:
+            cmdToRun= " ".join(["docker run --rm -v", str(Path.cwd())+"/temp/:/data/temp",
+                                "slingshot:base /bin/sh -c \"Rscript data/run_slingshot.R",
+                                "--input=/data/temp/rd.tsv --input-type=matrix",
+                                "--cluster-labels=/data/temp/cl.tsv",
+                                "--start-clus="+startClust, "--end-clus="+endClust+'\"'])
+        print(cmdToRun)
+        os.system(cmdToRun)
+        os.system("mv temp/PseudoTime.csv "+outPath+"/PseudoTime.csv")
+        os.system("rm -rf temp/")
+
 def main(args):
     opts, args = parseArgs(args)
     genSamples(opts)

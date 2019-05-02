@@ -246,15 +246,17 @@ def generateModelDict(DF,identicalPars,
                 for ci in c:
                     if strengthSpecified:
                         if ci in regulators:
-                            
-                            hillThreshold = 'k_' + ci + '_' + currGen
+                            hillThresholdName = 'k_' + ci + '_' + currGen
+                        else:
+                            hillThresholdName = 'k_' + ci
                     else:
-                        hillThreshold = 'k_' + ci
+                        hillThresholdName = 'k_' + ci
                         
                     if ci in genereg:
-                       hills.append('(p_'+ci+'/'+hillThreshold+')^n_'+ci)
+                       print(hillThresholdName)   
+                       hills.append('(p_'+ci+'/'+hillThresholdName+')^n_'+ci)
                     elif ci in inputreg:
-                        hills.append('('+ci+'/'+hillThreshold+')^n_'+ci)
+                        hills.append('('+ci+'/'+hillThresholdName+')^n_'+ci)
                 mult = '*'.join(hills)
                 # Create Numerator and Denominator
                 den += ' +' +  mult                
@@ -652,8 +654,9 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
                         ty = '+'
                     else:
                         ty = '-'
-                refnet.append({'Gene1':g,
-                               'Gene2':r,
+                 # Regulator is Gene1 and Target is Gene2
+                refnet.append({'Gene2':g, 
+                               'Gene1':r,
                                'Type':ty})
         refNetDF = pd.DataFrame(refnet)
         refNetDF.to_csv(outPrefix + 'refNetwork.csv',sep=',',index=False)
