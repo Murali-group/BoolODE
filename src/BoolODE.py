@@ -98,6 +98,8 @@ def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
 
 def getParameters(DF,identicalPars,
                   samplePars,
+                  genelist,
+                  proteinlist,
                   withoutRules,
                   parameterInputsDF,
                   interactionStrengthDF):
@@ -135,14 +137,20 @@ def getParameters(DF,identicalPars,
     ## divided by 2.
     hillThreshold = (proteinTranslation/proteinDegradation)*\
                     (mRNATranscription/mRNADegradation)/2
+    y_max = (proteinTranslation/proteinDegradation)*\
+            (mRNATranscription/mRNADegradation)
+    # Chosen arbitrarily
+    signalingtimescale = 5.0
     hillCoefficient = 10
     interactionStrength = 1.0
 
-    parameterNamePrefixAndDefaults = {
+    parameterNamePrefixAndDefaultsAll = {
         # Hill coefficients
         'n_':hillCoefficient,
         # Thresholds
         'k_':hillThreshold,
+    }     
+    parameterNamePrefixAndDefaultsGenes = {
         # mRNA transcription rates
         'm_':mRNATranscription,
         # mRNA degradation rates
@@ -154,6 +162,12 @@ def getParameters(DF,identicalPars,
     }     
     
     par = dict()
+    ## If there is even one signaling protein,
+    ## create the y_max parameter
+    if len(proteinlist) > 0:
+        par['y_max'] = y_max
+        par['signalingtimescale'] = signalingtimescale
+        
     parameterInputsDict  = {}
     interactionStrengths = {}
 
@@ -206,8 +220,8 @@ def getParameters(DF,identicalPars,
     ## Check 3:
     ## Whether to sample random parameters or stick to defaults
     if samplePars:
-        print("Sampling parameters")        
-        for parPrefix, parDefault in parameterNamePrefixAndDefaults.items():
+        print("Sampling parameters")
+        for parPrefix, parDefault in parameterNamePrefixAndDefaultsAll.items():
             sampledParameterValues = getSaneNval(len(species),\
                                                  lo=0.5*parDefault,\
                                                  hi=1.5*parDefault,\
@@ -215,18 +229,37 @@ def getParameters(DF,identicalPars,
                                                  sig=0.5*parDefault,\
                                                  identicalPars=identicalPars)
             for sp, sparval in zip(species, sampledParameterValues):
-                par[parPrefix + sp] = sparval                
+                if sp in genelist:
+                    par[parPrefix + sp] = sparval                
+            
+        for parPrefix, parDefault in parameterNamePrefixAndDefaultsGenes.items():
+            sampledParameterValues = getSaneNval(len(species),\
+                                                 lo=0.5*parDefault,\
+                                                 hi=1.5*parDefault,\
+                                                 mu=parDefault,\
+                                                 sig=0.5*parDefault,\
+                                                 identicalPars=identicalPars)
+            for sp, sparval in zip(species, sampledParameterValues):
+                if sp in genelist:
+                    par[parPrefix + sp] = sparval                
+        
     else:
         print("Fixing rate parameters to defaults")
-        for parPrefix, parDefault in parameterNamePrefixAndDefaults.items():
+        for parPrefix, parDefault in parameterNamePrefixAndDefaultsAll.items():
             for sp in species:
                 par[parPrefix + sp] = parDefault
+
+        for parPrefix, parDefault in parameterNamePrefixAndDefaultsGenes.items():
+            for sp in species:
+                if sp in genelist:
+                    par[parPrefix + sp] = parDefault
 
     return par, parameterInputsDict
 
 def generateModelDict(DF,identicalPars,
                       samplePars,
                       withoutRules,
+                      speciesTypeDF,
                       parameterInputsDF,
                       interactionStrengthDF):
     """
@@ -244,6 +277,9 @@ def generateModelDict(DF,identicalPars,
     samplePars : bool
         Sample kinetic parameters using a Gaussian distribution 
         centered around the default parameters
+    speciesTypeDF : pandas DataFrame
+        Table defining type of each species. Takes values 
+        'gene' or 'protein'
     parameterInputsDF : pandas DataFrame
         Optional table that specifies parameter values. Useful to specify
         experimental conditions.
@@ -259,22 +295,68 @@ def generateModelDict(DF,identicalPars,
         'pars' {parameter:parameter value}
 
     """
-    genes = set(DF['Gene'].values)
+    species = set(DF['Gene'].values)
+
     # Variables:
-    varspecs = {'x_' + g:'' for g in genes}
-    
+    ## Check:
+    ## If speciesType is provided, initialize the
+    ## correct species names
+    ## Rule:
+    ## Every gene (x_species) gets a corresponding
+    ## protein (p_species). The gene equation contains
+    ## regulatory logic, protein equation contains production
+    ## degradation terms.
+    ## Every 'protein' (p_species) only gets one variable,
+    ## and the corresponding equation contains the regulatory
+    ## logic term. There is no production/degradation associated
+    ## with this species.
+    varspecs = {}
+    genelist = []
+    proteinlist = []
+    if speciesTypeDF is None:
+        # Assume everything is a gene.
+        for sp in species:
+            varspecs['x_' + sp] = ''
+            varspecs['p_' + sp] = ''
+            genelist.append(sp)
+    else:
+        for i, row in speciesTypeDF.iterrows():
+            sp = row['Species']
+            if row['Type'] == 'protein':
+                varspecs['p_' + sp] = ''
+                proteinlist.append(sp)
+            elif row['Type'] == 'gene':
+                varspecs['x_' + sp] = ''
+                varspecs['p_' + sp] = ''
+                genelist.append(sp)
+        specified = set(speciesTypeDF['Species'].values)
+        for sp in species:
+            if sp not in specified:
+                genelist.append(sp)
+
+                
+    print(genelist)
+    print(proteinlist)
+
     par, parameterInputs = getParameters(DF,identicalPars,
-                         samplePars,
-                         withoutRules,
-                         parameterInputsDF,
-                         interactionStrengthDF)
+                                         samplePars,
+                                         genelist,
+                                         proteinlist,
+                                         withoutRules,
+                                         parameterInputsDF,
+                                         interactionStrengthDF)
     
+    
+
+    ##########################################################
+    ## Assign values to alpha parameters representing the logic
+    ## relationships between variables
     # Initialize new namespace
-    genespace = {}
+    boolodespace = {}
     for i,row in DF.iterrows():
-        # Initialize variables to 0
+        # Initialize species to 0
         tempStr = row['Gene'] + " = 0"  
-        exec(tempStr, genespace)
+        exec(tempStr, boolodespace)
 
     if parameterInputsDF is None:
         inputs = set()
@@ -283,16 +365,14 @@ def generateModelDict(DF,identicalPars,
         for k in parameterInputs[0].keys():
             # Initialize variables to 0
             tempStr = k + " = 0"  
-            exec(tempStr, genespace)
-        
+            exec(tempStr, boolodespace)
+            
     for i,row in DF.iterrows():
         # Basal alpha:
         # Execute the rule to figure out
-        # the value of alpha
-        exec('booleval = ' + row['Rule'], genespace) 
-        par['alpha_'+row['Gene']] = int(genespace['booleval'])
-
-
+        # the value of alpha_0
+        exec('booleval = ' + row['Rule'], boolodespace) 
+        par['alpha_'+row['Gene']] = int(boolodespace['booleval'])
 
     for i,row in tqdm(DF.iterrows()):
         rhs = row['Rule']
@@ -300,78 +380,91 @@ def generateModelDict(DF,identicalPars,
         rhs = rhs.replace(')',' ')
         tokens = rhs.split(' ')
 
-        allreg = set([t for t in tokens if (t in genes or t in inputs)])
-        genereg = set([t for t in tokens if t in genes])
+        allreg = set([t for t in tokens if (t in species or t in inputs)])
+        regulatorySpecies = set([t for t in tokens if t in species])
         inputreg = set([t for t in tokens if t in inputs])
         
-        currGen = row['Gene']
-        num = '( alpha_' + currGen
+        currSp = row['Gene']
+        num = '( alpha_' + currSp
         den = '( 1'
 
         strengthSpecified = False
         
         if interactionStrengthDF is not None:
-            if currGen in interactionStrengthDF['Gene1'].values:
+            if currSp in interactionStrengthDF['Gene1'].values:
                 strengthSpecified = True
-                print(currGen)                
-                # Get the list of regulators of currGen
+                # Get the list of regulators of currSp
                 # whose interaction strengths have been specified
-                regulators = set(interactionStrengthDF[interactionStrengthDF['Gene1'] == currGen]['Gene2'].values)
-                print(regulators)
+                regulatorsWithStrength = set(interactionStrengthDF[\
+                                                                   interactionStrengthDF['Gene1']\
+                                                                   == currSp]['Gene2'].values)
+                print(regulatorsWithStrength)
+                
         for i in range(1,len(allreg) + 1):
             for c in combinations(allreg,i):
                 # Create the hill function terms for each regulator
                 hills = []
                 for ci in c:
-                    if strengthSpecified:
-                        if ci in regulators:
-                            hillThresholdName = 'k_' + ci + '_' + currGen
-                        else:
-                            hillThresholdName = 'k_' + ci
+                    if strengthSpecified and ci in regulatorsWithStrength:
+                            hillThresholdName = 'k_' + ci + '_' + currSp
                     else:
                         hillThresholdName = 'k_' + ci
                         
-                    if ci in genereg:
-                       print(hillThresholdName)   
-                       hills.append('(p_'+ci+'/'+hillThresholdName+')^n_'+ci)
+                    if ci in regulatorySpecies:
+                        # Note: Only proteins can be regulators
+                        hills.append('(p_'+ci+'/'+hillThresholdName+')^n_'+ci)
                     elif ci in inputreg:
                         hills.append('('+ci+'/'+hillThresholdName+')^n_'+ci)
                 mult = '*'.join(hills)
                 # Create Numerator and Denominator
                 den += ' +' +  mult                
-                num += ' + a_' + currGen +'_'  + '_'.join(list(c)) + '*' + mult
+                num += ' + a_' + currSp +'_'  + '_'.join(list(c)) + '*' + mult
                 
                 for i1, row1 in DF.iterrows():
-                    exec(row1['Gene'] + ' = 0', genespace)
+                    exec(row1['Gene'] + ' = 0', boolodespace)
 
                 for geneInList in c:
-                    exec(geneInList + ' = 1', genespace)
-                exec('boolval = ' + row['Rule'], genespace)
+                    exec(geneInList + ' = 1', boolodespace)
+                exec('boolval = ' + row['Rule'], boolodespace)
 
-                par['a_' + currGen +'_'  + '_'.join(list(c))] = int(genespace['boolval']) 
+                par['a_' + currSp +'_'  + '_'.join(list(c))] = int(boolodespace['boolval']) 
 
         num += ' )'
         den += ' )'
         
-        Production = 'm_'+ currGen + '*(' +num + '/' + den + ')'
-        Degradation = 'l_x_'  + currGen + '*x_' + currGen
-        varspecs['x_' + currGen] =  Production \
-                                   + '-' + Degradation
-                                   
-    varspecs.update({'p_' + g:'r_'+g+'*'+'x_' +g + '- l_p_'+g+'*'+'p_' + g\
-                     for g in genes})
+        if currSp in proteinlist:
+            Production =  '(' +num + '/' + den + ')'
+            Degradation = 'p_' + currSp
+            varspecs['p_' + currSp] = 'signalingtimescale*(y_max*' + Production \
+                                       + '-' + Degradation + ')'
+        else:
+            Production = 'm_'+ currSp + '*(' +num + '/' + den + ')'
+            Degradation = 'l_x_'  + currSp + '*x_' + currSp
+            varspecs['x_' + currSp] =  Production \
+                                       + '-' + Degradation
+            # Create the corresponding translated protein equation
+            varspecs['p_' + currSp] = 'r_'+currSp+'*'+'x_' +currSp + '- l_p_'+currSp+'*'+'p_' + currSp
+            
+    ##########################################################                                       
+    # varspecs.update({'p_' + g:'r_'+g+'*'+'x_' +g + '- l_p_'+g+'*'+'p_' + g\
+    #                  for g in species})
         
     # Initialize variables between 0 and 1, Doesn't matter.
-    xvals = [1. for _ in range(len(genes))]
-    ics = {'x_' + g:x for g,x in zip(genes,xvals)}
-    # This is reset in Experiment()
-    ics.update({'p_' + g:ics['x_'+g]*par['r_'+g]/par['l_p_'+g] for g in genes})
+    xvals = [1. for _ in range(len(genelist))]
+    pvals = [10. for _ in range(len(proteinlist))]    
+    ics = {}
+
+    for sp,xv in zip(genelist,xvals):
+        ics['x_' + sp] = xv
+        ics['p_' + sp] = 0
+    for sp, pv in zip(proteinlist,pvals):
+        ics['p_' + sp] = 10.
 
     ModelSpec = {}
     ModelSpec['varspecs'] = varspecs
     ModelSpec['pars'] = par
     ModelSpec['ics'] = ics
-    return ModelSpec, parameterInputs
+    return ModelSpec, parameterInputs, genelist, proteinlist
 
 def writeModelToFile(ModelSpec, prefix=''):
     varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
@@ -487,6 +580,9 @@ def parseArgs(args):
                       help='Path to list of initial conditions')
     parser.add_option('', '--strengths', type='str',default='',
                       help='Path to list of interaction strengths')
+    parser.add_option('', '--species-type', type='str',default='',
+                      help="Path to list of molecular species type file."\
+                      "Useful to specify proteins/genes")
     (opts, args) = parser.parse_args(args)
 
     return opts, args
@@ -528,7 +624,10 @@ def get_ss(P):
     ss = [p for p in P[-1,:]]
     return(ss)
 
-def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarmapper):
+def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
+                        genelist, proteinlist,
+                        varmapper,revvarmapper):
+
     # Initialize
     new_ics = [0 for _ in range(len(varmapper.keys()))]
     # Set the mRNA ics
@@ -538,22 +637,26 @@ def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarm
         new_ics[ind] =  ss[ind]
         if new_ics[ind] < 0:
             new_ics[ind] = 0
+    for p in proteinlist:
+        ind = revvarmapper['p_'+p]
+        if ss[ind] < 0:
+            ss[ind] = 0.0
+        new_ics[ind] =  ss[ind]
+        if new_ics[ind] < 0:
+            new_ics[ind] = 0            
     # Calculate the Protein ics based on mRNA levels
-    proteinss = {}
-    for i in rnaIndex:
-        genename = varmapper[i].replace('x_','')
-        proteinname = 'p_' + genename
-        proteinss[proteinname] = ((ModelSpec['pars']['r_' + genename])/\
-                                  (ModelSpec['pars']['l_p_' + genename]))\
-                                  *new_ics[revvarmapper['x_' + genename]]
-    # Finally record the protein ics values
-    for ind in proteinIndex:
-        new_ics[ind] = proteinss[varmapper[ind]]
+    for genename in genelist:
+        pss = ((ModelSpec['pars']['r_' + genename])/\
+                                      (ModelSpec['pars']['l_p_' + genename]))\
+                                      *new_ics[revvarmapper['x_' + genename]]
+        new_ics[revvarmapper['p_' + genename.replace('_','')]] = pss
     return(new_ics)
 
 def Experiment(Model, ModelSpec,tspan, num_experiments,
                num_timepoints,
-               varmapper, parmapper, outPrefix,icsDF,
+               varmapper, parmapper,
+               genelist, proteinlist,
+               outPrefix,icsDF,
                burnin=False,writeProtein=False,
                normalizeTrajectory=False):
     pars = list(ModelSpec['pars'].values())
@@ -561,12 +664,17 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
     revvarmapper = {v:k for k,v in varmapper.items()}
     proteinIndex = [i for i in range(len(varmapper.keys())) if 'p_' in varmapper[i]]
 
-
     y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
     ss = np.zeros(len(varmapper.keys()))
     for i,k in varmapper.items():
         if 'x_' in k:
             ss[i] = 1.0
+        elif 'p_' in k:
+            if k.replace('p_','') in proteinlist:
+                # Seting them to the threshold
+                # causes them to drop to 0 rapidly
+                # TODO: try setting to threshold < v < y_max
+                ss[i] = 20.
             
     if icsDF is not None:
         icsspec = icsDF.loc[0]
@@ -584,7 +692,13 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
     outputfilenames = []
     for isStochastic in [True]: 
         # "WT" simulation
-        result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
+        if len(proteinlist) == 0:
+            result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
+        else:
+            speciesoi = [revvarmapper['p_' + p] for p in proteinlist]
+            speciesoi.extend([revvarmapper['x_' + g] for g in genelist])
+            result = pd.DataFrame(index=pd.Index([varmapper[i] for i in speciesoi]))
+            
         frames = []
         every = len(tspan)/num_timepoints
         if burnin:
@@ -600,18 +714,22 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
                   for tpoint in timeIndex]
         
         for expnum in tqdm(range(num_experiments)):
-            y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex, varmapper,revvarmapper)
+            y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
+                                         genelist, proteinlist,
+                                         varmapper,revvarmapper)
+
             P = simulateModel(Model, y0_exp, pars, isStochastic, tspan)
             P = P.T
             # Extract Time points
             sampleDF = sampleTimeSeries(num_timepoints,expnum,\
                                         tspan, P,\
-                                        varmapper,timeIndex, header,
+                                        varmapper, timeIndex,
+                                        genelist, proteinlist,                                        
+                                        header,
                                         writeProtein=writeProtein)
             sampleDF = sampleDF.T
             frames.append(sampleDF)
         every = len(tspan)/num_timepoints
-
         result = pd.concat(frames,axis=1)
         result = result[header]
         indices = result.index
@@ -643,11 +761,14 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
             
 def sampleTimeSeries(num_timepoints, expnum,\
                      tspan,  P,\
-                     varmapper,timeIndex,header,writeProtein=False):
+                     varmapper,timeIndex,
+                     genelist, proteinlist,
+                     header,writeProtein=False):
     """
     Returns dictionary of dictionaries
     {gene : { exp_id : simulated value } }
     """
+    revvarmapper = {v:k for k,v in varmapper.items()}
     every = int(len(tspan)/num_timepoints)
     experimentTimePoints = [h for h in header if 'E' + str(expnum) in h]
     rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
@@ -659,8 +780,18 @@ def sampleTimeSeries(num_timepoints, expnum,\
             sampleDict[varmapper[ri]] = {h:P[ri][ti] for h,ti in zip(experimentTimePoints,timeIndex)}
     else:
         # Default, only mRNA
-        for ri in rnaIndex:
-            sampleDict[varmapper[ri]] = {h:P[ri][ti] for h,ti in zip(experimentTimePoints,timeIndex)}
+        if len(proteinlist) == 0:
+            for ri in rnaIndex:
+                sampleDict[varmapper[ri]] = {h:P[ri][ti]\
+                                             for h,ti in zip(experimentTimePoints,timeIndex)}
+        else:
+            speciesoi = [revvarmapper['p_' + p] for p in proteinlist]
+            speciesoi.extend([revvarmapper['x_' + g] for g in genelist])
+            result = pd.DataFrame(index=pd.Index([varmapper[i] for i in speciesoi]))
+
+            for si in speciesoi:
+                sampleDict[varmapper[si]] = {h:P[si][ti]\
+                                             for h,ti in zip(experimentTimePoints,timeIndex)}
 
     sampleDF = pd.DataFrame(sampleDict)
     return(sampleDF)
@@ -681,7 +812,8 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
         if len(parameterInputsPath) == 0:
             ExpDF = ExpDF.drop(withoutRules, axis=0)
         ExpDF.to_csv(outPrefix+'ExpressionData.csv',sep=',')
-        ExpDF.drop([col for col in ExpDF.columns if ExpDF[col].max() < 0.1*ExpDF.values.max()],axis=1,inplace=True)
+        ExpDF.drop([col for col in ExpDF.columns if ExpDF[col].max()\
+                    < 0.1*ExpDF.values.max()],axis=1,inplace=True)
         ExpDF.to_csv(outPrefix+'ExpressionData-dropped.csv',sep=',')        
         
         # PseudoTime.csv
@@ -696,7 +828,8 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
         PseudoTimeDF = pd.DataFrame(PseudoTimeDict)
         PseudoTimeDF.to_csv(outPrefix + 'PseudoTime.csv',sep=',',index=False)
         PseudoTimeDF.index = PseudoTimeDF['Cell ID']
-        PseudoTimeDF.loc[ExpDF.columns].to_csv(outPrefix + 'PseudoTime-dropped.csv', sep = ',', index = False)
+        PseudoTimeDF.loc[ExpDF.columns].to_csv(outPrefix +\
+                                               'PseudoTime-dropped.csv', sep = ',', index = False)
         # refnetwork
         refnet = []
         genes = set(BoolDF['Gene'].values)
@@ -763,6 +896,7 @@ def main(args):
     writeProtein = opts.write_protein
     normalizeTrajectory = opts.normalize_trajectory
     interactionStrengthPath = opts.strengths
+    speciesTypePath = opts.species_type
     
     if len(parameterInputsPath) > 0: 
         parameterInputsDF = pd.read_csv(parameterInputsPath,sep='\t')
@@ -779,7 +913,12 @@ def main(args):
         interactionStrengthDF = pd.read_csv(interactionStrengthPath,sep='\t',engine='python')
     else:
         interactionStrengthDF = None
-        
+
+    if len(speciesTypePath) > 0: 
+        speciesTypeDF = pd.read_csv(speciesTypePath,sep='\t')
+    else:
+        speciesTypeDF = None
+    
     timesteps = 100
     tspan = np.linspace(0,tmax,tmax*timesteps)
     
@@ -792,9 +931,13 @@ def main(args):
         try:
             genesDict = {}
             
-            ModelSpec, parameterInputs = generateModelDict(DF,identicalPars,
+            ModelSpec,\
+                parameterInputs,\
+                genelist,\
+                proteinlist = generateModelDict(DF,identicalPars,
                                                            samplePars,
                                                            withoutRules,
+                                                           speciesTypeDF,
                                                            parameterInputsDF,
                                                            interactionStrengthDF)
             # FIXME : ask user to pass row if parameter input file
@@ -807,6 +950,7 @@ def main(args):
             import model
             outputfilenames = Experiment(model.Model,ModelSpec,tspan,numExperiments,
                                          numTimepoints, varmapper, parmapper,
+                                         genelist,proteinlist,
                                          outPrefix, icsDF,
                                          burnin=burnin,
                                          writeProtein=writeProtein,
