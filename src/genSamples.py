@@ -96,7 +96,7 @@ def genSamples(opts):
         # TODO: Add other methods
         computeSSPT(SampleDF, ptDF, opts.nClusters, outPaths, opts.noEnd)
         
-        for dc,path in zip(dropoutCutoff,outPaths):
+        for dc,path in zip(dropoutCutoffs,outPaths):
             path = opts.outPrefix + '_' +str(opts.nCells) +'_' + str(i) + '_' + str(dc)
             if not os.path.exists(path):
                 os.makedirs(path)
