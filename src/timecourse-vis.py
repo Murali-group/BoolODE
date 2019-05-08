@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
 import sys
@@ -10,7 +12,7 @@ inFile = opts.inFile
 
 DF = pd.read_csv(inFile, sep=',',index_col=0)
 genes = DF.index
-f,ax = plt.subplots(len(genes),1,figsize=(2*len(genes),10))
+f,ax = plt.subplots(len(genes),1,figsize=(10,2*len(genes)))
 
 tp = DF.columns
 experiments = set([t.split('_')[0] for t in tp])

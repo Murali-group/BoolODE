@@ -72,25 +72,54 @@ def genSamples(opts):
         for col in ExprDF.columns:
             if d == col.split('_')[0]:
                 ExprDF.drop(col,axis=1,inplace=True)
-
+                
+    dropoutCutoffs = [0,0.1,0.2,0.5]
+    
     for i in range(opts.nSamples):
-        path = opts.outPrefix + '_' +str(opts.nCells) +'_' + str(i)
-        if not os.path.exists(path):
-            os.makedirs(path)
-
-        refDF.to_csv(path + '/refNetwork.csv',index=False)
-
         # New samples
         SampleDF = ExprDF.sample(n = opts.nCells, axis = 'columns')
-        SampleDF.to_csv(path +'/ExpressionData.csv')
-        
+        # Dropout here
+
+        meanExpression = {}
+        for gene in SampleDF.index:
+            meanExpression[gene] = SampleDF.loc[gene].mean()
+            
+        maxExp = max([v for g,v in meanExpression.items()])
+        outPaths = []
+        for dc in dropoutCutoffs:
+            path = opts.outPrefix + '_' +str(opts.nCells) +'_' + str(i) + '_' + str(dc)
+            if not os.path.exists(path):
+                os.makedirs(path)
+            outPaths.append(path)
+
         # Compute PseudoTime using slingshot
         # TODO: Add other methods
-        computeSSPT(SampleDF, ptDF, opts.nClusters, path, opts.noEnd)
+        computeSSPT(SampleDF, ptDF, opts.nClusters, outPaths, opts.noEnd)
         
+        for dc,path in zip(dropoutCutoff,outPaths):
+            path = opts.outPrefix + '_' +str(opts.nCells) +'_' + str(i) + '_' + str(dc)
+            if not os.path.exists(path):
+                os.makedirs(path)
+                
+            refDF.to_csv(path + '/refNetwork.csv',index=False)
+
+            todrop = []
+            for gene, meanGeneExp in meanExpression.items():
+                if meanGeneExp <= dc*maxExp:
+                    todrop.append(gene)
+            DropOutDF = SampleDF.copy()
+            for gene, row in SampleDF.iterrows():
+                if gene in todrop:
+                    for cell in DropOutDF.columns:
+                        cointoss = np.random.random()
+                        if cointoss < 0.5:
+                            DropOutDF[cell].loc[gene] = 0.0
+            DropOutDF.to_csv(path + '/ExpressionData-dropout-'+str(dc)+'.csv')
+
+        #SampleDF.to_csv(path +'/ExpressionData.csv')
         
 
-def computeSSPT(ExpDF, ptDF, nClust, outPath, noEnd = False):
+def computeSSPT(ExpDF, ptDF, nClust, outPaths, noEnd = False):
     '''
     Compute PseudoTime using 'slingshot'.
     Needs the input GenexCells expression data frame.
@@ -102,7 +131,8 @@ def computeSSPT(ExpDF, ptDF, nClust, outPath, noEnd = False):
     '''
     if nClust == 1:
         # Return simulation time as PseduoTime
-        ptDF.loc[ExpDF.columns,:].to_csv(outPath+"/PseduoTime.csv")
+        for outPath in outPaths:
+            ptDF.loc[ExpDF.columns,:].to_csv(outPath+"/PseduoTime.csv")
     else:
         ### Compute PseudoTime ordering using slingshot
         
@@ -147,7 +177,8 @@ def computeSSPT(ExpDF, ptDF, nClust, outPath, noEnd = False):
                                 "--start-clus="+startClust, "--end-clus="+endClust+'\"'])
         print(cmdToRun)
         os.system(cmdToRun)
-        os.system("mv temp/PseudoTime.csv "+outPath+"/PseudoTime.csv")
+        for outPath in outPaths:
+            os.system("cp temp/PseudoTime.csv "+outPath+"/PseudoTime.csv")
         os.system("rm -rf temp/")
 
 def main(args):

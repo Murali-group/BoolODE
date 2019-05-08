@@ -36,20 +36,21 @@ DF = pd.read_csv(inFile,sep=',',index_col=0)
 Cells = DF.T.values
 
 PC = PCA(n_components=2).fit_transform(Cells)
-if tsne_flag:
-    embed = TSNE(n_components=2,
-                 perplexity=p
-    ).fit_transform(PC)
+embed = TSNE(n_components=2,
+).fit_transform(Cells)
     
 
 colors = [float(h.split('_')[1].replace('|','.')) for h in DF.columns]
 experiments = set([h.split('_')[0] for h in DF.columns])
+PCDF = pd.DataFrame(PC,columns=['PC1','PC2'],index=pd.Index(list(DF.columns)))
 
-if tsne_flag:
-    PCDF = pd.DataFrame(embed,columns=['PC1','PC2'],index=pd.Index(list(DF.columns)))
-else:
-    PCDF = pd.DataFrame(PC,columns=['PC1','PC2'],index=pd.Index(list(DF.columns)))
+PCDF['tsne1'] = embed[:,0]#pd.DataFrame(embed,columns=['PC1','PC2'],index=pd.Index(list(DF.columns)))
+PCDF['tsne2'] = embed[:,1]
     
+PCDF['time'] = colors
+PCDF.to_csv(inFile + '_dimred.txt')
+
+f,ax = plt.subplots(2,1)
 for e in experiments:
     toplotX = []
     toplotY = []
@@ -59,8 +60,16 @@ for e in experiments:
             toplotX.append(row['PC1'])
             toplotY.append(row['PC2'])
             colors.append(float(indexname.split('_')[1].replace('|','.')))
-    plt.plot(toplotX[0],toplotY[0],'ro')
-    plt.scatter(toplotX,toplotY,c=colors)                    
+    ax[0].plot(toplotX[0],toplotY[0],'ro')
+    ax[0].scatter(toplotX,toplotY,c=colors)
+    for indexname,row in PCDF.iterrows():
+        if e in str(indexname):
+            toplotX.append(row['tsne1'])
+            toplotY.append(row['tsne2'])
+            colors.append(float(indexname.split('_')[1].replace('|','.')))
+    ax[1].plot(toplotX[0],toplotY[0],'ro')
+    ax[1].scatter(toplotX,toplotY,c=colors)                    
+    
     #plot_colourline(toplotX[:-1],toplotY[:-1],colors)
     
 plt.legend()

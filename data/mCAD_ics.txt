@@ -1,2 +1,2 @@
 Genes	Values
-['Fgf8']	[2]
+['Fgf8']	[1]
