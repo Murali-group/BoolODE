@@ -451,14 +451,14 @@ def generateModelDict(DF,identicalPars,
         
     # Initialize variables between 0 and 1, Doesn't matter.
     xvals = [1. for _ in range(len(genelist))]
-    pvals = [10. for _ in range(len(proteinlist))]    
+    pvals = [20. for _ in range(len(proteinlist))]    
     ics = {}
 
     for sp,xv in zip(genelist,xvals):
         ics['x_' + sp] = xv
         ics['p_' + sp] = 0
     for sp, pv in zip(proteinlist,pvals):
-        ics['p_' + sp] = 10.
+        ics['p_' + sp] = pv
 
     ModelSpec = {}
     ModelSpec['varspecs'] = varspecs
@@ -682,11 +682,22 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
         values = ast.literal_eval(icsspec['Values'])
         icsmap = {g:v for g,v in zip(genes,values)}
         for i,k in varmapper.items():
-            if 'x_' in k:
-                if k.replace('x_','') in genes:
-                    ss[i] = icsmap[k.replace('x_','')]
+            for p in proteinlist:
+                if p in icsmap.keys():
+                    ss[revvarmapper['p_'+p]] = icsmap[p]
                 else:
-                    ss[i] = 0.01
+                    ss[revvarmapper['p_'+p]] = 0.01
+            for g in genelist:
+                if g in icsmap.keys():
+                    ss[revvarmapper['x_'+g]] = icsmap[g]
+                else:
+                    ss[revvarmapper['x_'+g]] = 0.01
+            
+            # if 'x_' in k:
+            #     if k.replace('x_','') in genes:
+            #         ss[i] = icsmap[k.replace('x_','')]
+            #     else:
+            #         ss[i] = 0.01
         
 
     outputfilenames = []

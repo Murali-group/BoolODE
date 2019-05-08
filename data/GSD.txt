@@ -1,0 +1,20 @@
+Gene	Rule
+UGR	UGR and not (NR5A1 or WNT4)
+CBX2	UGR and not (NR0B1 and WNT4 and CTNNB1)
+GATA4	(UGR or WNT4 or NR5A1 or SRY)
+WT1mKTS	(UGR or GATA4)
+WT1pKTS	(UGR or GATA4) and not (WNT4 and CTNNB1)
+NR5A1	(UGR or CBX2 or WT1mKTS or GATA4) and not (NR0B1 and WNT4)
+NR0B1	(WT1mKTS or (WNT4 and CTNNB1)) and not (NR5A1 and SOX9)
+SRY	((NR5A1 and WT1mKTS and CBX2) or (GATA4 and WT1pKTS and CBX2 and NR5A1) or (SOX9 or SRY)) and not (CTNNB1)
+SOX9	((SOX9 and FGF9) or (SRY or PGD2) or (SRY and CBX2) or (GATA4 and NR5A1 and SRY)) and not (WNT4 or CTNNB1 or FOXL2)
+FGF9	SOX9 and not WNT4
+PGD2	SOX9
+DMRT1	(SRY or SOX9) and not (FOXL2)
+DHH	SOX9
+DKK1	(SRY or SOX9)
+AMH	((SOX9 and GATA4 and NR5A1) or (SOX9 and NR5A1 and GATA4 and WT1mKTS)) and not (NR0B1 and CTNNB1)
+WNT4	(GATA4 or (CTNNB1 or RSPO1 or NR0B1)) and not (FGF9 or DKK1)
+RSPO1	(WNT4 or CTNNB1) and not (DKK1)
+FOXL2	(WNT4 and CTNNB1) and not (DMRT1 or SOX9)
+CTNNB1	(WNT4 or RSPO1) and not (SRY or (SOX9 and AMH))

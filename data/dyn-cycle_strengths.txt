@@ -1,0 +1,4 @@
+Gene1	Gene2	Strength
+g2	g1	100
+g3	g2	100
+g1	g5	100

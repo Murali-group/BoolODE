@@ -1,0 +1,9 @@
+Gene	Rule
+Nkx61	not (Dbx2)
+Nkx62	not (Nkx61 or Dbx1)
+Nkx22	not (Pax6 or Dbx2)
+Pax6	not (Nkx22)
+Dbx1	not (Nkx62 or Nkx61)
+Dbx2	not (Nkx61 or Olig2 or Nkx22)
+Olig2	not (Irx3 or Nkx22)
+Irx3	not (Olig2 or Nkx22)
