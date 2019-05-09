@@ -33,9 +33,11 @@ def parseArgs(args):
                       help='Number of cells to sample.')    
     
     parser.add_option('-s', '--nSamples', type='int',default='10',
-                      help='Number of random samples of size n.')    
+                      help='Number of random samples of size n.')
     
-        
+    parser.add_option('-d', '--dropout', action='store_true',default=False,
+                      help='Carry out dropout analysis?')
+            
     parser.add_option('-c', '--nClusters', type='int',default='1',
                       help='Number of expected clusters in the dataset.')    
     
@@ -72,9 +74,12 @@ def genSamples(opts):
         for col in ExprDF.columns:
             if d == col.split('_')[0]:
                 ExprDF.drop(col,axis=1,inplace=True)
-                
-    dropoutCutoffs = [0,0.1,0.2,0.5]
-    
+
+    if opts.dropout:
+        dropoutCutoffs = [0,0.1,0.2,0.5]
+    else:
+        dropoutCutoffs = [0]
+        
     for i in range(opts.nSamples):
         # New samples
         SampleDF = ExprDF.sample(n = opts.nCells, axis = 'columns')
@@ -97,7 +102,10 @@ def genSamples(opts):
         computeSSPT(SampleDF, ptDF, opts.nClusters, outPaths, opts.noEnd)
         
         for dc,path in zip(dropoutCutoffs,outPaths):
-            path = opts.outPrefix + '_' +str(opts.nCells) +'_' + str(i) + '_' + str(int(100*dc))
+            if dc == 0:
+                path = opts.outPrefix + '_' +str(opts.nCells) +'_' + str(i)
+            else:
+                path = opts.outPrefix + '_' +str(opts.nCells) +'_' + str(i) + '_' + str(int(100*dc))
             if not os.path.exists(path):
                 os.makedirs(path)
                 
@@ -114,7 +122,7 @@ def genSamples(opts):
                         cointoss = np.random.random()
                         if cointoss < 0.5:
                             DropOutDF[cell].loc[gene] = 0.0
-            DropOutDF.to_csv(path + '/ExpressionData-dropout-'+str(dc)+'.csv')
+            DropOutDF.to_csv(path + '/ExpressionData.csv')
 
         #SampleDF.to_csv(path +'/ExpressionData.csv')
         
