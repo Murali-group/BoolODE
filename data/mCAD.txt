@@ -1,6 +1,6 @@
 Gene	Rule
 Fgf8	( Fgf8 and Sp8 and not (Emx2) )
-Emx2	(not (Fgf8) and not (Pax6) and Coup and not (Sp8))
-Pax6	(not (Emx2) and not (Coup) and  (Sp8))
+Emx2	(Coup and not (Fgf8) and not (Pax6)  and not (Sp8))
+Pax6	(  (Sp8) and not (Emx2) and not (Coup))
 Coup	( not (Fgf8) and not (Sp8) )
 Sp8	( Fgf8 and not (Emx2))
