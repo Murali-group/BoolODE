@@ -75,9 +75,9 @@ the type of each variable, either `protein` or `gene`.
 For each gene in the TF regulatory network, BoolODE creates two equations, one govering the regulation
  of the gene (x), and one for its corresponding protein (p).
  
- $\frac{dx}{dt} = m f(X) - l_x x$
+ \(\frac{dx}{dt} = m f(X) - l_x x\)
  
- $\frac{dp}{dt} = r x  - l_p p$
+ \(\frac{dp}{dt} = r x  - l_p p\)
 
 
 If you use BoolODE in your research, please cite:
