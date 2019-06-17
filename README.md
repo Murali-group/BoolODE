@@ -69,7 +69,17 @@ with 3 timepoints, at times 0,10,20 respectively.
 
 ## Overview of method
 BoolODE is currently designed for transcription factor regulatory networks, though a protein interaction
-network can be specified by using the `--species_type` option pointing to a tab separated file containing
+network can be specified by using the `--species_type` option pointing to a tab separated file indicating
+the type of each variable, either `protein` or `gene`.
+
+For each gene in the TF regulatory network, BoolODE creates two equations, one govering the regulation
+ of the gene (x), and one for its corresponding protein (p).
+ 
+ $\frac{dx}{dt} = m f(X) - l_x x$
+ 
+ $\frac{dp}{dt} = r x  - l_p p$
+
+
 If you use BoolODE in your research, please cite:
 
 Aditya Pratapa, Amogh Jalihal, Jeffrey Law, Aditya Bharadwaj, and T M Murali. Benchmarking algorithms for gene regulatory network inference from single-cell transcriptomic data, bioRxiv (2019). doi.org/10.1101/642926
