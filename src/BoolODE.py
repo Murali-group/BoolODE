@@ -776,11 +776,10 @@ def sampleTimeSeries(num_timepoints, expnum,\
                      genelist, proteinlist,
                      header,writeProtein=False):
     """
-    Returns dictionary of dictionaries
-    {gene : { exp_id : simulated value } }
+    Returns pandas DataFrame with columns corresponding to 
+    time points and rows corresponding to genes
     """
     revvarmapper = {v:k for k,v in varmapper.items()}
-    every = int(len(tspan)/num_timepoints)
     experimentTimePoints = [h for h in header if 'E' + str(expnum) in h]
     rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
     sampleDict = {}
@@ -814,8 +813,6 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
         syntheticDF = pd.read_csv(f,sep='\t',index_col=0,engine='python')
         
         # ExpressionData.csv
-
-        
         ExpDF = syntheticDF.copy()
         columns = list(ExpDF.columns)
         columns = [c.replace('-','_') for c in columns]
@@ -885,8 +882,6 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
                                'Type':ty})
         refNetDF = pd.DataFrame(refnet)
         refNetDF.to_csv(outPrefix + 'refNetwork.csv',sep=',',index=False)
-            
-        
 
 def main(args):
     opts, args = parseArgs(args)
