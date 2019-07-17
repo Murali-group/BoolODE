@@ -11,15 +11,15 @@ from scipy.integrate import odeint
 import time
 import importlib
 import warnings
-# Uncomment on Aditya's machine
-sys.path.insert(0, "/home/adyprat/anaconda3/envs/pyDSTool/lib/python3.6/site-packages/")
 from tqdm import tqdm 
-from optparse import OptionParser 
+from optparse import OptionParser
+from multiprocessing import Process, Lock
+from utils import *
 import ast
 np.seterr(all='raise')
 import os
 
-def readBooleanRules(path, parameterInputsPath):
+def readBooleanRules(path, parameterInputsPath, add_dummy=False):
     """
     Parameters
     ----------
@@ -53,48 +53,17 @@ def readBooleanRules(path, parameterInputsPath):
             DF = DF.append({'Gene':n,'Rule':n},ignore_index=True)
         else:
             print("Treating %s as parameter" % {n})
+    ## Add dummy genes
+    if add_dummy:
+        num_dummy = 2*len(allnodes)
+        for dg in range(num_dummy):
+            DF = DF.append({'Gene':'dummy' + str(dg),
+                            'Rule':' or '.join([s for s in np.random.choice(list(allnodes),size=np.random.choice([i+1 for i in range(len(allnodes)-1)]))])},
+                           ignore_index = True)
+    print(DF)
+
     return DF, withoutRules
 
-def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
-    """
-    Generates a gaussian random number which is
-    bounded by lo and hi
-    Parameters
-    ----------
-    size : int
-        number of random numbers to generate
-    lo : float
-        lower bound of sample range
-    hi : float
-        upper bound of sample range
-    mu : float
-        Mean of Gaussian distribution to be 
-        sampled from
-    sigma : float
-        Standard deviation of Gausssian distribution
-        to be sampled from
-    identicalPars : bool
-        Flag to sample single value and return a 
-        list of identical values
-    Returns 
-    -------
-    K : list
-        list of sampled values
-    """
-    
-    if identicalPars:
-        k = np.random.normal(mu, sig)
-        while k < lo or k > hi:
-            k = np.random.normal(mu, sig)
-        K = [k for i in range(size)]
-    else:
-        K = []
-        for _ in range(size):
-            k = np.random.normal(mu, sig)
-            while k < lo or k > hi:
-                k = np.random.normal(mu, sig)
-            K.append(k)
-    return K
 
 def getParameters(DF,identicalPars,
                   samplePars,
@@ -296,6 +265,7 @@ def generateModelDict(DF,identicalPars,
 
     """
     species = set(DF['Gene'].values)
+    
 
     # Variables:
     ## Check:
@@ -466,38 +436,7 @@ def generateModelDict(DF,identicalPars,
     ModelSpec['ics'] = ics
     return ModelSpec, parameterInputs, genelist, proteinlist
 
-def writeModelToFile(ModelSpec, prefix=''):
-    varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
-    parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
-    
-    with open('src/'+prefix+'model.py','w') as out:
-        out.write('#####################################################\n')
-        out.write('import numpy as np\n')
-        out.write('# This file is created automatically\n')
-        out.write('def Model(Y,t,pars):\n')
-        out.write('    # Parameters\n')
-        for i,p in enumerate(ModelSpec['pars'].keys()):
-            out.write('    ' + p + ' = pars[' + str(i) + ']\n')
-        outstr = ''
-        out.write('    # Variables\n')
-        for i in range(len(varmapper.keys())):
-            out.write('    ' + varmapper[i] + ' = Y[' + str(i) + ']\n')
-            outstr += 'd' + varmapper[i] + ','
-        for i in range(len(varmapper.keys())):
-            vdef = ModelSpec['varspecs'][varmapper[i]]
-            vdef = vdef.replace('^','**')
-            out.write('    d' + varmapper[i] + ' = '+vdef+'\n')
-            
-        out.write('    dY = np.array([' + outstr+ '])\n')
-        out.write('    return(dY)\n')
-        out.write('#####################################################')
-    return varmapper,parmapper
         
-def writeParametersToFile(ModelSpec,outname='parameters.txt'):
-    with open(outname,'w') as out:
-        for k, v in ModelSpec['pars'].items():
-            out.write(k+'\t'+str(v) + '\n')
-
 def noise(x,t):
     # Controls noise proportional to
     # square root of activity
@@ -543,16 +482,15 @@ def eulersde(f,G,y0,tspan,pars,dW=None):
         n += 1 
     return y
 
-def minmaxnorm(X):
-    mix = min(X)
-    mx = max(X)
-    N = [(x-mix)/(mx-mix) for x in X]
-    return N
 
 def parseArgs(args):
     parser = OptionParser()
     parser.add_option('', '--max-time', type='int',default=20,
                       help='Total time of simulation. (Default = 20)')
+    parser.add_option('', '--num-cells', type='int',default=100,
+                      help='Number of cells sample. (Default = 100)')
+    parser.add_option('', '--add-dummy', action="store_true",default=False,
+                      help='Add dummy genes')        
     parser.add_option('', '--num-timepoints', type='int',default=100,
                       help='Number of time points to sample. (Default = 100)')
     parser.add_option('', '--num-experiments', type='int',default=30,
@@ -594,35 +532,7 @@ def simulateModel(Model, y0, parameters,isStochastic, tspan):
         P = eulersde(Model,noise,y0,tspan,parameters)
     return(P)
 
-def normalizeData(P):
-    """
-    Calls minmaxnorm() for each time series
-    """
-    Pnorm = []
-    for i in range(np.shape(P)[1]):
-        Pnorm.append(minmaxnorm(P[:,i]))
-    return Pnorm
 
-def normalizeExp(DF):
-    """
-    Calls minmaxnorm() for each gene across all experiments
-    """
-    genes = DF.index
-    newDF = DF.copy()
-    Pnorm = []
-    for g in genes:
-        P = DF.loc[g].values
-        newDF.loc[g] = minmaxnorm(P)
-        
-    return newDF
-
-def get_ss(P):
-    """
-    Returns the last entry in each time series list 
-    """
-    ss = []
-    ss = [p for p in P[-1,:]]
-    return(ss)
 
 def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
                         genelist, proteinlist,
@@ -652,14 +562,103 @@ def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
         new_ics[revvarmapper['p_' + genename.replace('_','')]] = pss
     return(new_ics)
 
+def simulateAndSample(argdict):
+    all_parameters = argdict['all_parameters']
+    par_names = argdict['par_names']
+    Model = argdict['Model']
+    y0_exp = argdict['y0_exp']
+    isStochastic = argdict['isStochastic']
+    tspan = argdict['tspan']
+    varmapper = argdict['varmapper']
+    timeIndex = argdict['timeIndex']
+    genelist = argdict['genelist']
+    proteinlist = argdict['proteinlist']
+    header = argdict['header']
+    writeProtein=argdict['writeProtein']
+    outfile = argdict['outfile']
+    cellid = argdict['cellid']
+    outPrefix = argdict['outPrefix']    
+    pars = {}
+    for k, v in all_parameters.items():
+        if ('a_' in k or 'alpha_' in k):
+            pars[k] = getSaneNval(1, lo=0,hi=1.,mu=v, sig=0.05)[0]
+        else:
+            pars[k] = v
+    pars = [pars[k] for k in par_names]
+    retry = True
+    trys = 0
+    #num_timepoints = 100
+    #every = len(tspan)/100
+    tps = [i for i in range(1,len(tspan))]
+    gid = [i for i,n in varmapper.items() if 'x_' in n]
+
+    while retry:
+        P = simulateModel(Model, y0_exp, pars, isStochastic, tspan)
+        P = P.T
+        retry = False
+        #subset = np.zeros((len(gid),len(tps)))
+        subset = P[gid,:][:,tps]
+        df = pd.DataFrame(subset,
+                          index=pd.Index(genelist),
+                          columns = ['E' + str(cellid) +'_' +str(i)\
+                                     for i in tps]) # range(1,len(P[0]))
+        dfmax = df.max()
+        for col in df.columns:
+            colmax = df[col].max()
+            ## Document this
+            if colmax < 0.3:
+                retry= True
+                break
+        trys += 1
+        if trys > 1:
+            print(trys)
+    # Extract Time points
+    # sampleDF = sampleCellFromTraj(cellid,
+    #                               tspan,
+    #                               P,
+    #                               varmapper, timeIndex,
+    #                               genelist, proteinlist,                                        
+    #                               header,
+    #                               writeProtein=writeProtein)
+    #df = sampleDF.T
+    outstr = ''
+    outPrefix = outPrefix +'temp/'
+    if len(outPrefix) > 0:
+        if '/' in outPrefix:
+            outDir = '/'.join(outPrefix.split('/')[:-1])
+            if not os.path.exists(outDir):
+                print(outDir, "does not exist, creating it...")
+                os.makedirs(outDir)
+    
+    df.to_csv(outPrefix + str(cellid) + '.csv')
+    #outstr = str(header[cellid]) + ',' + ','.join(str(row[header[cellid]]) for i,row in df.iterrows()) + '\n'
+    # with open(outfile, 'a') as f:
+    #     f.write(outstr)
+
+    
 def Experiment(Model, ModelSpec,tspan, num_experiments,
                num_timepoints,
+               num_cells,
                varmapper, parmapper,
                genelist, proteinlist,
                outPrefix,icsDF,
                burnin=False,writeProtein=False,
                normalizeTrajectory=False):
-    pars = list(ModelSpec['pars'].values())
+    ## Use default parameters 
+    #pars = list(ModelSpec['pars'].values())
+
+    ####################    
+    # Sample only the alpha values
+    all_parameters = dict(ModelSpec['pars'])
+    par_names = sorted(list(all_parameters.keys()))
+    pars = {}
+    for k, v in all_parameters.items():
+        if ('a_' in k or 'alpha_' in k):
+            pars[k] = getSaneNval(1, lo=0,hi=1.,mu=v, sig=0.05)[0]
+        else:
+            pars[k] = v
+    pars = [pars[k] for k in par_names]
+    ####################
     rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
     revvarmapper = {v:k for k,v in varmapper.items()}
     proteinIndex = [i for i in range(len(varmapper.keys())) if 'p_' in varmapper[i]]
@@ -719,30 +718,104 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
         else:
             startat = 0
             
-        timeIndex = [i for i in range(startat,len(tspan)) if float(i)%float(every) == 0]
-        header = ['E' + str(expnum) + '_' + str(round(tspan[tpoint],3)).replace('.','-')\
-                  for expnum in range(num_experiments)\
-                  for tpoint in timeIndex]
-        
-        for expnum in tqdm(range(num_experiments)):
-            y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
-                                         genelist, proteinlist,
-                                         varmapper,revvarmapper)
+        # timeIndex = [i for i in range(startat,len(tspan)) if float(i)%float(every) == 0]
+        # header = ['E' + str(expnum) + '_' + str(round(tspan[tpoint],3)).replace('.','-')\
+        #           for expnum in range(num_experiments)\
+        #           for tpoint in timeIndex]
+        # for expnum in tqdm(range(num_experiments)):
+        #     y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
+        #                                  genelist, proteinlist,
+        #                                  varmapper,revvarmapper)
 
-            P = simulateModel(Model, y0_exp, pars, isStochastic, tspan)
-            P = P.T
-            # Extract Time points
-            sampleDF = sampleTimeSeries(num_timepoints,expnum,\
-                                        tspan, P,\
-                                        varmapper, timeIndex,
-                                        genelist, proteinlist,                                        
-                                        header,
-                                        writeProtein=writeProtein)
-            sampleDF = sampleDF.T
-            frames.append(sampleDF)
-        every = len(tspan)/num_timepoints
-        result = pd.concat(frames,axis=1)
-        result = result[header]
+        #     P = simulateModel(Model, y0_exp, pars, isStochastic, tspan)
+        #     P = P.T
+        #     # Extract Time points
+        #     sampleDF = sampleTimeSeries(num_timepoints,expnum,\
+        #                                 tspan, P,\
+        #                                 varmapper, timeIndex,
+        #                                 genelist, proteinlist,                                        
+        #                                 header,
+        #                                 writeProtein=writeProtein)
+        #     sampleDF = sampleDF.T
+        #     frames.append(sampleDF)
+            
+        # Index of every possible time point. Sample from this list
+        timeIndex = [i for i in range(startat, len(tspan))]
+        # pre-define the time points from which a cell will be sampled
+        # per simulation
+        sampleAt = np.random.choice(timeIndex, size=num_cells)
+        header = ['E' + str(cellid) + '_' + str(time) \
+                  for cellid, time in\
+                  zip(range(num_cells), sampleAt)]
+
+        y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
+                                     genelist, proteinlist,
+                                     varmapper,revvarmapper)
+        argdict = {}
+        argdict['all_parameters'] = all_parameters
+        argdict['par_names'] = par_names
+        argdict['Model'] = Model
+        argdict['y0_exp'] = y0_exp
+        argdict['isStochastic'] = isStochastic
+        argdict['tspan'] = tspan
+        argdict['varmapper'] = varmapper
+        argdict['timeIndex'] = timeIndex
+        argdict['genelist'] = genelist
+        argdict['proteinlist'] = proteinlist
+        argdict['header'] = header
+        argdict['writeProtein'] = writeProtein
+        argdict['outPrefix'] = outPrefix        
+        # with open('output.txt','w') as outfile:
+        #     argdict['outfile'] = outfile
+            
+        #     lock = Lock()
+        #     for cellid in range(num_cells):
+        #         argdict['cellid'] = cellid
+        #         Process(target=simulateAndSample,args=([argdict])).start()
+        argdict['outfile'] = 'output.txt'
+        with open(argdict['outfile'],'w') as f:
+            f.write(',' + ','.join([g for g in genelist]) + '\n')
+        lock = Lock()
+        for cellid in range(num_cells):
+            argdict['cellid'] = cellid
+            Process(target=simulateAndSample,args=([argdict])).start()
+        frames = []
+        print('starting to concat files')
+        start = time.time()
+        for cellid in range(num_cells):
+            df = pd.read_csv(outPrefix + 'temp/'+str(cellid) + '.csv',index_col=0)
+            df = df.sort_index()
+            frames.append(df.T)
+        stop = time.time()
+        print("Concating files took %.2f s" %(stop-start))
+        #alldf = pd.concat(dflist)
+        #alldf.to_csv()
+    #     for cellid in tqdm(range(num_cells)):
+
+    #         # Sample only the alpha values
+    #         pars = {}
+    #         for k, v in all_parameters.items():
+    #             if ('a_' in k or 'alpha_' in k):
+    #                 pars[k] = getSaneNval(1, lo=0,hi=1.,mu=v, sig=0.05)[0]
+    #             else:
+    #                 pars[k] = v
+    #         pars = [pars[k] for k in par_names]            
+    #         P = simulateModel(Model, y0_exp, pars, isStochastic, tspan)
+    #         P = P.T
+    #         # Extract Time points
+    #         sampleDF = sampleCellFromTraj(cellid,
+    #                                       tspan, 
+   #                                       P,
+    #                                       varmapper, timeIndex,
+    #                                       genelist, proteinlist,                                        
+    #                                       header,
+    #                                       writeProtein=writeProtein)
+    #         sampleDF = sampleDF.T
+    #         frames.append(sampleDF)
+
+        result = pd.concat(frames,axis=0)
+        result = result.T
+        #result = result[header]
         indices = result.index
         newindices = [i.replace('x_','') for i in indices]
         result.index = pd.Index(newindices)
@@ -806,82 +879,41 @@ def sampleTimeSeries(num_timepoints, expnum,\
     sampleDF = pd.DataFrame(sampleDict)
     return(sampleDF)
 
-def generateInputFiles(outputfilenames, BoolDF, withoutRules,
-                       parameterInputsPath,
-                       outPrefix=''):
-    for f in outputfilenames:
-        syntheticDF = pd.read_csv(f,sep='\t',index_col=0,engine='python')
-        
-        # ExpressionData.csv
-        ExpDF = syntheticDF.copy()
-        columns = list(ExpDF.columns)
-        columns = [c.replace('-','_') for c in columns]
-        ExpDF.columns = columns
-        if len(parameterInputsPath) == 0:
-            ExpDF = ExpDF.drop(withoutRules, axis=0)
-        ExpDF.to_csv(outPrefix+'ExpressionData.csv',sep=',')
-        ExpDF.drop([col for col in ExpDF.columns if ExpDF[col].max()\
-                    < 0.1*ExpDF.values.max()],axis=1,inplace=True)
-        ExpDF.to_csv(outPrefix+'ExpressionData-dropped.csv',sep=',')        
-        
-        # PseudoTime.csv
-        cellID = list(syntheticDF.columns)
-        time = [float(c.split('_')[1].replace('-','.')) for c in cellID]
-        experiment = [int(c.split('_')[0].split('E')[1]) for c in cellID]
-        pseudotime = minmaxnorm(time)
-        cellID = [c.replace('-','_') for c in cellID]
+def sampleCellFromTraj(cellid,
+                       tspan,
+                       P,
+                       varmapper,sampleAt,
+                       genelist, proteinlist,
+                       header,writeProtein=False):
+    """
+    Returns pandas DataFrame with columns corresponding to 
+    time points and rows corresponding to genes
+    """
+    revvarmapper = {v:k for k,v in varmapper.items()}
+    #experimentTimePoints = [h for h in header if 'E' + str(expnum) in h]
+    rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
+    sampleDict = {}
+    timepoint = int(header[cellid].split('_')[1])
+    if writeProtein:
+        # Write protein and mRNA to file
+        for ri in varmapper.keys():
+            sampleDict[varmapper[ri]] = {header[cellid]: P[ri][timepoint]}
+    else:
+        # Default, only mRNA
+        if len(proteinlist) == 0:
+            for ri in rnaIndex:
+                sampleDict[varmapper[ri]] = {header[cellid]: P[ri][timepoint]}
+        else:
+            speciesoi = [revvarmapper['p_' + p] for p in proteinlist]
+            speciesoi.extend([revvarmapper['x_' + g] for g in genelist])
+            result = pd.DataFrame(index=pd.Index([varmapper[i] for i\
+                                                  in speciesoi]))
+            for si in speciesoi:
+                sampleDict[varmapper[si]] = {header[cellid]: P[ri][timepoint]}
 
-        PseudoTimeDict = {'Cell ID':cellID, 'PseudoTime':pseudotime,
-                          'Time':time,'Experiment':experiment}
-        PseudoTimeDF = pd.DataFrame(PseudoTimeDict)
-        PseudoTimeDF.to_csv(outPrefix + 'PseudoTime.csv',sep=',',index=False)
-        PseudoTimeDF.index = PseudoTimeDF['Cell ID']
-        PseudoTimeDF.loc[ExpDF.columns].to_csv(outPrefix +\
-                                               'PseudoTime-dropped.csv', sep = ',', index = False)
-        # refnetwork
-        refnet = []
-        genes = set(BoolDF['Gene'].values)
-        
-        genes = genes.difference(set(withoutRules))
-        
-        inputs = withoutRules
+    sampleDF = pd.DataFrame(sampleDict)
+    return(sampleDF)
 
-        for g in genes:
-            row = BoolDF[BoolDF['Gene'] == g]
-            rhs = list(row['Rule'].values)[0]
-            rule = list(row['Rule'].values)[0]
-            rhs = rhs.replace('(',' ')
-            rhs = rhs.replace(')',' ')
-            tokens = rhs.split(' ')
-            if len(withoutRules) == 0:
-                inputs = []
-                avoidthese = ['and','or', 'not', '']
-            else:
-                avoidthese = list(withoutRules)
-                avoidthese.extend(['and','or', 'not', ''])
-
-            regulators = [t for t in tokens if (t in genes or t in inputs) if t not in avoidthese]
-            if 'not' in tokens:
-                whereisnot = tokens.index('not')
-            else:
-                whereisnot = None
-            for r in regulators:
-                if whereisnot is None:
-                    ty = '+'
-                else:
-                    if type(whereisnot) is int:
-                        whereisnot = [whereisnot]
-                    
-                    if tokens.index(r) < whereisnot[0]:
-                        ty = '+'
-                    else:
-                        ty = '-'
-                 # Regulator is Gene1 and Target is Gene2
-                refnet.append({'Gene2':g, 
-                               'Gene1':r,
-                               'Type':ty})
-        refNetDF = pd.DataFrame(refnet)
-        refNetDF.to_csv(outPrefix + 'refNetwork.csv',sep=',',index=False)
 
 def main(args):
     opts, args = parseArgs(args)
@@ -893,6 +925,7 @@ def main(args):
     tmax = opts.max_time
     numExperiments = opts.num_experiments
     numTimepoints = opts.num_timepoints
+    numCells = opts.num_cells
     identicalPars = opts.identical_pars
     burnin = opts.burn_in
     samplePars = opts.sample_pars
@@ -903,7 +936,7 @@ def main(args):
     normalizeTrajectory = opts.normalize_trajectory
     interactionStrengthPath = opts.strengths
     speciesTypePath = opts.species_type
-    
+    add_dummy = opts.add_dummy
     if len(parameterInputsPath) > 0: 
         parameterInputsDF = pd.read_csv(parameterInputsPath,sep='\t')
     else:
@@ -924,13 +957,16 @@ def main(args):
         speciesTypeDF = pd.read_csv(speciesTypePath,sep='\t')
     else:
         speciesTypeDF = None
-    
+        
+    ## Hardcoded  ODE simulation time steps
+    ## This can be reduced
     timesteps = 100
     tspan = np.linspace(0,tmax,tmax*timesteps)
     
-    DF, withoutRules = readBooleanRules(path, parameterInputsPath)
+    DF, withoutRules = readBooleanRules(path, parameterInputsPath, add_dummy)
     if len(withoutRules) == 0:
         withoutRules = []
+        
     it = 0
     someexception = True
     while someexception:
@@ -954,13 +990,20 @@ def main(args):
             parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
             writeModelToFile(ModelSpec)
             import model
+            start = time.time()
             outputfilenames = Experiment(model.Model,ModelSpec,tspan,numExperiments,
-                                         numTimepoints, varmapper, parmapper,
+                                         numTimepoints,
+                                         numCells,
+                                         varmapper, parmapper,
                                          genelist,proteinlist,
                                          outPrefix, icsDF,
                                          burnin=burnin,
                                          writeProtein=writeProtein,
                                          normalizeTrajectory=normalizeTrajectory)
+            print("Time = %f" %(time.time() - start))
+            print('starting sleep')
+            time.sleep(numCells/10)
+            print('done. Generating input files for pipline...')
             generateInputFiles(outputfilenames,DF,
                                withoutRules,
                                parameterInputsPath,
