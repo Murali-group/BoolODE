@@ -38,7 +38,7 @@ Cells = DF.T.values
 ####################
 # Do PCA and tSNE
 PC = PCA(n_components=2).fit_transform(Cells)
-embed = TSNE(n_components=2).fit_transform(Cells)
+embed = TSNE(n_components=2, perplexity=500).fit_transform(Cells)
 ####################    
 
 colors = [float(h.split('_')[1]) for h in DF.columns]
@@ -52,26 +52,30 @@ PCDF['time'] = colors
 PCDF.to_csv(inFile + '_dimred.txt')
 
 f,ax = plt.subplots(2,1)
-for e in experiments:
-    toplotX = []
-    toplotY = []
-    colors = []
-    for indexname,row in PCDF.iterrows():
-        if e in str(indexname):
-            toplotX.append(row['PC1'])
-            toplotY.append(row['PC2'])
-            colors.append(float(indexname.split('_')[1]))#.replace('|','.')))
-    #ax[0].plot(toplotX[0],toplotY[0],'ro')
-    ax[0].scatter(toplotX,toplotY,c=colors)
-    ax[0].set_title('PCA')
-    for indexname,row in PCDF.iterrows():
-        if e in str(indexname):
-            toplotX.append(row['tsne1'])
-            toplotY.append(row['tsne2'])
-            colors.append(float(indexname.split('_')[1]))#.replace('|','.')))
-    #ax[1].plot(toplotX[0],toplotY[0],'ro')
-    ax[1].scatter(toplotX,toplotY,c=colors)
-    ax[1].set_title('tSNE')
+
+colors = [h.split('_')[1] for h in DF.columns]
+ax[0].scatter(PCDF['PC1'], PCDF['PC2'], c= colors)
+ax[1].scatter(PCDF['tsne1'], PCDF['tsne2'], c= colors)
+# for e in DF.columns:
+#     toplotX = []
+#     toplotY = []
+#     colors = []
+#     for indexname,row in PCDF.iterrows():
+#         if e in str(indexname):
+#             toplotX.append(row['PC1'])
+#             toplotY.append(row['PC2'])
+#             colors.append(float(indexname.split('_')[1]))#.replace('|','.')))
+#     #ax[0].plot(toplotX[0],toplotY[0],'ro')
+#     ax[0].scatter(toplotX,toplotY,c=colors)
+#     ax[0].set_title('PCA')
+#     for indexname,row in PCDF.iterrows():
+#         if e in str(indexname):
+#             toplotX.append(row['tsne1'])
+#             toplotY.append(row['tsne2'])
+#             #colors.append(float(indexname.split('_')[1]))#.replace('|','.')))
+#     #ax[1].plot(toplotX[0],toplotY[0],'ro')
+#     ax[1].scatter(toplotX,toplotY,c=colors)
+#     ax[1].set_title('tSNE')
     #plot_colourline(toplotX[:-1],toplotY[:-1],colors)
     
 plt.legend()
