@@ -844,7 +844,7 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
             ## trajectory a simulation belongs to
             print('Starting k-means clustering')
             #headers = result.columns
-            simulations = sorted(list(set([h.split('_')[0] + '_' for h in headers])))
+            # simulations = sorted(list(set([h.split('_')[0] + '_' for h in headers])))
             ## group each simulation
             #groupedDict = {} 
             ## The following loop takes time for a large number of
