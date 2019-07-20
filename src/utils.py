@@ -119,38 +119,11 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
     for f in outputfilenames:
         syntheticDF = pd.read_csv(f,sep='\t',index_col=0,engine='python')
         
-        # ExpressionData.csv
-        ExpDF = syntheticDF.copy()
-        columns = list(ExpDF.columns)
-        columns = [c.replace('-','_') for c in columns]
-        ExpDF.columns = columns
-        if len(parameterInputsPath) == 0:
-            ExpDF = ExpDF.drop(withoutRules, axis=0)
-        ExpDF.to_csv(outPrefix+'ExpressionData.csv',sep=',')
-        ExpDF.drop([col for col in ExpDF.columns if ExpDF[col].max()\
-                    < 0.1*ExpDF.values.max()],axis=1,inplace=True)
-        ExpDF.to_csv(outPrefix+'ExpressionData-dropped.csv',sep=',')        
-        
-        # PseudoTime.csv
-        cellID = list(syntheticDF.columns)
-        time = [float(c.split('_')[1].replace('-','.')) for c in cellID]
-        experiment = [int(c.split('_')[0].split('E')[1]) for c in cellID]
-        pseudotime = minmaxnorm(time)
-        cellID = [c.replace('-','_') for c in cellID]
-
-        PseudoTimeDict = {'Cell ID':cellID, 'PseudoTime':pseudotime,
-                          'Time':time,'Experiment':experiment}
-        PseudoTimeDF = pd.DataFrame(PseudoTimeDict)
-        PseudoTimeDF.to_csv(outPrefix + 'PseudoTime.csv',sep=',',index=False)
-        PseudoTimeDF.index = PseudoTimeDF['Cell ID']
-        PseudoTimeDF.loc[ExpDF.columns].to_csv(outPrefix +\
-                                               'PseudoTime-dropped.csv', sep = ',', index = False)
         # refnetwork
+        print('1. refNetwork')
         refnet = []
         genes = set(BoolDF['Gene'].values)
-        
         genes = genes.difference(set(withoutRules))
-        
         inputs = withoutRules
 
         for g in genes:
@@ -189,3 +162,30 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
                                'Type':ty})
         refNetDF = pd.DataFrame(refnet)
         refNetDF.to_csv(outPrefix + 'refNetwork.csv',sep=',',index=False)
+        
+        # PseudoTime.csv
+        print('2. PseudoTime.csv')
+        cellID = list(syntheticDF.columns)
+        time = [float(c.split('_')[1].replace('-','.')) for c in cellID]
+        experiment = [int(c.split('_')[0].split('E')[1]) for c in cellID]
+        pseudotime = minmaxnorm(time)
+        cellID = [c.replace('-','_') for c in cellID]
+
+        PseudoTimeDict = {'Cell ID':cellID, 'PseudoTime':pseudotime,
+                          'Time':time,'Experiment':experiment}
+        PseudoTimeDF = pd.DataFrame(PseudoTimeDict)
+        PseudoTimeDF.to_csv(outPrefix + 'PseudoTime.csv',sep=',',index=False)
+        PseudoTimeDF.index = PseudoTimeDF['Cell ID']
+        PseudoTimeDF.loc[ExpDF.columns].to_csv(outPrefix +\
+                                               'PseudoTime-dropped.csv', sep = ',', index = False)
+        
+        # ExpressionData.csv
+        print('3. ExpressionData.csv')
+        columns = list(syntheticDF.columns)
+        columns = [c.replace('-','_') for c in columns]
+        syntheticDF.columns = columns
+        if len(parameterInputsPath) == 0:
+            syntheticDF = syntheticDF.drop(withoutRules, axis=0)
+        syntheticDF.to_csv(outPrefix+'ExpressionData.csv',sep=',')
+        
+
