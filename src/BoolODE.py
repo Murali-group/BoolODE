@@ -1066,7 +1066,7 @@ def main(args):
             it +=1 
             print(e,"\nattempt %d" %it)
         
-    writeParametersToFile(ModelSpec)
+    writeParametersToFile(ModelSpec, outPrefix)
     print("BoolODE.py took %0.2fs"% (time.time() - startfull))
     print('all done.')    
 

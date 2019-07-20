@@ -70,8 +70,8 @@ def writeModelToFile(ModelSpec, prefix=''):
         out.write('#####################################################')
     return varmapper,parmapper
 
-def writeParametersToFile(ModelSpec,outname='parameters.txt'):
-    with open(outname,'w') as out:
+def writeParametersToFile(ModelSpec, outPrefix, outname='parameters.txt'):
+    with open(outPrefix + outname,'w') as out:
         for k, v in ModelSpec['pars'].items():
             out.write(k+'\t'+str(v) + '\n')
 
