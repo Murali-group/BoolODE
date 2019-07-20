@@ -678,8 +678,6 @@ def simulateAndSample(argdict):
     # write to file
     df.to_csv(outPrefix + 'E'+ str(cellid) + '.csv')
 
-def ravel_to_dict(ns, key):
-    ns.d[key] = list(ns.df.loc[:, ns.df.columns.str.startswith(key)].values.ravel())
     
 def Experiment(Model, ModelSpec,tspan, num_experiments,
                num_timepoints, 
@@ -819,12 +817,19 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
         frames = []
         print('starting to concat files')
         start = time.time()
-        for cellid in range(num_cells):
+
+
+        if not sampleCells:
+            # initialize dictionary to hold raveled values, used to cluster
+            groupedDict = {} 
+        for cellid in tqdm(range(num_cells)):
             if sampleCells:
                 df = pd.read_csv(outPrefix + 'simulations/E'+str(cellid) + '-cell.csv',index_col=0)
+                df = df.sort_index()                
             else:
                 df = pd.read_csv(outPrefix + 'simulations/E'+str(cellid) + '.csv',index_col=0)
-            df = df.sort_index()
+                df = df.sort_index()
+                groupedDict['E' + str(cellid)] = df.values.ravel()
             frames.append(df.T)
         stop = time.time()
         print("Concating files took %.2f s" %(stop-start))
@@ -838,25 +843,15 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
             ## Carry out k-means clustering to identify which
             ## trajectory a simulation belongs to
             print('Starting k-means clustering')
-            headers = result.columns
+            #headers = result.columns
             simulations = sorted(list(set([h.split('_')[0] + '_' for h in headers])))
             ## group each simulation
-            groupedDict = {} 
+            #groupedDict = {} 
             ## The following loop takes time for a large number of
             ## simulations
-            print('Raveling dataframe to start clustering')
-
-            for s in tqdm(simulations):
-                # p = Process(target = ravel_to_dict, args=(ns,s))
-                # p.start()
-                # jobs.append(p)
-                # colNames = []
-                # for col in  result.columns:
-                #     if s == col.split('_')[0]:
-                #         colNames.append(col)
-                groupedDict[s] = result.loc[:, result.columns.str.startswith(s)].values.ravel()
-            # _ = [p.join() for p in jobs]
-            # d = dict(ns.d)
+            #print('Raveling dataframe to start clustering')
+            #for s in tqdm(simulations):
+            #    groupedDict[s] = result.loc[:, result.columns.str.startswith(s)].values.ravel()
             groupedDF = pd.DataFrame.from_dict(groupedDict)
             print('Clustering simulations...')
             start = time.time()            
