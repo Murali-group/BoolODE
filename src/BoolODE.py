@@ -878,7 +878,7 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
         if not sampleCells:
             clusterDF.to_csv(outPrefix + 'ClusterIds.csv')
         outputfilenames.append(outPrefix + name +'_experiment.txt')
-    return outputfilenames
+    return outputfilenames, resultN
             
 def sampleTimeSeries(num_timepoints, expnum,\
                      tspan,  P,\
@@ -1040,7 +1040,7 @@ def main(args):
             parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
             writeModelToFile(ModelSpec)
             import model
-            outputfilenames = Experiment(model.Model,ModelSpec,tspan,numExperiments,
+            outputfilenames, resultDF = Experiment(model.Model,ModelSpec,tspan,numExperiments,
                                          numTimepoints,
                                          numCells,
                                          sampleCells,
@@ -1053,7 +1053,7 @@ def main(args):
                                          normalizeTrajectory=normalizeTrajectory)
             print('Generating input files for pipline...')
             start = time.time()
-            generateInputFiles(outputfilenames,DF,
+            generateInputFiles(resultDF, outputfilenames,DF,
                                withoutRules,
                                parameterInputsPath,
                                outPrefix=outPrefix)

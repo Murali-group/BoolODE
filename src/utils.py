@@ -113,11 +113,11 @@ def get_ss(P):
     ss = [p for p in P[-1,:]]
     return(ss)
 
-def generateInputFiles(outputfilenames, BoolDF, withoutRules,
+def generateInputFiles(syntheticDF, outputfilenames, BoolDF, withoutRules,
                        parameterInputsPath,
                        outPrefix=''):
     for f in outputfilenames:
-        syntheticDF = pd.read_csv(f,sep='\t',index_col=0,engine='python')
+        #syntheticDF = pd.read_csv(f,sep='\t',index_col=0,engine='python')
         
         # refnetwork
         print('1. refNetwork')
@@ -176,7 +176,7 @@ def generateInputFiles(outputfilenames, BoolDF, withoutRules,
         PseudoTimeDF = pd.DataFrame(PseudoTimeDict)
         PseudoTimeDF.to_csv(outPrefix + 'PseudoTime.csv',sep=',',index=False)
         PseudoTimeDF.index = PseudoTimeDF['Cell ID']
-        PseudoTimeDF.loc[ExpDF.columns].to_csv(outPrefix +\
+        PseudoTimeDF.loc[cellID].to_csv(outPrefix +\
                                                'PseudoTime-dropped.csv', sep = ',', index = False)
         
         # ExpressionData.csv
