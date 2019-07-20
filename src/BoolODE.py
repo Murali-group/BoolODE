@@ -14,7 +14,7 @@ import importlib
 import warnings
 from tqdm import tqdm 
 from optparse import OptionParser
-from multiprocessing import Process, Lock
+from multiprocessing import Process, Lock, Manager
 from utils import *
 import ast
 np.seterr(all='raise')
@@ -210,7 +210,7 @@ def getParameters(DF,identicalPars,
                                                  mu=parDefault,\
                                                  sig=0.5*parDefault,\
                                                  identicalPars=identicalPars)
-            sampledParameterValues = [sampledParameterValue for _ in range(len(species))]
+            sampledParameterValues = [sampledParameterValue[0] for _ in range(len(species))]
             for sp, sparval in zip(species, sampledParameterValues):
                 if sp in genelist:
                     par[parPrefix + sp] = sparval                
@@ -222,7 +222,7 @@ def getParameters(DF,identicalPars,
                                                  mu=parDefault,\
                                                  sig=0.5*parDefault,\
                                                  identicalPars=identicalPars)
-            sampledParameterValues = [sampledParameterValue for _ in range(len(species))]            
+            sampledParameterValues = [sampledParameterValue[0] for _ in range(len(species))]            
             for sp, sparval in zip(species, sampledParameterValues):
                 if sp in genelist:
                     par[parPrefix + sp] = sparval                
@@ -237,7 +237,6 @@ def getParameters(DF,identicalPars,
             for sp in species:
                 if sp in genelist:
                     par[parPrefix + sp] = parDefault
-
     return par, parameterInputsDict
 
 def generateModelDict(DF,identicalPars,
@@ -318,10 +317,10 @@ def generateModelDict(DF,identicalPars,
         for sp in species:
             if sp not in specified:
                 genelist.append(sp)
-
                 
-    print(genelist)
-    print(proteinlist)
+    ## Useful for debugging. 
+    # print(genelist)
+    # print(proteinlist)
 
     par, parameterInputs = getParameters(DF,identicalPars,
                                          samplePars,
@@ -330,8 +329,6 @@ def generateModelDict(DF,identicalPars,
                                          withoutRules,
                                          parameterInputsDF,
                                          interactionStrengthDF)
-    
-    
 
     ##########################################################
     ## Assign values to alpha parameters representing the logic
@@ -359,7 +356,7 @@ def generateModelDict(DF,identicalPars,
         exec('booleval = ' + row['Rule'], boolodespace) 
         par['alpha_'+row['Gene']] = int(boolodespace['booleval'])
 
-    for i,row in tqdm(DF.iterrows()):
+    for i,row in DF.iterrows():
         rhs = row['Rule']
         rhs = rhs.replace('(',' ')
         rhs = rhs.replace(')',' ')
@@ -681,6 +678,8 @@ def simulateAndSample(argdict):
     # write to file
     df.to_csv(outPrefix + 'E'+ str(cellid) + '.csv')
 
+def ravel_to_dict(ns, key):
+    ns.d[key] = list(ns.df.loc[:, ns.df.columns.str.startswith(key)].values.ravel())
     
 def Experiment(Model, ModelSpec,tspan, num_experiments,
                num_timepoints, 
@@ -800,8 +799,8 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
                 if not os.path.exists(simfilepath):
                     print(simfilepath, "does not exist, creating it...")
                     os.makedirs(simfilepath)
-
-
+        print('Starting simulations')
+        start = time.time()
         ########################
         ## Carry out simulations in parrallel
         lock = Lock()
@@ -811,13 +810,13 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
             argdict['cellid'] = cellid
             p = Process(target=simulateAndSample,args=([argdict]))
             p.start()
-            p.join()
+            #p.join()
         #     jobs.append(p)
         # for job in jobs:
         #     job.join()
         ########################
+        print("Simulations took %0.3f s"%(time.time() - start))
         frames = []
-        #time.sleep(2)
         print('starting to concat files')
         start = time.time()
         for cellid in range(num_cells):
@@ -836,24 +835,37 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
         result.index = pd.Index(newindices)
         
         if not sampleCells:
-            ## Carry out k-means clustering to identify which trajectory
-            ## a simulation belongs to
+            ## Carry out k-means clustering to identify which
+            ## trajectory a simulation belongs to
+            print('Starting k-means clustering')
             headers = result.columns
-            simulations = set([h.split('_')[0] for h in headers])
-            # group each simulation
-            newDF = pd.DataFrame()
-            for s in simulations:
-                colNames = []
-                for col in  result.columns:
-                    if s == col.split('_')[0]:
-                        colNames.append(col)
-                newDF[s] = np.ravel(result[colNames].values)
+            simulations = sorted(list(set([h.split('_')[0] + '_' for h in headers])))
+            ## group each simulation
+            groupedDict = {} 
+            ## The following loop takes time for a large number of
+            ## simulations
+            print('Raveling dataframe to start clustering')
+
+            for s in tqdm(simulations):
+                # p = Process(target = ravel_to_dict, args=(ns,s))
+                # p.start()
+                # jobs.append(p)
+                # colNames = []
+                # for col in  result.columns:
+                #     if s == col.split('_')[0]:
+                #         colNames.append(col)
+                groupedDict[s] = result.loc[:, result.columns.str.startswith(s)].values.ravel()
+            # _ = [p.join() for p in jobs]
+            # d = dict(ns.d)
+            groupedDF = pd.DataFrame.from_dict(groupedDict)
             print('Clustering simulations...')
+            start = time.time()            
             # Find clusters in the experiments
-            clusterLabels= KMeans(n_clusters = nClusters).fit(newDF.T).labels_
-            
-            clusterDF = pd.DataFrame(data=clusterLabels, 
-                                     index = newDF.columns, columns=['cl'])
+            clusterLabels= KMeans(n_clusters=nClusters,
+                                  n_jobs=8).fit(groupedDF.T.values).labels_
+            print('Clustering took %0.3fs' % (time.time() - start))
+            clusterDF = pd.DataFrame(data=clusterLabels, index =\
+                                     groupedDF.columns, columns=['cl'])
         ##################################################
 
         if normalizeTrajectory:
@@ -946,6 +958,7 @@ def sampleCellFromTraj(cellid,
 
 
 def main(args):
+    startfull = time.time()
     opts, args = parseArgs(args)
     path = opts.path
     if path is None or len(path) == 0:
@@ -1032,7 +1045,6 @@ def main(args):
             parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
             writeModelToFile(ModelSpec)
             import model
-            start = time.time()
             outputfilenames = Experiment(model.Model,ModelSpec,tspan,numExperiments,
                                          numTimepoints,
                                          numCells,
@@ -1044,13 +1056,14 @@ def main(args):
                                          burnin=burnin,
                                          writeProtein=writeProtein,
                                          normalizeTrajectory=normalizeTrajectory)
-            print("Time = %f" %(time.time() - start))
             print('Generating input files for pipline...')
+            start = time.time()
             generateInputFiles(outputfilenames,DF,
                                withoutRules,
                                parameterInputsPath,
                                outPrefix=outPrefix)
-            print('Success!')
+            print('Input file generation took %0.3f s' % (time.time() - start))
+
             
             someexception= False
             
@@ -1059,6 +1072,8 @@ def main(args):
             print(e,"\nattempt %d" %it)
         
     writeParametersToFile(ModelSpec)
+    print("BoolODE.py took %0.2fs"% (time.time() - startfull))
+    print('all done.')    
 
 if __name__ == "__main__":
     main(sys.argv)
