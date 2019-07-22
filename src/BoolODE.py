@@ -609,9 +609,6 @@ def simulateAndSample(argdict):
     y_max = argdict['y_max']
     if sampleCells:
         header = argdict['header']
-    y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
-                                 genelist, proteinlist,
-                                 varmapper,revvarmapper)
     pars = {}
     for k, v in allParameters.items():
         pars[k] = v
@@ -634,6 +631,10 @@ def simulateAndSample(argdict):
     outPrefix = outPrefix +'simulations/'
     while retry:
         seed += 1000
+        y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
+                                     genelist, proteinlist,
+                                     varmapper,revvarmapper)
+        
         P = simulateModel(Model, y0_exp, pars, isStochastic, tspan, seed)
         P = P.T
         retry = False
