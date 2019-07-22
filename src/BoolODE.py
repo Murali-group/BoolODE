@@ -638,13 +638,28 @@ def simulateAndSample(argdict):
         P = simulateModel(Model, y0_exp, pars, isStochastic, tspan, seed)
         P = P.T
         retry = False
+        ## Extract Time points
+        subset = P[gid,:][:,tps]
+        df = pd.DataFrame(subset,
+                          index=pd.Index(genelist),
+                          columns = ['E' + str(cellid) +'_' +str(i)\
+                                     for i in tps])
+        dfmax = df.max()
+        for col in df.columns:
+            colmax = df[col].max()
+            ## Heuristic:
+            ## If the largest value of a protein achieved in a simulation is
+            ## less than 10% of the y_max, drop the simulation.
+            ## This check stems from the observation that in some simulations,
+            ## all genes go to the 0 steady state in some rare simulations.
+            if colmax < 0.1*y_max:
+                retry= True
+                break
+        
         if sampleCells:
-            ## Extract Time points
-            subset = P[gid,:][:,tps]
-            df = pd.DataFrame(subset,
-                              index=pd.Index(genelist),
-                              columns = ['E' + str(cellid) +'_' +str(i)\
-                                         for i in tps])
+            ## Write a single cell to file
+            ## These samples allow for quickly and
+            ## reproducibly testing the output.
             sampledf = sampleCellFromTraj(cellid,
                                           tspan, 
                                           P,
@@ -655,27 +670,10 @@ def simulateAndSample(argdict):
             sampledf = sampledf.T
             sampledf.to_csv(outPrefix + 'E' + str(cellid) + '-cell.csv')            
             
-        else:
-            subset = P[gid,:][:,tps]
-            df = pd.DataFrame(subset,
-                              index=pd.Index(genelist),
-                              columns = ['E' + str(cellid) +'_' +str(i)\
-                                         for i in tps])
-            dfmax = df.max()
-            for col in df.columns:
-                colmax = df[col].max()
-                ## Heuristic:
-                ## If the largest value of a protein achieved in a simulation is
-                ## less than 10% of the y_max, drop the simulation.
-                ## This check stems from the observation that in some simulations,
-                ## all genes go to the 0 steady state in some rare simulations.
-                if colmax < 0.1*y_ymax:
-                    retry= True
-                    break
-            trys += 1
-            if trys > 1:
-                print('try', trys)
-    
+        trys += 1
+        if trys > 1:
+            print('try', trys)
+            
 
     # write to file
     df.to_csv(outPrefix + 'E'+ str(cellid) + '.csv')
