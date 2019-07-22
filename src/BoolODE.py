@@ -237,7 +237,7 @@ def getParameters(DF,identicalPars,
             for sp in species:
                 if sp in genelist:
                     par[parPrefix + sp] = parDefault
-    return par, parameterInputsDict
+    return par, y_max, parameterInputsDict
 
 def generateModelDict(DF,identicalPars,
                       samplePars,
@@ -322,7 +322,7 @@ def generateModelDict(DF,identicalPars,
     # print(genelist)
     # print(proteinlist)
 
-    par, parameterInputs = getParameters(DF,identicalPars,
+    par, y_max, parameterInputs = getParameters(DF,identicalPars,
                                          samplePars,
                                          genelist,
                                          proteinlist,
@@ -446,7 +446,7 @@ def generateModelDict(DF,identicalPars,
     ModelSpec['varspecs'] = varspecs
     ModelSpec['pars'] = par
     ModelSpec['ics'] = ics
-    return ModelSpec, parameterInputs, genelist, proteinlist
+    return ModelSpec, parameterInputs, genelist, proteinlist, y_max
 
         
 def noise(x,t):
@@ -587,7 +587,6 @@ def simulateAndSample(argdict):
     allParameters = argdict['allParameters']
     parNames = argdict['parNames']
     Model = argdict['Model']
-    #y0_exp = argdict['y0_exp']
     isStochastic = argdict['isStochastic']
     tspan = argdict['tspan']
     varmapper = argdict['varmapper']
@@ -607,14 +606,12 @@ def simulateAndSample(argdict):
     revvarmapper = argdict['revvarmapper']
     seed = argdict['seed']
     pars = argdict['pars']
-    
+    y_max = argdict['y_max']
     if sampleCells:
         header = argdict['header']
     y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
                                  genelist, proteinlist,
                                  varmapper,revvarmapper)
-
-
     pars = {}
     for k, v in allParameters.items():
         pars[k] = v
@@ -624,11 +621,11 @@ def simulateAndSample(argdict):
         # else:
         #     pars[k] = v
     pars = [pars[k] for k in parNames]
+    
+    ## Boolean to check if a simulation is going to a
+    ## 0 steady state, with all genes/proteins dying out
     retry = True
     trys = 0
-    
-    #num_timepoints = 100
-    #every = len(tspan)/100
     
     ## timepoints
     tps = [i for i in range(1,len(tspan))]
@@ -666,8 +663,12 @@ def simulateAndSample(argdict):
             dfmax = df.max()
             for col in df.columns:
                 colmax = df[col].max()
-                ## Document this
-                if colmax < 0.3:
+                ## Heuristic:
+                ## If the largest value of a protein achieved in a simulation is
+                ## less than 10% of the y_max, drop the simulation.
+                ## This check stems from the observation that in some simulations,
+                ## all genes go to the 0 steady state in some rare simulations.
+                if colmax < 0.1*y_ymax:
                     retry= True
                     break
             trys += 1
@@ -687,6 +688,7 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
                genelist, proteinlist,
                outPrefix,icsDF,
                nClusters,
+               y_max,
                burnin=False,writeProtein=False,
                normalizeTrajectory=False):
     if not sampleCells:
@@ -768,7 +770,6 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
         argdict['allParameters'] = allParameters
         argdict['parNames'] = parNames
         argdict['Model'] = Model
-        #argdict['y0_exp'] = y0_exp
         argdict['isStochastic'] = isStochastic
         argdict['tspan'] = tspan
         argdict['varmapper'] = varmapper
@@ -786,6 +787,7 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
         argdict['genelist'] = genelist
         argdict['proteinlist'] = proteinlist
         argdict['revvarmapper'] = revvarmapper
+        argdict['y_max'] = y_max
 
         if sampleCells:
             argdict['header'] = header
@@ -961,8 +963,8 @@ def main(args):
         sys.exit()
 
     tmax = opts.max_time
-    numExperiments = opts.num_experiments
-    numTimepoints = opts.num_timepoints
+    numExperiments = opts.num_experiments # Obsolete
+    numTimepoints = opts.num_timepoints   # Obsolete
     numCells = opts.num_cells
     identicalPars = opts.identical_pars
     burnin = opts.burn_in
@@ -1013,7 +1015,8 @@ def main(args):
     timesteps = 100
     tspan = np.linspace(0,tmax,tmax*timesteps)
     
-    DF, withoutRules = readBooleanRules(path, parameterInputsPath, outPrefix, add_dummy, max_parents)
+    DF, withoutRules = readBooleanRules(path, parameterInputsPath,
+                                        outPrefix, add_dummy, max_parents)
     if len(withoutRules) == 0:
         withoutRules = []
         
@@ -1026,7 +1029,8 @@ def main(args):
             ModelSpec,\
                 parameterInputs,\
                 genelist,\
-                proteinlist = generateModelDict(DF,identicalPars,
+                proteinlist,\
+                y_max = generateModelDict(DF,identicalPars,
                                                            samplePars,
                                                            withoutRules,
                                                            speciesTypeDF,
@@ -1040,24 +1044,28 @@ def main(args):
             parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
             writeModelToFile(ModelSpec)
             import model
-            outputfilenames, resultDF = Experiment(model.Model,ModelSpec,tspan,numExperiments,
-                                         numTimepoints,
-                                         numCells,
-                                         sampleCells,
-                                         varmapper, parmapper,
-                                         genelist,proteinlist,
-                                         outPrefix, icsDF,
-                                         nClusters,
-                                         burnin=burnin,
-                                         writeProtein=writeProtein,
-                                         normalizeTrajectory=normalizeTrajectory)
+            outputfilenames, resultDF = Experiment(model.Model,
+                                                   ModelSpec,
+                                                   tspan,
+                                                   numExperiments,
+                                                   numTimepoints,
+                                                   numCells,
+                                                   sampleCells,
+                                                   varmapper, parmapper,
+                                                   genelist,proteinlist,
+                                                   outPrefix, icsDF,
+                                                   nClusters,
+                                                   y_max,
+                                                   burnin=burnin,
+                                                   writeProtein=writeProtein,
+                                                   normalizeTrajectory=normalizeTrajectory)
             print('Generating input files for pipline...')
             start = time.time()
             generateInputFiles(resultDF, outputfilenames,DF,
                                withoutRules,
                                parameterInputsPath,
                                outPrefix=outPrefix)
-            print('Input file generation took %0.3f s' % (time.time() - start))
+            print('Input file generation took %0.2f s' % (time.time() - start))
 
             
             someexception= False
