@@ -118,7 +118,8 @@ def getParameters(DF,identicalPars,
     ## The threshold is calculated as the max value of the species
     ## divided by 2.
     y_max = (proteinTranslation/proteinDegradation)*\
-            (mRNATranscription/mRNADegradation)    
+            (mRNATranscription/mRNADegradation)
+    
     hillThreshold = y_max/2
 
     # Chosen arbitrarily
@@ -213,8 +214,10 @@ def getParameters(DF,identicalPars,
             sampledParameterValues = [sampledParameterValue[0] for _ in range(len(species))]
             for sp, sparval in zip(species, sampledParameterValues):
                 if sp in genelist:
-                    par[parPrefix + sp] = sparval                
-            
+                    par[parPrefix + sp] = sparval
+                    
+        transcriptionRate = 0.0
+        mRNADegradationRate = 0.0
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsGenes.items():
             sampledParameterValue = getSaneNval(1,#len(species),\
                                                  lo=0.5*parDefault,\
@@ -222,11 +225,18 @@ def getParameters(DF,identicalPars,
                                                  mu=parDefault,\
                                                  sig=0.5*parDefault,\
                                                  identicalPars=identicalPars)
+            if parPrefix == 'm_':
+                transcriptionRate = sampledParameterValue[0]
+            if parPrefix == 'l_x_':
+                mRNADegradationRate = sampledParameterValue[0]
+            
             sampledParameterValues = [sampledParameterValue[0] for _ in range(len(species))]            
             for sp, sparval in zip(species, sampledParameterValues):
                 if sp in genelist:
-                    par[parPrefix + sp] = sparval                
-        
+                    par[parPrefix + sp] = sparval
+        ## Based on these samples, estimate max value a
+        ## gene can take at _steady-state_
+        x_max = (transcriptionRate/mRNADegradationRate)
     else:
         print("Fixing rate parameters to defaults")
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsAll.items():
@@ -237,7 +247,7 @@ def getParameters(DF,identicalPars,
             for sp in species:
                 if sp in genelist:
                     par[parPrefix + sp] = parDefault
-    return par, y_max, parameterInputsDict
+    return par, x_max, parameterInputsDict
 
 def generateModelDict(DF,identicalPars,
                       samplePars,
@@ -322,7 +332,7 @@ def generateModelDict(DF,identicalPars,
     # print(genelist)
     # print(proteinlist)
 
-    par, y_max, parameterInputs = getParameters(DF,identicalPars,
+    par, x_max, parameterInputs = getParameters(DF,identicalPars,
                                          samplePars,
                                          genelist,
                                          proteinlist,
@@ -446,7 +456,7 @@ def generateModelDict(DF,identicalPars,
     ModelSpec['varspecs'] = varspecs
     ModelSpec['pars'] = par
     ModelSpec['ics'] = ics
-    return ModelSpec, parameterInputs, genelist, proteinlist, y_max
+    return ModelSpec, parameterInputs, genelist, proteinlist, x_max
 
         
 def noise(x,t):
@@ -606,7 +616,7 @@ def simulateAndSample(argdict):
     revvarmapper = argdict['revvarmapper']
     seed = argdict['seed']
     pars = argdict['pars']
-    y_max = argdict['y_max']
+    x_max = argdict['x_max']
     if sampleCells:
         header = argdict['header']
     pars = {}
@@ -644,15 +654,15 @@ def simulateAndSample(argdict):
                           index=pd.Index(genelist),
                           columns = ['E' + str(cellid) +'_' +str(i)\
                                      for i in tps])
+        ## Heuristic:
+        ## If the largest value of a protein achieved in a simulation is
+        ## less than 10% of the y_max, drop the simulation.
+        ## This check stems from the observation that in some simulations,
+        ## all genes go to the 0 steady state in some rare simulations.
         dfmax = df.max()
         for col in df.columns:
             colmax = df[col].max()
-            ## Heuristic:
-            ## If the largest value of a protein achieved in a simulation is
-            ## less than 10% of the y_max, drop the simulation.
-            ## This check stems from the observation that in some simulations,
-            ## all genes go to the 0 steady state in some rare simulations.
-            if colmax < 0.1*y_max:
+            if colmax < 0.1*x_max:
                 retry= True
                 break
         
@@ -687,7 +697,7 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
                genelist, proteinlist,
                outPrefix,icsDF,
                nClusters,
-               y_max,
+               x_max,
                burnin=False,writeProtein=False,
                normalizeTrajectory=False):
     if not sampleCells:
@@ -786,7 +796,7 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
         argdict['genelist'] = genelist
         argdict['proteinlist'] = proteinlist
         argdict['revvarmapper'] = revvarmapper
-        argdict['y_max'] = y_max
+        argdict['x_max'] = x_max
 
         if sampleCells:
             argdict['header'] = header
@@ -1029,7 +1039,7 @@ def main(args):
                 parameterInputs,\
                 genelist,\
                 proteinlist,\
-                y_max = generateModelDict(DF,identicalPars,
+                x_max = generateModelDict(DF,identicalPars,
                                                            samplePars,
                                                            withoutRules,
                                                            speciesTypeDF,
@@ -1054,7 +1064,7 @@ def main(args):
                                                    genelist,proteinlist,
                                                    outPrefix, icsDF,
                                                    nClusters,
-                                                   y_max,
+                                                   x_max,
                                                    burnin=burnin,
                                                    writeProtein=writeProtein,
                                                    normalizeTrajectory=normalizeTrajectory)
