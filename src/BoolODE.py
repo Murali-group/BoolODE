@@ -117,10 +117,10 @@ def getParameters(DF,identicalPars,
     proteinDegradation = 1
     ## The threshold is calculated as the max value of the species
     ## divided by 2.
-    hillThreshold = (proteinTranslation/proteinDegradation)*\
-                    (mRNATranscription/mRNADegradation)/2
     y_max = (proteinTranslation/proteinDegradation)*\
-            (mRNATranscription/mRNADegradation)
+            (mRNATranscription/mRNADegradation)    
+    hillThreshold = y_max/2
+
     # Chosen arbitrarily
     signalingtimescale = 5.0
     hillCoefficient = 10
