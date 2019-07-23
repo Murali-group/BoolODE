@@ -205,13 +205,12 @@ def getParameters(DF,identicalPars,
     if samplePars:
         print("Sampling parameters")
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsAll.items():
-            sampledParameterValue = getSaneNval(1,#len(species),\
+            sampledParameterValues = getSaneNval(len(species),\
                                                  lo=0.5*parDefault,\
                                                  hi=1.5*parDefault,\
                                                  mu=parDefault,\
-                                                 sig=0.5*parDefault,\
+                                                 sig=0.1*parDefault,\
                                                  identicalPars=identicalPars)
-            sampledParameterValues = [sampledParameterValue[0] for _ in range(len(species))]
             for sp, sparval in zip(species, sampledParameterValues):
                 if sp in genelist:
                     par[parPrefix + sp] = sparval
@@ -219,11 +218,11 @@ def getParameters(DF,identicalPars,
         transcriptionRate = 0.0
         mRNADegradationRate = 0.0
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsGenes.items():
-            sampledParameterValue = getSaneNval(1,#len(species),\
+            sampledParameterValues = getSaneNval(len(species),\
                                                  lo=0.5*parDefault,\
                                                  hi=1.5*parDefault,\
                                                  mu=parDefault,\
-                                                 sig=0.5*parDefault,\
+                                                 sig=0.1*parDefault,\
                                                  identicalPars=identicalPars)
             if parPrefix == 'm_':
                 transcriptionRate = sampledParameterValue[0]
