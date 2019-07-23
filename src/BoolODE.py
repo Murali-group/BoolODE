@@ -224,12 +224,17 @@ def getParameters(DF,identicalPars,
                                                  mu=parDefault,\
                                                  sig=0.1*parDefault,\
                                                  identicalPars=identicalPars)
-            if parPrefix == 'm_':
-                transcriptionRate = sampledParameterValue[0]
-            if parPrefix == 'l_x_':
-                mRNADegradationRate = sampledParameterValue[0]
+            if identicalPars:
+                if parPrefix == 'm_':
+                    transcriptionRate = sampledParameterValues[0]
+                if parPrefix == 'l_x_':
+                    mRNADegradationRate = sampledParameterValues[0]
+            else:
+                if parPrefix == 'm_':
+                    transcriptionRate = parDefault
+                if parPrefix == 'l_x_':
+                    mRNADegradationRate = parDefault
             
-            sampledParameterValues = [sampledParameterValue[0] for _ in range(len(species))]            
             for sp, sparval in zip(species, sampledParameterValues):
                 if sp in genelist:
                     par[parPrefix + sp] = sparval
