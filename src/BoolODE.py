@@ -17,6 +17,8 @@ from optparse import OptionParser
 from multiprocessing import Process, Lock, Manager
 from utils import *
 import ast
+from importlib.machinery import SourceFileLoader
+
 np.seterr(all='raise')
 import os
 
@@ -74,9 +76,7 @@ def readBooleanRules(path, parameterInputsPath, outPrefix='', add_dummy=False, m
             DF.to_csv(outPrefix + 'rules-with-added-genes.csv')
             
     print(DF)
-
     return DF, withoutRules
-
 
 def getParameters(DF,identicalPars,
                   samplePars,
@@ -84,6 +84,7 @@ def getParameters(DF,identicalPars,
                   proteinlist,
                   withoutRules,
                   parameterInputsDF,
+                  parameterSetDF,
                   interactionStrengthDF):
     """
     Create dictionary of parameters and values. Assigns
@@ -100,8 +101,10 @@ def getParameters(DF,identicalPars,
         Sample kinetic parameters using a Gaussian distribution 
         centered around the default parameters
     parameterInputsDF : pandas DataFrame
-        Optional table that specifies parameter values. Useful to specify
+        Optional table that specifies input parameter values. Useful to specify
         experimental conditions.
+    parameterSetDF : pandas DataFrame
+        Optional table that specifies predefined parameter set.
     interactionStrengthDF : pandas DataFrame
         Optional table that specifies interaction strengths. When
         not specified, default strength is set to 1.
@@ -119,7 +122,7 @@ def getParameters(DF,identicalPars,
     ## divided by 2.
     y_max = (proteinTranslation/proteinDegradation)*\
             (mRNATranscription/mRNADegradation)
-    
+    x_max = (mRNATranscription/mRNADegradation)
     hillThreshold = y_max/2
 
     # Chosen arbitrarily
@@ -204,12 +207,15 @@ def getParameters(DF,identicalPars,
     ## Whether to sample parameters or stick to defaults
     if samplePars:
         print("Sampling parameters")
+        sigmamult = 0.1
+        lomult = 0.2
+        himult = 1.2
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsAll.items():
             sampledParameterValues = getSaneNval(len(species),\
-                                                 lo=0.5*parDefault,\
-                                                 hi=1.5*parDefault,\
+                                                 lo=lomult*parDefault,\
+                                                 hi=himult*parDefault,\
                                                  mu=parDefault,\
-                                                 sig=0.1*parDefault,\
+                                                 sig=sigmamult*parDefault,\
                                                  identicalPars=identicalPars)
             for sp, sparval in zip(species, sampledParameterValues):
                 if sp in genelist:
@@ -219,10 +225,10 @@ def getParameters(DF,identicalPars,
         mRNADegradationRate = 0.0
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsGenes.items():
             sampledParameterValues = getSaneNval(len(species),\
-                                                 lo=0.5*parDefault,\
-                                                 hi=1.5*parDefault,\
+                                                 lo=lomult*parDefault,\
+                                                 hi=himult*parDefault,\
                                                  mu=parDefault,\
-                                                 sig=0.1*parDefault,\
+                                                 sig=sigmamult*parDefault,\
                                                  identicalPars=identicalPars)
             if identicalPars:
                 if parPrefix == 'm_':
@@ -251,6 +257,14 @@ def getParameters(DF,identicalPars,
             for sp in species:
                 if sp in genelist:
                     par[parPrefix + sp] = parDefault
+    ## Final Check.
+    ## If parameterSetDF is specified, reassign
+    ## parameter values to those from table
+    ## This guarantees that all the parameters are defined without
+    ## specific checks in parameterSetDF
+    if parameterSetDF is not None:
+        for pname, pvalue in parameterSetDF.iterrows():
+            par[pname] = pvalue
     return par, x_max, parameterInputsDict
 
 def generateModelDict(DF,identicalPars,
@@ -258,6 +272,7 @@ def generateModelDict(DF,identicalPars,
                       withoutRules,
                       speciesTypeDF,
                       parameterInputsDF,
+                      parameterSetDF,
                       interactionStrengthDF):
     """
     Take a DataFrame object with Boolean rules,
@@ -278,8 +293,10 @@ def generateModelDict(DF,identicalPars,
         Table defining type of each species. Takes values 
         'gene' or 'protein'
     parameterInputsDF : pandas DataFrame
-        Optional table that specifies parameter values. Useful to specify
+        Optional table that specifies parameter input values. Useful to specify
         experimental conditions.
+    parameterSetDF : pandas DataFrame
+        Optional table that specifies a predefined parameter set.
     interactionStrengthDF : pandas DataFrame
         Optional table that specifies interaction strengths. When
         not specified, default strength is set to 1.
@@ -337,12 +354,13 @@ def generateModelDict(DF,identicalPars,
     # print(proteinlist)
 
     par, x_max, parameterInputs = getParameters(DF,identicalPars,
-                                         samplePars,
-                                         genelist,
-                                         proteinlist,
-                                         withoutRules,
-                                         parameterInputsDF,
-                                         interactionStrengthDF)
+                                                samplePars,
+                                                genelist,
+                                                proteinlist,
+                                                withoutRules,
+                                                parameterInputsDF,
+                                                parameterSetDF,
+                                                interactionStrengthDF)
 
     ##########################################################
     ## Assign values to alpha parameters representing the logic
@@ -543,7 +561,9 @@ def parseArgs(args):
     parser.add_option('', '--path', type='str',
                       help='Path to boolean model file')
     parser.add_option('', '--inputs', type='str',default='',
-                      help='Path to input parameter files')    
+                      help='Path to input parameter files. This is different from specifying a parameter set!')
+    parser.add_option('', '--pset', type='str',default='',
+                      help='Path to pre-generated parameter set.')        
     parser.add_option('', '--ics', type='str',default='',
                       help='Path to list of initial conditions')
     parser.add_option('', '--strengths', type='str',default='',
@@ -824,16 +844,14 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
             p = Process(target=simulateAndSample,args=([argdict]))
             p.start()
             #p.join()
-        #     jobs.append(p)
-        # for job in jobs:
-        #     job.join()
         ########################
+        ## Sleep for 1 s to allow for IO. Hack necessary for smalle number of simulations
+        ## where sim time < IO time.
+        time.sleep(1)
         print("Simulations took %0.3f s"%(time.time() - start))
         frames = []
         print('starting to concat files')
         start = time.time()
-
-
         if not sampleCells:
             # initialize dictionary to hold raveled values, used to cluster
             groupedDict = {} 
@@ -984,6 +1002,7 @@ def main(args):
     samplePars = opts.sample_pars
     outPrefix = opts.outPrefix
     parameterInputsPath = opts.inputs
+    parameterSetPath = opts.pset
     icsPath = opts.ics    
     writeProtein = opts.write_protein
     normalizeTrajectory = opts.normalize_trajectory
@@ -1006,6 +1025,14 @@ def main(args):
         parameterInputsDF = pd.read_csv(parameterInputsPath,sep='\t')
     else:
         parameterInputsDF = None
+        
+    if len(parameterSetPath) > 0: 
+        parameterSetDF = pd.read_csv(parameterSetPath,
+                                     header=None,
+                                     sep='\t',
+                                     index_col=0)
+    else:
+        parameterSetDF = None
 
     if len(icsPath) > 0: 
         icsDF = pd.read_csv(icsPath,sep='\t',engine='python')
@@ -1044,19 +1071,22 @@ def main(args):
                 genelist,\
                 proteinlist,\
                 x_max = generateModelDict(DF,identicalPars,
-                                                           samplePars,
-                                                           withoutRules,
-                                                           speciesTypeDF,
-                                                           parameterInputsDF,
-                                                           interactionStrengthDF)
+                                          samplePars,
+                                          withoutRules,
+                                          speciesTypeDF,
+                                          parameterInputsDF,
+                                          parameterSetDF,
+                                          interactionStrengthDF)
             # FIXME : ask user to pass row if parameter input file
             # Hardcoded. We only care about one input vector, say the first one
             if len(parameterInputsPath) > 0:
                 ModelSpec['pars'].update(parameterInputs[0])
             varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
             parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
-            writeModelToFile(ModelSpec)
-            import model
+            dir_path  = writeModelToFile(ModelSpec)
+            ## Load file from path
+            model = SourceFileLoader("model", dir_path + "/model.py").load_module()
+            #import model
             outputfilenames, resultDF = Experiment(model.Model,
                                                    ModelSpec,
                                                    tspan,

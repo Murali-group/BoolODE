@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import os
+import sys
 
 def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
     """
@@ -44,9 +46,10 @@ def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
 
 def writeModelToFile(ModelSpec, prefix=''):
     varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
-    parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
-    
-    with open('src/'+prefix+'model.py','w') as out:
+    parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}
+    dir_path = os.path.dirname(os.path.realpath(__file__))    
+    print("I am in " + dir_path)
+    with open(dir_path+"/"+prefix+'model.py','w') as out:
         out.write('#####################################################\n')
         out.write('import numpy as np\n')
         out.write('# This file is created automatically\n')
@@ -68,7 +71,7 @@ def writeModelToFile(ModelSpec, prefix=''):
         out.write('    dY = np.array([' + outstr+ '])\n')
         out.write('    return(dY)\n')
         out.write('#####################################################')
-    return varmapper,parmapper
+    return dir_path # varmapper,parmapper, 
 
 def writeParametersToFile(ModelSpec, outPrefix, outname='parameters.txt'):
     with open(outPrefix + outname,'w') as out:
