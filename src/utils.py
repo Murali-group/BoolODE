@@ -183,12 +183,15 @@ def generateInputFiles(syntheticDF, outputfilenames, BoolDF, withoutRules,
                                                'PseudoTime-dropped.csv', sep = ',', index = False)
         
         # ExpressionData.csv
-        print('3. ExpressionData.csv')
-        columns = list(syntheticDF.columns)
-        columns = [c.replace('-','_') for c in columns]
-        syntheticDF.columns = columns
-        if len(parameterInputsPath) == 0:
-            syntheticDF = syntheticDF.drop(withoutRules, axis=0)
-        syntheticDF.to_csv(outPrefix+'ExpressionData.csv',sep=',')
-        
+        if len(syntheticDF.columns) < 1e5:
+            print('3. ExpressionData.csv')
+            columns = list(syntheticDF.columns)
+            columns = [c.replace('-','_') for c in columns]
+            syntheticDF.columns = columns
+            if len(parameterInputsPath) == 0:
+                syntheticDF = syntheticDF.drop(withoutRules, axis=0)
+            syntheticDF.to_csv(outPrefix+'ExpressionData.csv',sep=',')
+        else:
+            print('Dataset too large. Skipping generation of ExpressionData.csv.\n Please sample from simulations.')
+            
 
