@@ -264,7 +264,7 @@ def getParameters(DF,identicalPars,
     ## specific checks in parameterSetDF
     if parameterSetDF is not None:
         for pname, pvalue in parameterSetDF.iterrows():
-            par[pname] = pvalue
+            par[pname] = pvalue[1]
     return par, x_max, parameterInputsDict
 
 def generateModelDict(DF,identicalPars,
