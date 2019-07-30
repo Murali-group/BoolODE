@@ -575,6 +575,8 @@ def parseArgs(args):
                       help='Number of expected clusters in the dataset. (Default = 1)')    
     parser.add_option('', '--max-parents', type='int',default='1',
                       help='Number of parents to add to dummy genes. (Default = 1)')    
+    parser.add_option('', '--do-parallel', action="store_true",default=False,
+                      help='Run simulations in parallel. Recommended for > 50 simulations')    
         
     (opts, args) = parser.parse_args(args)
 
@@ -722,6 +724,7 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
                outPrefix,icsDF,
                nClusters,
                x_max,
+               doParallel,
                burnin=False,writeProtein=False,
                normalizeTrajectory=False):
     if not sampleCells:
@@ -835,15 +838,21 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
         print('Starting simulations')
         start = time.time()
         ########################
-        ## Carry out simulations in parrallel
-        lock = Lock()
-        jobs = []
-        for cellid in range(num_cells):
-            argdict['seed'] = cellid
-            argdict['cellid'] = cellid
-            p = Process(target=simulateAndSample,args=([argdict]))
-            p.start()
-            #p.join()
+        if doParallel:
+            ## Carry out simulations in parrallel
+            lock = Lock()
+            jobs = []
+            for cellid in range(num_cells):
+                argdict['seed'] = cellid
+                argdict['cellid'] = cellid
+                p = Process(target=simulateAndSample,args=([argdict]))
+                p.start()
+                #p.join()
+        else:
+            for cellid in tqdm(range(num_cells)):
+                argdict['seed'] = cellid
+                argdict['cellid'] = cellid
+                simulateAndSample(argdict)
         ########################
         ## Sleep for 1 s to allow for IO. Hack necessary for smalle number of simulations
         ## where sim time < IO time.
@@ -1012,6 +1021,7 @@ def main(args):
     sampleCells = opts.sample_cells
     nClusters = opts.nClusters
     max_parents = opts.max_parents
+    doParallel = opts.do_parallel    
     # if output directory doesn't exist
     # create one!
     if len(outPrefix) > 0:
@@ -1099,6 +1109,7 @@ def main(args):
                                                    outPrefix, icsDF,
                                                    nClusters,
                                                    x_max,
+                                                   doParallel,
                                                    burnin=burnin,
                                                    writeProtein=writeProtein,
                                                    normalizeTrajectory=normalizeTrajectory)
