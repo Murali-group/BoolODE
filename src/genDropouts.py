@@ -64,7 +64,7 @@ def genSamples(opts):
     # Dropout here
     for dc,path in zip(dropoutCutoffs,outPaths):
         # copy over PT and refNetwork files
-        refDF.to_csv(path + '/refNetwork.csv',index=False)
+        refDF.to_csv(path + '/refNetwork.csv')
         PTDF.to_csv(path+'/PseudoTime.csv')        
         # Drop-out genes if they are less than the 
         # qunatile value @ "dc" with 50% chance
