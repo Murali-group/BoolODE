@@ -164,6 +164,7 @@ def generateInputFiles(syntheticDF, outputfilenames, BoolDF, withoutRules,
                                'Gene1':r,
                                'Type':ty})
         refNetDF = pd.DataFrame(refnet)
+        refNetDF.drop_duplicates(inplace=True)
         refNetDF.to_csv(outPrefix + 'refNetwork.csv',sep=',',index=False)
         
         # PseudoTime.csv
