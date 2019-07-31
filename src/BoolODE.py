@@ -80,6 +80,7 @@ def readBooleanRules(path, parameterInputsPath, outPrefix='', add_dummy=False, m
 
 def getParameters(DF,identicalPars,
                   samplePars,
+                  sampleStd,
                   genelist,
                   proteinlist,
                   withoutRules,
@@ -207,9 +208,10 @@ def getParameters(DF,identicalPars,
     ## Whether to sample parameters or stick to defaults
     if samplePars:
         print("Sampling parameters")
-        sigmamult = 0.1
-        lomult = 0.2
-        himult = 1.2
+        sigmamult = sampleStd
+        print("Using std=" + str(sampleStd))
+        lomult = 0.9
+        himult = 1.1
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsAll.items():
             sampledParameterValues = getSaneNval(len(species),\
                                                  lo=lomult*parDefault,\
@@ -269,6 +271,7 @@ def getParameters(DF,identicalPars,
 
 def generateModelDict(DF,identicalPars,
                       samplePars,
+                      sampleStd,
                       withoutRules,
                       speciesTypeDF,
                       parameterInputsDF,
@@ -289,6 +292,8 @@ def generateModelDict(DF,identicalPars,
     samplePars : bool
         Sample kinetic parameters using a Gaussian distribution 
         centered around the default parameters
+    sampleStd : float
+        Sample from a distribution of mean=par, sigma=sampleStd*par
     speciesTypeDF : pandas DataFrame
         Table defining type of each species. Takes values 
         'gene' or 'protein'
@@ -355,6 +360,7 @@ def generateModelDict(DF,identicalPars,
 
     par, x_max, parameterInputs = getParameters(DF,identicalPars,
                                                 samplePars,
+                                                sampleStd,
                                                 genelist,
                                                 proteinlist,
                                                 withoutRules,
@@ -551,6 +557,8 @@ def parseArgs(args):
     parser.add_option('-s', '--sample-pars', action="store_true",default=False,
                       help="Sample rate parameters around the hardcoded means\n"
                       ", using 10% stand. dev.")
+    parser.add_option('', '--std', type='float',default=0.1,
+                      help="If sampling parameters, specify standard deviation. (Default 0.1)")
     parser.add_option('', '--write-protein', action="store_true",default=False,
                       help="Write both protein and RNA values to file. Useful for debugging.")
     parser.add_option('-b', '--burn-in', action="store_true",default=False,
@@ -1000,6 +1008,7 @@ def main(args):
     identicalPars = opts.identical_pars
     burnin = opts.burn_in
     samplePars = opts.sample_pars
+    sampleStd = opts.std
     outPrefix = opts.outPrefix
     parameterInputsPath = opts.inputs
     parameterSetPath = opts.pset
@@ -1072,6 +1081,7 @@ def main(args):
                 proteinlist,\
                 x_max = generateModelDict(DF,identicalPars,
                                           samplePars,
+                                          sampleStd,
                                           withoutRules,
                                           speciesTypeDF,
                                           parameterInputsDF,
