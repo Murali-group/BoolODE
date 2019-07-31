@@ -27,6 +27,8 @@ def parseArgs(args):
     
     parser.add_option('-d', '--dropout', action='store_true',default=False,
                       help='Carry out dropout analysis?')
+    parser.add_option('', '--drop-prob', type='float',default=0.5,
+                      help='Specify the probability of dropping a gene below quantile q ')    
     
     parser.add_option('-i', '--samplenum', type='int',default=None,
                       help='Sample Number')
@@ -75,7 +77,7 @@ def genSamples(opts):
                 for col in expDF.columns:
                     if row[col] < quantileExp.loc[idx]:
                         cointoss = np.random.random()
-                        if cointoss < 0.5:
+                        if cointoss < opts.drop_prob:
                             DropOutDF.loc[idx,col] = 0.0
 
         DropOutDF.to_csv(path + '/ExpressionData.csv')
