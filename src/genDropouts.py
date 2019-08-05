@@ -27,6 +27,10 @@ def parseArgs(args):
     
     parser.add_option('-d', '--dropout', action='store_true',default=False,
                       help='Carry out dropout analysis?')
+    
+    parser.add_option('', '--drop-cutoff', type="float",default=0.5,
+                      help='Specify quantile cutoff on gene expression')    
+    
     parser.add_option('', '--drop-prob', type='float',default=0.5,
                       help='Specify the probability of dropping a gene below quantile q ')    
     
@@ -42,9 +46,9 @@ def genSamples(opts):
         print('Please specify sample number')
         sys.exit()
     if opts.dropout:
-        dropoutCutoffs = [0,0.2,0.5,0.75]
+        dropoutCutoffs = opts.drop_cutoff
     else:
-        dropoutCutoffs = [0]
+        dropoutCutoffs = 0
 
     ## Read the ExpressionData.csv file
     expDF = pd.read_csv(opts.expr, index_col=0)
@@ -53,34 +57,29 @@ def genSamples(opts):
     ## Read the refNetwork.csv file
     refDF = pd.read_csv(opts.refNet, index_col=0)
 
-    ## Generate output paths for the dropout datasets
-    outPaths = []
-    for dc in dropoutCutoffs:
-        path = opts.outPrefix + '-' +str(opts.nCells) +'-' + str(opts.samplenum)
-        if dc != 0:
-            path += '-' + str(int(100*dc))
-        
-        if not os.path.exists(path):
-            os.makedirs(path)
-        outPaths.append(path)
+    ## Generate output path for the dropout datasets
+    path = opts.outPrefix + '-' +str(opts.nCells) +'-' + str(opts.samplenum)
+    if dropoutCutoffs != 0:
+        path += '-' + str(int(100*dropoutCutoffs))+  '-' + str( str(opts.drop_prob))
+    if not os.path.exists(path):
+        os.makedirs(path)
     # Dropout here
-    for dc,path in zip(dropoutCutoffs,outPaths):
-        # copy over PT and refNetwork files
-        refDF.to_csv(path + '/refNetwork.csv')
-        PTDF.to_csv(path+'/PseudoTime.csv')        
-        # Drop-out genes if they are less than the 
-        # qunatile value @ "dc" with 50% chance
-        DropOutDF = expDF.copy()
-        if dc != 0:
-            quantileExp = expDF.quantile(q = dc, axis = 'columns')
-            for idx, row in tqdm(expDF.iterrows()):
-                for col in expDF.columns:
-                    if row[col] < quantileExp.loc[idx]:
-                        cointoss = np.random.random()
-                        if cointoss < opts.drop_prob:
-                            DropOutDF.loc[idx,col] = 0.0
+    # copy over PT and refNetwork files
+    refDF.to_csv(path + '/refNetwork.csv')
+    PTDF.to_csv(path+'/PseudoTime.csv')        
+    # Drop-out genes if they are less than the 
+    # qunatile value @ "dc" with 50% chance
+    DropOutDF = expDF.copy()
+    if dropoutCutoffs != 0:
+        quantileExp = expDF.quantile(q = dropoutCutoffs, axis = 'columns')
+        for idx, row in tqdm(expDF.iterrows()):
+            for col in expDF.columns:
+                if row[col] < quantileExp.loc[idx]:
+                    cointoss = np.random.random()
+                    if cointoss < opts.drop_prob:
+                        DropOutDF.loc[idx,col] = 0.0
 
-        DropOutDF.to_csv(path + '/ExpressionData.csv')
+    DropOutDF.to_csv(path + '/ExpressionData.csv')
         
 def main(args):
     opts, args = parseArgs(args)
