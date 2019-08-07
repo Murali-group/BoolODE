@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 __author__ = 'Amogh Jalihal'
-
 import sys
 import numpy as np
 import scipy as sc
@@ -15,27 +14,33 @@ import warnings
 from tqdm import tqdm 
 from optparse import OptionParser
 from multiprocessing import Process, Lock, Manager
-from utils import *
 import ast
 from importlib.machinery import SourceFileLoader
+from utils import *
+from simulator import *
 
 np.seterr(all='raise')
 import os
 
-def readBooleanRules(path, parameterInputsPath, outPrefix='', add_dummy=False, max_parents=1):
+def readBooleanRules(path, parameterInputsPath, outPrefix='',
+                     add_dummy=False, max_parents=1):
     """
+    Reads a rule file from path and stores the rules in a
+    dictionary
+    
     Parameters
     ----------
-    path : str
-        Path to Boolean Rule file
-    parameterInputsPath : str
-        Path to file containing input parameters to the model
-    Returns
-    -------
-    DF : pandas DataFrame
-        Dataframe containing rules
-    withoutrules : list
-        list of nodes in input file without rules
+    :param path: Path to Boolean Rule file
+    :type path: str
+    :param parameterInputsPath: Path to file containing input parameters to the model
+    :type parameterInputsPath: str
+    :param add_dummy: Experimental feature, adds dummy targets to each gene in the model. Useful to change the density of the network
+    :type add_dummy: bool
+    :param max_parents: Experimental feature, specifies number of parent genes per dummy gene added
+    :type max_parents: int
+    :returns:
+        - DF: Dataframe containing rules
+        - withoutrules: list of nodes in input file without rules
     """
     DF = pd.read_csv(path,sep='\t',engine='python')
     withRules = list(DF['Gene'].values)
@@ -91,28 +96,22 @@ def getParameters(DF,identicalPars,
     Create dictionary of parameters and values. Assigns
     parameter values by evaluating the Boolean expression
     for each variable.
-    Parameters:
-    -----------
-    DF : pandas DataFrame
-        Table of values with two columns, 'Gene' specifies
-        target, 'Rule' specifies Boolean function
-    identicalPars : bool
-        Passed to getSaneNval to set identical parameters
-    samplePars : bool
-        Sample kinetic parameters using a Gaussian distribution 
-        centered around the default parameters
-    parameterInputsDF : pandas DataFrame
-        Optional table that specifies input parameter values. Useful to specify
-        experimental conditions.
-    parameterSetDF : pandas DataFrame
-        Optional table that specifies predefined parameter set.
-    interactionStrengthDF : pandas DataFrame
-        Optional table that specifies interaction strengths. When
-        not specified, default strength is set to 1.
-    Returns:
-    --------
-    pars : dict
-        Dictionary of parameters 
+
+    :param DF: Table of values with two columns, 'Gene' specifies target, 'Rule' specifies Boolean function
+    :type DF: pandas DataFrame
+    :param identicalPars: Passed to getSaneNval to set identical parameters
+    :type identicalPars: bool
+    :param samplePars: Sample kinetic parameters using a Gaussian distribution  centered around the default parameters
+    :type samplePars: bool
+    :param parameterInputsDF: Optional table that specifies input parameter values. Useful to specify experimental conditions.
+    :type parameterInputsDF: pandas DataFrame
+    :param parameterSetDF: Optional table that specifies predefined parameter set.
+    :type parameterSetDF: pandas DataFrame
+    :param interactionStrengthDF: Optional table that specifies interaction strengths. When not specified, default strength is set to 1.
+    :type interactionStrengthDF: pandas DataFrame
+    :returns:
+        pars : dict
+            Dictionary of parameters 
     """
     ## Set default parameters
     mRNATranscription = 20.
@@ -282,40 +281,31 @@ def generateModelDict(DF,identicalPars,
     construct ODE equations for each variable.
     Takes optional parameter inputs and interaction
     strengths
-    Parameters:
-    ----------
-    DF : pandas DataFrame
-        Table of values with two columns, 'Gene' specifies
-        target, 'Rule' specifies Boolean function
-    identicalPars : bool
-        Passed to getSaneNval to set identical parameters
-    samplePars : bool
-        Sample kinetic parameters using a Gaussian distribution 
-        centered around the default parameters
-    sampleStd : float
-        Sample from a distribution of mean=par, sigma=sampleStd*par
-    speciesTypeDF : pandas DataFrame
-        Table defining type of each species. Takes values 
-        'gene' or 'protein'
-    parameterInputsDF : pandas DataFrame
-        Optional table that specifies parameter input values. Useful to specify
-        experimental conditions.
-    parameterSetDF : pandas DataFrame
-        Optional table that specifies a predefined parameter set.
-    interactionStrengthDF : pandas DataFrame
-        Optional table that specifies interaction strengths. When
-        not specified, default strength is set to 1.
-    Returns:
-    --------
-    ModelSpec : dict
-        Dictionary of dictionaries. 
-        'varspecs' {variable:ODE equation}
-        'ics' {variable:initial condition}
-        'pars' {parameter:parameter value}
 
+    :param DF: Table of values with two columns, 'Gene' specifies target, 'Rule' specifies Boolean function
+    :type DF: pandas DataFrame
+    :param identicalPars: Passed to getSaneNval to set identical parameters
+    :type identicalPars: bool
+    :param samplePars: Sample kinetic parameters using a Gaussian distribution  centered around the default parameters
+    :type samplePars: bool
+    :param sampleStd: Sample from a distribution of mean=par, sigma=sampleStd*par
+    :type sampleStd: float
+    :param speciesTypeDF: Table defining type of each species. Takes values  'gene' or 'protein'
+    :type speciesTypeDF: pandas DataFrame
+    :param parameterInputsDF: Optional table that specifies parameter input values. Useful to specify experimental conditions.
+    :type parameterInputsDF: pandas DataFrame
+    :param parameterSetDF: Optional table that specifies a predefined parameter set.
+    :type parameterSetDF: pandas DataFrame
+    :param interactionStrengthDF: Optional table that specifies interaction strengths. When not specified, default strength is set to 1.
+    :type interactionStrengthDF: pandas DataFrame
+    :returns:
+        ModelSpec : dict
+            Dictionary of dictionaries. 
+            'varspecs' {variable:ODE equation}
+            'ics' {variable:initial condition}
+            'pars' {parameter:parameter value}
     """
     species = set(DF['Gene'].values)
-    
 
     # Variables:
     ## Check:
@@ -487,122 +477,63 @@ def generateModelDict(DF,identicalPars,
     return ModelSpec, parameterInputs, genelist, proteinlist, x_max
 
         
-def noise(x,t):
-    # Controls noise proportional to
-    # square root of activity
-    c = 10.#4.
-    return (c*np.sqrt(abs(x)))
-
-def deltaW(N, m, h,seed=0):
-    # From sdeint implementation
-    """Generate sequence of Wiener increments for m independent Wiener
-    processes W_j(t) j=0..m-1 for each of N time intervals of length h.    
-    Returns:
-      dW (array of shape (N, m)): The [n, j] element has the value
-      W_j((n+1)*h) - W_j(n*h) 
-    """
-    np.random.seed(seed)
-    return np.random.normal(0.0, h, (N, m))
-
-def eulersde(f,G,y0,tspan,pars,seed=0,dW=None):
-    # From sdeint implementation
-    N = len(tspan)
-    h = (tspan[N-1] - tspan[0])/(N - 1)
-    maxtime = tspan[-1]
-    # allocate space for result
-    d = len(y0)
-    y = np.zeros((N+1, d), dtype=type(y0[0]))
-
-    if dW is None:
-        # pre-generate Wiener increments (for d independent Wiener processes):
-        dW = deltaW(N, d, h, seed=seed)
-    y[0] = y0
-    currtime = 0
-    n = 0
-   
-    while currtime < maxtime:
-        tn = currtime
-        yn = y[n]
-        dWn = dW[n,:]
-        y[n+1] = yn + f(yn, tn,pars)*h + np.multiply(G(yn, tn),dWn)
-        # Ensure positive terms
-        for i in range(len(y[n+1])):
-            if y[n+1][i] < 0:
-                y[n+1][i] = yn[i]
-        currtime += h
-        n += 1 
-    return y
 
 
-def parseArgs(args):
-    parser = OptionParser()
-    parser.add_option('', '--max-time', type='int',default=20,
-                      help='Total time of simulation. (Default = 20)')
-    parser.add_option('', '--num-cells', type='int',default=100,
-                      help='Number of cells sample. (Default = 100)')
-    parser.add_option('', '--sample-cells', action='store_true',default=False,
-                      help="Sample a single cell from each trajectory?\n"
-                      "By default will store full trajectory of each simulation (Default = False)")    
-    parser.add_option('', '--add-dummy', action="store_true",default=False,
-                      help='Add dummy genes')        
-    parser.add_option('', '--num-timepoints', type='int',default=100,
-                      help='Number of time points to sample. (Default = 100)')
-    parser.add_option('', '--num-experiments', type='int',default=30,
-                      help='Number of experiments to perform. (Default = 30)')
-    parser.add_option('-n', '--normalize-trajectory', action="store_true",default=False,
-                      help="Min-Max normalize genes across all experiments")
-    parser.add_option('-i', '--identical-pars', action="store_true",default=False,
-                      help="Set single value to similar parameters\n"
-                      "NOTE: Consider setting this if you are using --sample-pars.")
-    parser.add_option('-s', '--sample-pars', action="store_true",default=False,
-                      help="Sample rate parameters around the hardcoded means\n"
-                      ", using 10% stand. dev.")
-    parser.add_option('', '--std', type='float',default=0.1,
-                      help="If sampling parameters, specify standard deviation. (Default 0.1)")
-    parser.add_option('', '--write-protein', action="store_true",default=False,
-                      help="Write both protein and RNA values to file. Useful for debugging.")
-    parser.add_option('-b', '--burn-in', action="store_true",default=False,
-                      help="Treats the first 25% of the time course as burnin\n"
-                      ", samples from the rest.")        
-    parser.add_option('', '--outPrefix', type = 'str',default='',
-                      help='Prefix for output files.')
-    parser.add_option('', '--path', type='str',
-                      help='Path to boolean model file')
-    parser.add_option('', '--inputs', type='str',default='',
-                      help='Path to input parameter files. This is different from specifying a parameter set!')
-    parser.add_option('', '--pset', type='str',default='',
-                      help='Path to pre-generated parameter set.')        
-    parser.add_option('', '--ics', type='str',default='',
-                      help='Path to list of initial conditions')
-    parser.add_option('', '--strengths', type='str',default='',
-                      help='Path to list of interaction strengths')
-    parser.add_option('', '--species-type', type='str',default='',
-                      help="Path to list of molecular species type file."\
-                      "Useful to specify proteins/genes")
-    parser.add_option('-c', '--nClusters', type='int',default='1',
-                      help='Number of expected clusters in the dataset. (Default = 1)')    
-    parser.add_option('', '--max-parents', type='int',default='1',
-                      help='Number of parents to add to dummy genes. (Default = 1)')    
-    parser.add_option('', '--do-parallel', action="store_true",default=False,
-                      help='Run simulations in parallel. Recommended for > 50 simulations')    
-        
-    (opts, args) = parser.parse_args(args)
-
-    return opts, args
 
 def simulateModel(Model, y0, parameters,isStochastic, tspan,seed):
+    """Call numerical integration functions, either odeint() from Scipy,
+    or eulersde() defined in simulator.py. By default, stochastic simulations are
+    carried out using eulersde.
+
+    :param Model: Function defining ODE model
+    :type Model: function
+    :param y0: array of initial values for each state variable
+    :type y0: array
+    :param parameters: list of parameter values to be used in simulations
+    :type parameters: list
+    :param isStochastic: User defined parameter. Default = True, can be turned off to perform ODE simulations.
+    :type isStochastic: bool
+    :param tspan: Time points to simulate
+    :type tspan: ndarray
+    :param seed: Seed to initialize random number generator
+    :type seed: float
+    :returns: 
+        - P: Time course from numerical integration
+    :rtype: ndarray
+
+    """
     if not isStochastic:
         P = odeint(Model,y0,tspan,args=(parameters,))
     else:
         P = eulersde(Model,noise,y0,tspan,parameters,seed=seed)
     return(P)
 
-
-
 def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
                         genelist, proteinlist,
                         varmapper,revvarmapper):
+    """
+    Calculate the initial values of all state variables. 
+    Takes into consideration user defined initial conditions, and computes the steady 
+    states of the protein variables based on the estimated values of their corresponding genes.
 
+    :param ss: 
+    :type ss:
+    :param ModelSpec:
+    :type ModelSpec:
+    :param rnaIndex:
+    :type rnaIndex:
+    :param proteinIndex:
+    :type proteinIndex:
+    :param genelist:
+    :type genelist:
+    :param proteinlist:
+    :type proteinlist:
+    :param varmapper:
+    :type varmapper:
+    :param revvarmapper:
+    :type revvarmapper:
+    """
+    
     # Initialize
     new_ics = [0 for _ in range(len(varmapper.keys()))]
     # Set the mRNA ics
@@ -723,8 +654,7 @@ def simulateAndSample(argdict):
     df.to_csv(outPrefix + 'E'+ str(cellid) + '.csv')
 
     
-def Experiment(Model, ModelSpec,tspan, num_experiments,
-               num_timepoints, 
+def Experiment(Model, ModelSpec,tspan,
                num_cells,
                sampleCells,
                varmapper, parmapper,
@@ -738,7 +668,6 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
     if not sampleCells:
         print("Note: Simulated trajectories will be clustered. nClusters = %d" % nClusters)
     ####################    
-    # Sample only the alpha values
     allParameters = dict(ModelSpec['pars'])
     parNames = sorted(list(allParameters.keys()))
     ## Use default parameters 
@@ -930,77 +859,57 @@ def Experiment(Model, ModelSpec,tspan, num_experiments,
         outputfilenames.append(outPrefix + name +'_experiment.txt')
     return outputfilenames, resultN
             
-def sampleTimeSeries(num_timepoints, expnum,\
-                     tspan,  P,\
-                     varmapper,timeIndex,
-                     genelist, proteinlist,
-                     header,writeProtein=False):
-    """
-    Returns pandas DataFrame with columns corresponding to 
-    time points and rows corresponding to genes
-    """
-    revvarmapper = {v:k for k,v in varmapper.items()}
-    experimentTimePoints = [h for h in header if 'E' + str(expnum) in h]
-    rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
-    sampleDict = {}
-    
-    if writeProtein:
-        # Write protein and mRNA to file
-        for ri in varmapper.keys():
-            sampleDict[varmapper[ri]] = {h:P[ri][ti] for h,ti in zip(experimentTimePoints,timeIndex)}
-    else:
-        # Default, only mRNA
-        if len(proteinlist) == 0:
-            for ri in rnaIndex:
-                sampleDict[varmapper[ri]] = {h:P[ri][ti]\
-                                             for h,ti in zip(experimentTimePoints,timeIndex)}
-        else:
-            speciesoi = [revvarmapper['p_' + p] for p in proteinlist]
-            speciesoi.extend([revvarmapper['x_' + g] for g in genelist])
-            result = pd.DataFrame(index=pd.Index([varmapper[i] for i in speciesoi]))
+def parseArgs(args):
+    parser = OptionParser()
+    parser.add_option('', '--max-time', type='int',default=20,
+                      help='Total time of simulation. (Default = 20)')
+    parser.add_option('', '--num-cells', type='int',default=100,
+                      help='Number of cells sample. (Default = 100)')
+    parser.add_option('', '--sample-cells', action='store_true',default=False,
+                      help="Sample a single cell from each trajectory?\n"
+                      "By default will store full trajectory of each simulation (Default = False)")    
+    parser.add_option('', '--add-dummy', action="store_true",default=False,
+                      help='Add dummy genes')        
+    parser.add_option('-n', '--normalize-trajectory', action="store_true",default=False,
+                      help="Min-Max normalize genes across all experiments")
+    parser.add_option('-i', '--identical-pars', action="store_true",default=False,
+                      help="Set single value to similar parameters\n"
+                      "NOTE: Consider setting this if you are using --sample-pars.")
+    parser.add_option('-s', '--sample-pars', action="store_true",default=False,
+                      help="Sample rate parameters around the hardcoded means\n"
+                      ", using 10% stand. dev.")
+    parser.add_option('', '--std', type='float',default=0.1,
+                      help="If sampling parameters, specify standard deviation. (Default 0.1)")
+    parser.add_option('', '--write-protein', action="store_true",default=False,
+                      help="Write both protein and RNA values to file. Useful for debugging.")
+    parser.add_option('-b', '--burn-in', action="store_true",default=False,
+                      help="Treats the first 25% of the time course as burnin\n"
+                      ", samples from the rest.")        
+    parser.add_option('', '--outPrefix', type = 'str',default='',
+                      help='Prefix for output files.')
+    parser.add_option('', '--path', type='str',
+                      help='Path to boolean model file')
+    parser.add_option('', '--inputs', type='str',default='',
+                      help='Path to input parameter files. This is different from specifying a parameter set!')
+    parser.add_option('', '--pset', type='str',default='',
+                      help='Path to pre-generated parameter set.')        
+    parser.add_option('', '--ics', type='str',default='',
+                      help='Path to list of initial conditions')
+    parser.add_option('', '--strengths', type='str',default='',
+                      help='Path to list of interaction strengths')
+    parser.add_option('', '--species-type', type='str',default='',
+                      help="Path to list of molecular species type file."\
+                      "Useful to specify proteins/genes")
+    parser.add_option('-c', '--nClusters', type='int',default='1',
+                      help='Number of expected clusters in the dataset. (Default = 1)')    
+    parser.add_option('', '--max-parents', type='int',default='1',
+                      help='Number of parents to add to dummy genes. (Default = 1)')    
+    parser.add_option('', '--do-parallel', action="store_true",default=False,
+                      help='Run simulations in parallel. Recommended for > 50 simulations')    
+        
+    (opts, args) = parser.parse_args(args)
 
-            for si in speciesoi:
-                sampleDict[varmapper[si]] = {h:P[si][ti]\
-                                             for h,ti in zip(experimentTimePoints,timeIndex)}
-
-    sampleDF = pd.DataFrame(sampleDict)
-    return(sampleDF)
-
-def sampleCellFromTraj(cellid,
-                       tspan,
-                       P,
-                       varmapper,sampleAt,
-                       genelist, proteinlist,
-                       header,writeProtein=False):
-    """
-    Returns pandas DataFrame with columns corresponding to 
-    time points and rows corresponding to genes
-    """
-    revvarmapper = {v:k for k,v in varmapper.items()}
-    #experimentTimePoints = [h for h in header if 'E' + str(expnum) in h]
-    rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
-    sampleDict = {}
-    timepoint = int(header[cellid].split('_')[1])
-    if writeProtein:
-        # Write protein and mRNA to file
-        for ri in varmapper.keys():
-            sampleDict[varmapper[ri]] = {header[cellid]: P[ri][timepoint]}
-    else:
-        # Default, only mRNA
-        if len(proteinlist) == 0:
-            for ri in rnaIndex:
-                sampleDict[varmapper[ri]] = {header[cellid]: P[ri][timepoint]}
-        else:
-            speciesoi = [revvarmapper['p_' + p] for p in proteinlist]
-            speciesoi.extend([revvarmapper['x_' + g] for g in genelist])
-            result = pd.DataFrame(index=pd.Index([varmapper[i] for i\
-                                                  in speciesoi]))
-            for si in speciesoi:
-                sampleDict[varmapper[si]] = {header[cellid]: P[ri][timepoint]}
-
-    sampleDF = pd.DataFrame(sampleDict)
-    return(sampleDF)
-
+    return opts, args
 
 def main(args):
     startfull = time.time()
@@ -1011,8 +920,6 @@ def main(args):
         sys.exit()
 
     tmax = opts.max_time
-    numExperiments = opts.num_experiments # Obsolete
-    numTimepoints = opts.num_timepoints   # Obsolete
     numCells = opts.num_cells
     identicalPars = opts.identical_pars
     burnin = opts.burn_in
@@ -1110,8 +1017,6 @@ def main(args):
             outputfilenames, resultDF = Experiment(model.Model,
                                                    ModelSpec,
                                                    tspan,
-                                                   numExperiments,
-                                                   numTimepoints,
                                                    numCells,
                                                    sampleCells,
                                                    varmapper, parmapper,
@@ -1125,7 +1030,7 @@ def main(args):
                                                    normalizeTrajectory=normalizeTrajectory)
             print('Generating input files for pipline...')
             start = time.time()
-            generateInputFiles(resultDF, outputfilenames,DF,
+            generateInputFiles(resultDF, outputfilenames, DF,
                                withoutRules,
                                parameterInputsPath,
                                outPrefix=outPrefix)

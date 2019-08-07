@@ -2,7 +2,7 @@
 Git Repo for converting Boolean models to ODE models and performing stochastic simulations.
 
 ## Usage
-`python src/BoolODE.py --path=data/variables.txt --max-time=200 --num-timepoints=10 --num-experiments=3`
+`python src/BoolODE.py --path=data/variables.txt --max-time=5 --num-cells 300`
 
 ## Options 
 ```
@@ -75,9 +75,9 @@ the type of each variable, either `protein` or `gene`.
 For each gene in the TF regulatory network, BoolODE creates two equations, one govering the regulation
  of the gene (x), and one for its corresponding protein (p).
  
-\\(\frac{dx}{dt} = m f(X) - l_x x\\)
+\(\frac{dx}{dt} = m f(X) - l_x x\)
  
-\\(\frac{dp}{dt} = r x  - l_p p\\)
+\(\frac{dp}{dt} = r x  - l_p p\)
 
 More more details, please see Supplementary section 1 of the preprint.
 
