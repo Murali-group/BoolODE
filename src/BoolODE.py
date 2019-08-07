@@ -25,8 +25,7 @@ import os
 def readBooleanRules(path, parameterInputsPath, outPrefix='',
                      add_dummy=False, max_parents=1):
     """
-    Reads a rule file from path and stores the rules in a
-    dictionary
+    Reads a rule file from path and stores the rules in a dictionary
     
     Parameters
     ----------
@@ -38,6 +37,7 @@ def readBooleanRules(path, parameterInputsPath, outPrefix='',
     :type add_dummy: bool
     :param max_parents: Experimental feature, specifies number of parent genes per dummy gene added
     :type max_parents: int
+
     :returns:
         - DF: Dataframe containing rules
         - withoutrules: list of nodes in input file without rules
@@ -456,18 +456,16 @@ def generateModelDict(DF,identicalPars,
             varspecs['p_' + currSp] = 'r_'+currSp+'*'+'x_' +currSp + '- l_p_'+currSp+'*'+'p_' + currSp
             
     ##########################################################                                       
-    # varspecs.update({'p_' + g:'r_'+g+'*'+'x_' +g + '- l_p_'+g+'*'+'p_' + g\
-    #                  for g in species})
         
     # Initialize variables between 0 and 1, Doesn't matter.
     xvals = [1. for _ in range(len(genelist))]
     pvals = [20. for _ in range(len(proteinlist))]    
     ics = {}
 
-    for sp,xv in zip(genelist,xvals):
+    for sp, xv in zip(genelist, xvals):
         ics['x_' + sp] = xv
         ics['p_' + sp] = 0
-    for sp, pv in zip(proteinlist,pvals):
+    for sp, pv in zip(proteinlist, pvals):
         ics['p_' + sp] = pv
 
     ModelSpec = {}
@@ -475,9 +473,6 @@ def generateModelDict(DF,identicalPars,
     ModelSpec['pars'] = par
     ModelSpec['ics'] = ics
     return ModelSpec, parameterInputs, genelist, proteinlist, x_max
-
-        
-
 
 
 def simulateModel(Model, y0, parameters,isStochastic, tspan,seed):
@@ -508,7 +503,8 @@ def simulateModel(Model, y0, parameters,isStochastic, tspan,seed):
         P = eulersde(Model,noise,y0,tspan,parameters,seed=seed)
     return(P)
 
-def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
+def getInitialCondition(ss, ModelSpec, rnaIndex,
+                        proteinIndex,
                         genelist, proteinlist,
                         varmapper,revvarmapper):
     """
@@ -516,22 +512,24 @@ def getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
     Takes into consideration user defined initial conditions, and computes the steady 
     states of the protein variables based on the estimated values of their corresponding genes.
 
-    :param ss: 
-    :type ss:
-    :param ModelSpec:
-    :type ModelSpec:
-    :param rnaIndex:
-    :type rnaIndex:
-    :param proteinIndex:
-    :type proteinIndex:
-    :param genelist:
-    :type genelist:
-    :param proteinlist:
-    :type proteinlist:
-    :param varmapper:
-    :type varmapper:
-    :param revvarmapper:
-    :type revvarmapper:
+    :param ss: Steady state array
+    :type ss: ndarray
+    :param ModelSpec: Dictionary of dictionary specifying the ODE model, containing parameters, initial conditions and equations.
+    :type ModelSpec: dict
+    :param rnaIndex: list of indices of genes
+    :type rnaIndex: list
+    :param proteinIndex: List of indices of proteins
+    :type proteinIndex: list
+    :param genelist: List of names of all genes in the model
+    :type genelist: list
+    :param proteinlist: List of names of all proteins in the model
+    :type proteinlist: list
+    :param varmapper: Mapper: {variable name : index}
+    :type varmapper: dict
+    :param revvarmapper: Mapper: {index : variable name}
+    :type revvarmapper: dict
+    :returns:
+        - newics: List containing new initial conditions
     """
     
     # Initialize
@@ -665,6 +663,52 @@ def Experiment(Model, ModelSpec,tspan,
                doParallel,
                burnin=False,writeProtein=False,
                normalizeTrajectory=False):
+    """
+    Carry out an `in-silico` experiment. This function takes as input 
+    an ODE model defined as a python function and carries out stochastic
+    simulations. BoolODE defines a _cell_ as a single time point from 
+    a simulated time course. Thus, in order to obtain 50 single cells,
+    BoolODE carries out 50 simulations, which are stored in ./simulations/.
+    Further, if it is known that the resulting single cell dataset will
+    exhibit multiple trajectories, the user can specify  the number of clusters in
+    `nClusters`; BoolODE will then cluster the entire simulation, such that each
+    simulated trajectory possesess a cluster ID.
+
+    :param Model: Function defining ODE model
+    :type Model: function
+    :param ModelSpec: Dictionary defining ODE model. See readBooleanRules()
+    :type ModelSpec: dict
+    :param tspan: Array of time points
+    :type tspan: ndarray
+    :param num_cells: Number of simulations to perform
+    :type num_cells: int
+    :param sampleCells: Bool that specifies if a random sample of size num_cells should be generated from the simulated output, where one cell is picked per simulation without replacement
+    :type sampleCells: bool
+    :param varmapper: 
+    :type varmapper: dict
+    :param parmapper: 
+    :type parmapper: dict
+    :param genelist: List of all gene names
+    :type genelist:  list
+    :param proteinlist: List of all protein names
+    :type proteinlist: list
+    :param outPrefix: Name of output folder. 
+    :type outPrefix: str
+    :param icsDF: Dataframe specifying initial condition for simulation
+    :type icsDF: pandas DataFrame
+    :param nClusters: Number of expected trajectories. Used to perform k-means clustering
+    :type nClusters: int
+    :param x_max: max value of gene. By default 2.0, will vary if parameters are sampled
+    :type x_max: float
+    :param doParallel: Bool specifying starting simulations in parallel
+    :type doParallel: bool
+    :param burnin: Bool specifying that initial fraction of simulation should be discarded. Obsolete
+    :type burnin: bool
+    :param writeProtein: Bool specifying if the protein values should be written to file. Default = False
+    :type writeProtein: bool
+    :param normalizeTrajectory: Bool specifying if the gene expression values should be scaled between 0 and 1.
+    :type normalizeTrajectory: bool 
+    """
     if not sampleCells:
         print("Note: Simulated trajectories will be clustered. nClusters = %d" % nClusters)
     ####################    

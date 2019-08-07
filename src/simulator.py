@@ -12,8 +12,7 @@ def deltaW(N, m, h,seed=0):
     From the sdeint implementation
 
     :returns:
-        dW : array
-            The [n, j] element has the value W_j((n+1)*h) - W_j(n*h) ( has shape (N, m) )
+        - dW : The [n, j] element has the value W_j((n+1)*h) - W_j(n*h) ( has shape (N, m) )
     """
     np.random.seed(seed)
     return np.random.normal(0.0, h, (N, m))
