@@ -16,8 +16,8 @@ from optparse import OptionParser
 from multiprocessing import Process, Lock, Manager
 import ast
 from importlib.machinery import SourceFileLoader
-from utils import *
-from simulator import *
+import utils 
+import simulator 
 
 np.seterr(all='raise')
 import os
@@ -99,7 +99,7 @@ def getParameters(DF,identicalPars,
 
     :param DF: Table of values with two columns, 'Gene' specifies target, 'Rule' specifies Boolean function
     :type DF: pandas DataFrame
-    :param identicalPars: Passed to getSaneNval to set identical parameters
+    :param identicalPars: Passed to utils.getSaneNval to set identical parameters
     :type identicalPars: bool
     :param samplePars: Sample kinetic parameters using a Gaussian distribution  centered around the default parameters
     :type samplePars: bool
@@ -212,7 +212,7 @@ def getParameters(DF,identicalPars,
         lomult = 0.9
         himult = 1.1
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsAll.items():
-            sampledParameterValues = getSaneNval(len(species),\
+            sampledParameterValues = utils.getSaneNval(len(species),\
                                                  lo=lomult*parDefault,\
                                                  hi=himult*parDefault,\
                                                  mu=parDefault,\
@@ -225,7 +225,7 @@ def getParameters(DF,identicalPars,
         transcriptionRate = 0.0
         mRNADegradationRate = 0.0
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsGenes.items():
-            sampledParameterValues = getSaneNval(len(species),\
+            sampledParameterValues = utils.getSaneNval(len(species),\
                                                  lo=lomult*parDefault,\
                                                  hi=himult*parDefault,\
                                                  mu=parDefault,\
@@ -284,7 +284,7 @@ def generateModelDict(DF,identicalPars,
 
     :param DF: Table of values with two columns, 'Gene' specifies target, 'Rule' specifies Boolean function
     :type DF: pandas DataFrame
-    :param identicalPars: Passed to getSaneNval to set identical parameters
+    :param identicalPars: Passed to utils.getSaneNval to set identical parameters
     :type identicalPars: bool
     :param samplePars: Sample kinetic parameters using a Gaussian distribution  centered around the default parameters
     :type samplePars: bool
@@ -477,8 +477,8 @@ def generateModelDict(DF,identicalPars,
 
 def simulateModel(Model, y0, parameters,isStochastic, tspan,seed):
     """Call numerical integration functions, either odeint() from Scipy,
-    or eulersde() defined in simulator.py. By default, stochastic simulations are
-    carried out using eulersde.
+    or simulator.eulersde() defined in simulator.py. By default, stochastic simulations are
+    carried out using simulator.eulersde.
 
     :param Model: Function defining ODE model
     :type Model: function
@@ -500,7 +500,7 @@ def simulateModel(Model, y0, parameters,isStochastic, tspan,seed):
     if not isStochastic:
         P = odeint(Model,y0,tspan,args=(parameters,))
     else:
-        P = eulersde(Model,noise,y0,tspan,parameters,seed=seed)
+        P = simulator.eulersde(Model,simulator.noise,y0,tspan,parameters,seed=seed)
     return(P)
 
 def getInitialCondition(ss, ModelSpec, rnaIndex,
@@ -585,11 +585,6 @@ def simulateAndSample(argdict):
     pars = {}
     for k, v in allParameters.items():
         pars[k] = v
-        ## sample alpha parameters
-        # if ('a_' in k or 'alpha_' in k):
-        #     pars[k] = getSaneNval(1, lo=0,hi=1.,mu=v, sig=0.05)[0]
-        # else:
-        #     pars[k] = v
     pars = [pars[k] for k in parNames]
     
     ## Boolean to check if a simulation is going to a
@@ -633,7 +628,7 @@ def simulateAndSample(argdict):
             ## Write a single cell to file
             ## These samples allow for quickly and
             ## reproducibly testing the output.
-            sampledf = sampleCellFromTraj(cellid,
+            sampledf = utils.sampleCellFromTraj(cellid,
                                           tspan, 
                                           P,
                                           varmapper, timeIndex,
@@ -762,7 +757,6 @@ def Experiment(Model, ModelSpec,tspan,
             result = pd.DataFrame(index=pd.Index([varmapper[i] for i in speciesoi]))
             
         frames = []
-        every = len(tspan)/num_timepoints
         if burnin:
             burninFraction = 0.25 # Chosen arbitrarily as 25%
             # Ignore the first 25% of the simulation
@@ -887,7 +881,7 @@ def Experiment(Model, ModelSpec,tspan,
         ##################################################
 
         if normalizeTrajectory:
-            resultN = normalizeExp(result)
+            resultN = utils.normalizeExp(result)
         else:
             resultN = result
             
@@ -1054,7 +1048,7 @@ def main(args):
                 ModelSpec['pars'].update(parameterInputs[0])
             varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
             parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
-            dir_path  = writeModelToFile(ModelSpec)
+            dir_path  = utils.writeModelToFile(ModelSpec)
             ## Load file from path
             model = SourceFileLoader("model", dir_path + "/model.py").load_module()
             #import model
@@ -1074,7 +1068,7 @@ def main(args):
                                                    normalizeTrajectory=normalizeTrajectory)
             print('Generating input files for pipline...')
             start = time.time()
-            generateInputFiles(resultDF, outputfilenames, DF,
+            utils.generateInputFiles(resultDF, outputfilenames, DF,
                                withoutRules,
                                parameterInputsPath,
                                outPrefix=outPrefix)
@@ -1087,7 +1081,7 @@ def main(args):
             it +=1 
             print(e,"\nattempt %d" %it)
         
-    writeParametersToFile(ModelSpec, outPrefix)
+    utils.writeParametersToFile(ModelSpec, outPrefix)
     print("BoolODE.py took %0.2fs"% (time.time() - startfull))
     print('all done.')    
 
