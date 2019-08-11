@@ -230,8 +230,6 @@ def generateInputFiles(resultDF, outputfilenames, BoolDF, withoutRules,
         PseudoTimeDF = pd.DataFrame(PseudoTimeDict)
         PseudoTimeDF.to_csv(outPrefix + 'PseudoTime.csv',sep=',',index=False)
         PseudoTimeDF.index = PseudoTimeDF['Cell ID']
-        PseudoTimeDF.loc[cellID].to_csv(outPrefix +\
-                                               'PseudoTime-dropped.csv', sep = ',', index = False)
         
         # ExpressionData.csv
         if len(resultDF.columns) < 1e5:

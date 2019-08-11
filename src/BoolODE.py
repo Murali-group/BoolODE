@@ -890,8 +890,6 @@ def Experiment(Model, ModelSpec,tspan,
         else:
             name = 'ode'
 
-
-        resultN.to_csv(outPrefix + name +'_experiment.txt',sep='\t')
         if not sampleCells:
             clusterDF.to_csv(outPrefix + 'ClusterIds.csv')
         outputfilenames.append(outPrefix + name +'_experiment.txt')
