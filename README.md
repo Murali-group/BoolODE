@@ -1,8 +1,10 @@
 # BoolODE
 Git Repo for converting Boolean models to ODE models and performing stochastic simulations.
 
+Find the documentation for BoolODE [https://murali-group.github.io/Beeline/BoolODE.html](here).
+
 ## Usage
-`python src/BoolODE.py --path=data/variables.txt --max-time=5 --num-cells 300`
+`python src/BoolODE.py --path=data/test_vars.txt --max-time=5 --num-cells 100`
 
 ## Options 
 ```
@@ -10,32 +12,44 @@ Usage: BoolODE.py [options]
 
 Options:
   -h, --help            show this help message and exit
-  --path=PATH           Path to boolean model file. This file is required.
-  --outPrefix=OUTPREFIX
-                        [Optional] Prefix for output files. Will create a directories
-                        if they are missing.
-  --max-time=MAX_TIME   [Optional] Total time of simulation. (Default = 20)
-  --num-timepoints=NUM_TIMEPOINTS
-                        [Optional] Number of time points to sample. (Default = 100)
-  --num-experiments=NUM_EXPERIMENTS
-                        [Optional] Number of experiments to perform. (Default = 30)
+  --max-time=MAX_TIME   Total time of simulation. (Default = 20)
+  --num-cells=NUM_CELLS
+                        Number of cells sample. (Default = 100)
+  --sample-cells        Sample a single cell from each trajectory? By default
+                        will store full trajectory of each simulation (Default
+                        = False)
+  --add-dummy           Add dummy genes
   -n, --normalize-trajectory
-                        [Optional] Min-Max normalize genes across all experiments
-  -i, --identical-pars  [Optional] Set single value to similar parameters NOTE: Consider
+                        Min-Max normalize genes across all experiments
+  -i, --identical-pars  Set single value to similar parameters NOTE: Consider
                         setting this if you are using --sample-pars.
-  -s, --sample-pars     [Optional] Sample rate parameters around the hardcoded means ,
+  -s, --sample-pars     Sample rate parameters around the hardcoded means ,
                         using 10% stand. dev.
-  --write-protein       [Optional] Write both protein and RNA values to file. Useful for
+  --std=STD             If sampling parameters, specify standard deviation.
+                        (Default 0.1)
+  --write-protein       Write both protein and RNA values to file. Useful for
                         debugging.
-  -b, --burn-in         [Optional] Treats the first 25% of the time course as burnin ,
+  -b, --burn-in         Treats the first 25% of the time course as burnin ,
                         samples from the rest.
-  --inputs=INPUTS       [Optional] Path to input parameter files
-  --ics=ICS             [Optional] Path to list of initial conditions
+  --outPrefix=OUTPREFIX
+                        Prefix for output files.
+  --path=PATH           Path to boolean model file
+  --inputs=INPUTS       Path to input parameter files. This is different from
+                        specifying a parameter set!
+  --pset=PSET           Path to pre-generated parameter set.
+  --ics=ICS             Path to list of initial conditions
   --strengths=STRENGTHS
-                        [Optional] Path to list of interaction strengths
+                        Path to list of interaction strengths
   --species-type=SPECIES_TYPE
-                        [Optional] Path to list of molecular species type file. Useful to
-                        specify proteins/genes. 
+                        Path to list of molecular species type file.Useful to
+                        specify proteins/genes
+  -c NCLUSTERS, --nClusters=NCLUSTERS
+                        Number of expected clusters in the dataset. (Default =
+                        1)
+  --max-parents=MAX_PARENTS
+                        Number of parents to add to dummy genes. (Default = 1)
+  --do-parallel         Run simulations in parallel. Recommended for > 50
+                        simulations
 ```
 ## Inputs
 BoolODE requires a tab separated file containing a Boolean model. The following is a sample input file
