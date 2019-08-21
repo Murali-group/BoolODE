@@ -1,7 +1,7 @@
 # BoolODE
 Git Repo for converting Boolean models to ODE models and performing stochastic simulations.
 
-Find the documentation for BoolODE [https://murali-group.github.io/Beeline/BoolODE.html](here).
+Find the documentation for BoolODE [here](https://murali-group.github.io/Beeline/BoolODE.html).
 
 ## Usage
 `python src/BoolODE.py --path=data/test_vars.txt --max-time=5 --num-cells 100`
