@@ -83,7 +83,7 @@ python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/Expr
        -p $output_dir$output_name"/PseudoTime.csv"\
        -r $output_dir$output_name"/refNetwork.csv"\
        -n $numcells -d --drop-cutoff 0.7 --drop-prob 0.7 -i 1\
-       --outPrefix $output_dir$output_name"/"$output_name"-dropped/"
+       --outPrefix $output_dir$output_name"/"$output_name"-70/"
 
 echo "Running slingshot"
 numclusters=3
@@ -92,7 +92,7 @@ python $path_to_boolode/scripts/runSlingshot.py --expr $output_dir$output_name"/
        --outPrefix $output_dir$output_name\
        --nClusters=$numclusters -r 200
 
-VSC
+# VSC
 model_name="VSC"
 output_name="VSC"
 numclusters="5"
@@ -108,7 +108,7 @@ python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/Expr
        -p $output_dir$output_name"/PseudoTime.csv"\
        -r $output_dir$output_name"/refNetwork.csv"\
        -n $numcells -d --drop-cutoff 0.7 --drop-prob 0.7 -i 1\
-       --outPrefix $output_dir$output_name"/"$output_name"-dropped/"
+       --outPrefix $output_dir$output_name"/"$output_name"-70/"
 
 echo "Running slingshot"
 numclusters=6
@@ -132,7 +132,7 @@ python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/Expr
        -p $output_dir$output_name"/PseudoTime.csv"\
        -r $output_dir$output_name"/refNetwork.csv"\
        -n $numcells -d --drop-cutoff 0.7 --drop-prob 0.7 -i 1\
-       --outPrefix $output_dir$output_name"/"$output_name"-dropped/"
+       --outPrefix $output_dir$output_name"/"$output_name"-70/"
 
 echo "Running slingshot"
 numclusters=5
@@ -156,7 +156,7 @@ python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/Expr
        -p $output_dir$output_name"/PseudoTime.csv"\
        -r $output_dir$output_name"/refNetwork.csv"\
        -n $numcells -d --drop-cutoff 0.7 --drop-prob 0.7 -i 1\
-       --outPrefix $output_dir$output_name"/"$output_name"-dropped/"
+       --outPrefix $output_dir$output_name"/"$output_name"-70/"
 
 echo "Running slingshot"
 numclusters=3
