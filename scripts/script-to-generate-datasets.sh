@@ -11,11 +11,17 @@ NUMCELLS="5000"
 
 # Dyn- models
 # linear
+## simulate and store trajectories
 python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-linear.txt\
        --ics $path_to_boolode/data/dyn-linear_ics.txt --max-time 5 --num-cells $NUMCELLS\
        --do-parallel\
        --outPrefix "generated-datasets/dyn-linear/"
-
+## Carry out dropouts
+python $path_to_boolode/src/genDropouts.py  -e "benchmarking/Simulated-samples/"$MODELNAME"/"$MODELNAME"-"$NUMCELLS"-"$simnum"/ExpressionData.csv"\
+       -p "benchmarking/Simulated-samples/"$MODELNAME"/"$MODELNAME"-"$NUMCELLS"-"$simnum"/PseudoTime.csv"\
+       -r "benchmarking/Simulated-samples/"$MODELNAME"/"$MODELNAME"-"$NUMCELLS"-"$simnum"/refNetwork.csv"\
+       -n 2000 -d --drop-cutoff 0.7 --drop-prob 0.7 -i $simnum\
+       --outPrefix "benchmarking/Simulated-dropouts/"$MODELNAME"/"$MODELNAME
 # linear long
 python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-linear-long.txt\
        --ics $path_to_boolode/data/dyn-linear-long_ics.txt --max-time 15 --num-cells $NUMCELLS\
@@ -72,8 +78,8 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/HSC.txt\
        --outPrefix "generated-datasets/HSC/"
 
 # GSD
-python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/HSC.txt\
-       --ics $path_to_boolode/data/HSC_ics.txt --max-time 8 --num-cells $NUMCELLS\
+python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/GSD.txt\
+       --max-time 8 --num-cells $NUMCELLS\
        --do-parallel\
        --nClusters 2\
        --outPrefix "generated-datasets/HSC/"
