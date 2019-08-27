@@ -6,81 +6,161 @@
 # The above will specify a standard deviation of 5% of the default parameter
 # value, and the -i option will set all parameters to a single sampled value.
 
-path_to_boolode="../"
-NUMCELLS="5000"
+path_to_boolode=".."
+numcells="2000"
 
-# Dyn- models
-# linear
-## simulate and store trajectories
-python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-linear.txt\
-       --ics $path_to_boolode/data/dyn-linear_ics.txt --max-time 5 --num-cells $NUMCELLS\
-       --do-parallel\
-       --outPrefix "generated-datasets/dyn-linear/"
-## Carry out dropouts
-python $path_to_boolode/src/genDropouts.py  -e "benchmarking/Simulated-samples/"$MODELNAME"/"$MODELNAME"-"$NUMCELLS"-"$simnum"/ExpressionData.csv"\
-       -p "benchmarking/Simulated-samples/"$MODELNAME"/"$MODELNAME"-"$NUMCELLS"-"$simnum"/PseudoTime.csv"\
-       -r "benchmarking/Simulated-samples/"$MODELNAME"/"$MODELNAME"-"$NUMCELLS"-"$simnum"/refNetwork.csv"\
-       -n 2000 -d --drop-cutoff 0.7 --drop-prob 0.7 -i $simnum\
-       --outPrefix "benchmarking/Simulated-dropouts/"$MODELNAME"/"$MODELNAME
-# linear long
-python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-linear-long.txt\
-       --ics $path_to_boolode/data/dyn-linear-long_ics.txt --max-time 15 --num-cells $NUMCELLS\
-       --do-parallel\
-       --outPrefix "generated-datasets/dyn-linear-long/"
+# Synthetic Networks
+output_dir="Synthetic/"
 
-# bifurcating
-python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-bifurcating.txt\
-       --ics $path_to_boolode/data/dyn-bifurcating_ics.txt --max-time 5 --num-cells $NUMCELLS\
+# Linear
+output_name="dyn-LI"
+echo "Simulating "$model_name
+python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.txt\
+       --ics $path_to_boolode/data/$model_name"_ics.txt" --max-time 5 --num-cells $numcells\
+       --do-parallel\
+       --outPrefix $output_dir$output_name"/"
+
+# Linear Long
+output_name="dyn-LL"
+model_name="dyn-linear-long"
+python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.txt\
+       --ics $path_to_boolode/data/$model_name"_ics.txt" --max-time 15 --num-cells $numcells\
+       --do-parallel\
+       --outPrefix $output_dir$output_name"/"
+       
+# Cycle
+output_name="dyn-CY"
+model_name="dyn-cycle"
+python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.txt\
+       --ics $path_to_boolode/data/$model_name"_ics.txt" --max-time 8 --num-cells $numcells\
+       --do-parallel\
+       --outPrefix $output_dir$output_name"/"
+       
+# Bifurcating
+output_name="dyn-BF"
+model_name="dyn-bifurcating"
+python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.txt\
+       --ics $path_to_boolode/data/$model_name"_ics.txt" --max-time 5 --num-cells $numcells\
        --do-parallel\
        --nClusters 2\
-       --outPrefix "generated-datasets/dyn-bifurcating/"
+       --outPrefix $output_dir$output_name"/"
 
-# bifurcating converging
-python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-bifurcating-converging.txt\
-       --ics $path_to_boolode/data/dyn-bifurcating-converging_ics.txt --max-time 8 --num-cells $NUMCELLS\
+# Bifurcating-converging
+model_name="dyn-bifurcating-converging"
+output_name="dyn-BFC"
+python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.txt\
+       --ics $path_to_boolode/data/$model_name"_ics.txt" --max-time 8 --num-cells $numcells\
        --do-parallel\
        --nClusters 2\
-       --outPrefix "generated-datasets/dyn-bifurcating-converging/"
+       --outPrefix $output_dir$output_name"/"
 
-# trifurcating
-python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-trifurcating.txt\
-       --ics $path_to_boolode/data/dyn-trifurcating_ics.txt --max-time 8 --num-cells $NUMCELLS\
+# Trifurcating
+model_name="dyn-trifurcating"
+output_name="dyn-TF"
+python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.txt\
+       --ics $path_to_boolode/data/$model_name"_ics.txt" --max-time 8 --num-cells $numcells\
        --do-parallel\
        --nClusters 3\
-       --outPrefix "generated-datasets/dyn-trifurcating/"
+       --outPrefix $output_dir$output_name"/"
 
-# cycle
-python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-cycle.txt\
-       --ics $path_to_boolode/data/dyn-cycle_ics.txt --max-time 8 --num-cells $NUMCELLS\
-       --do-parallel\
-       --outPrefix "generated-datasets/dyn-cycle/"
 
-# Boolean models
+# # Curated models
+output_dir="Curated/"
+
 # mCAD
-python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/mCAD.txt\
-       --ics $path_to_boolode/data/mCAD_ics.txt --max-time 5 --num-cells $NUMCELLS\
+output_name="mCAD"
+model_name="mCAD"
+numclusters="2"
+echo "Simulating "$model_name
+python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.txt\
+       --ics $path_to_boolode/data/$model_name"_ics.txt" --max-time 5 --num-cells $numcells\
        --do-parallel\
-       --nClusters 2\
-       --outPrefix "generated-datasets/mCAD/"
+       --nClusters $numclusters\
+       --outPrefix $output_dir$output_name"/"
 
-# VSC
-python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/VSC.txt\
-       --ics $path_to_boolode/data/VSC_ics.txt --max-time 5 --num-cells $NUMCELLS\
+echo "Generating dropouts"
+python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/ExpressionData.csv"\
+       -p $output_dir$output_name"/PseudoTime.csv"\
+       -r $output_dir$output_name"/refNetwork.csv"\
+       -n $numcells -d --drop-cutoff 0.7 --drop-prob 0.7 -i 1\
+       --outPrefix $output_dir$output_name"/"$output_name"-dropped/"
+
+echo "Running slingshot"
+numclusters=3
+python $path_to_boolode/scripts/runSlingshot.py --expr $output_dir$output_name"/ExpressionData.csv"\
+       --pseudo $output_dir$output_name"/PseudoTime.csv"\
+       --outPrefix $output_dir$output_name\
+       --nClusters=$numclusters -r 200
+
+VSC
+model_name="VSC"
+output_name="VSC"
+numclusters="5"
+echo "Simulating "$model_name
+python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.txt\
+       --ics $path_to_boolode/data/$model_name"_ics.txt" --max-time 5 --num-cells $numcells\
        --do-parallel\
-       --nClusters 5\
-       --outPrefix "generated-datasets/VSC/"
+       --nClusters $numclusters\
+       --outPrefix $output_dir$output_name"/"
+
+echo "Generating dropouts"
+python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/ExpressionData.csv"\
+       -p $output_dir$output_name"/PseudoTime.csv"\
+       -r $output_dir$output_name"/refNetwork.csv"\
+       -n $numcells -d --drop-cutoff 0.7 --drop-prob 0.7 -i 1\
+       --outPrefix $output_dir$output_name"/"$output_name"-dropped/"
+
+echo "Running slingshot"
+numclusters=6
+python $path_to_boolode/scripts/runSlingshot.py --expr $output_dir$output_name"/ExpressionData.csv"\
+       --pseudo $output_dir$output_name"/PseudoTime.csv"\
+       --outPrefix $output_dir$output_name\
+       --nClusters=$numclusters -r 200
 
 # HSC
+model_name="HSC"
+output_name="HSC"
+numclusters="4"
 python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/HSC.txt\
-       --ics $path_to_boolode/data/HSC_ics.txt --max-time 8 --num-cells $NUMCELLS\
+       --ics $path_to_boolode/data/$model_name"_ics.txt" --max-time 8 --num-cells $numcells\
        --do-parallel\
-       --nClusters 4\
-       --outPrefix "generated-datasets/HSC/"
+       --nClusters $numclusters\
+       --outPrefix $output_dir$output_name"/"
+
+echo "Generating dropouts"
+python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/ExpressionData.csv"\
+       -p $output_dir$output_name"/PseudoTime.csv"\
+       -r $output_dir$output_name"/refNetwork.csv"\
+       -n $numcells -d --drop-cutoff 0.7 --drop-prob 0.7 -i 1\
+       --outPrefix $output_dir$output_name"/"$output_name"-dropped/"
+
+echo "Running slingshot"
+numclusters=5
+python $path_to_boolode/scripts/runSlingshot.py --expr $output_dir$output_name"/ExpressionData.csv"\
+       --pseudo $output_dir$output_name"/PseudoTime.csv"\
+       --outPrefix $output_dir$output_name\
+       --nClusters=$numclusters -r 200
 
 # GSD
-python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/GSD.txt\
-       --max-time 8 --num-cells $NUMCELLS\
+output_name="GSD"
+model_name="GSD"
+numclusters="2"
+python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.txt\
+       --max-time 8 --num-cells $numcells\
        --do-parallel\
-       --nClusters 2\
-       --outPrefix "generated-datasets/HSC/"
-       
+       --nClusters $numclusters\
+       --outPrefix $output_dir$output_name"/"
+
+echo "Generating dropouts"
+python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/ExpressionData.csv"\
+       -p $output_dir$output_name"/PseudoTime.csv"\
+       -r $output_dir$output_name"/refNetwork.csv"\
+       -n $numcells -d --drop-cutoff 0.7 --drop-prob 0.7 -i 1\
+       --outPrefix $output_dir$output_name"/"$output_name"-dropped/"
+
+echo "Running slingshot"
+numclusters=3
+python $path_to_boolode/scripts/runSlingshot.py --expr $output_dir$output_name"/ExpressionData.csv"\
+       --pseudo $output_dir$output_name"/PseudoTime.csv"\
+       --outPrefix $output_dir$output_name\
+       --nClusters=$numclusters -r 200
