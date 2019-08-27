@@ -7,74 +7,76 @@
 # value, and the -i option will set all parameters to a single sampled value.
 
 path_to_boolode="../"
-NUMCELLS="5000"
+NUMCELLS="2000"
 
-# Dyn- models
-# linear
+# Synthetic Networks
+# Linear
 python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-linear.txt\
        --ics $path_to_boolode/data/dyn-linear_ics.txt --max-time 5 --num-cells $NUMCELLS\
        --do-parallel\
-       --outPrefix "generated-datasets/dyn-linear/"
+       --outPrefix "Synthetic/dyn-LI/"
 
-# linear long
+# Linear Long
 python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-linear-long.txt\
        --ics $path_to_boolode/data/dyn-linear-long_ics.txt --max-time 15 --num-cells $NUMCELLS\
        --do-parallel\
-       --outPrefix "generated-datasets/dyn-linear-long/"
-
-# bifurcating
+       --outPrefix "Synthetic/dyn-LL/"
+       
+# Cycle
+python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-cycle.txt\
+       --ics $path_to_boolode/data/dyn-cycle_ics.txt --max-time 8 --num-cells $NUMCELLS\
+       --do-parallel\
+       --outPrefix "Synthetic/dyn-CY/"
+       
+# Bifurcating
 python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-bifurcating.txt\
        --ics $path_to_boolode/data/dyn-bifurcating_ics.txt --max-time 5 --num-cells $NUMCELLS\
        --do-parallel\
        --nClusters 2\
-       --outPrefix "generated-datasets/dyn-bifurcating/"
+       --outPrefix "Synthetic/dyn-BF/"
 
-# bifurcating converging
+# Bifurcating-converging
 python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-bifurcating-converging.txt\
        --ics $path_to_boolode/data/dyn-bifurcating-converging_ics.txt --max-time 8 --num-cells $NUMCELLS\
        --do-parallel\
        --nClusters 2\
-       --outPrefix "generated-datasets/dyn-bifurcating-converging/"
+       --outPrefix "Synthetic/dyn-BFC/"
 
-# trifurcating
+# Trifurcating
 python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-trifurcating.txt\
        --ics $path_to_boolode/data/dyn-trifurcating_ics.txt --max-time 8 --num-cells $NUMCELLS\
        --do-parallel\
        --nClusters 3\
-       --outPrefix "generated-datasets/dyn-trifurcating/"
+       --outPrefix "Synthetic/dyn-TF/"
 
-# cycle
-python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/dyn-cycle.txt\
-       --ics $path_to_boolode/data/dyn-cycle_ics.txt --max-time 8 --num-cells $NUMCELLS\
-       --do-parallel\
-       --outPrefix "generated-datasets/dyn-cycle/"
 
-# Boolean models
+
+# Curated models
 # mCAD
 python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/mCAD.txt\
        --ics $path_to_boolode/data/mCAD_ics.txt --max-time 5 --num-cells $NUMCELLS\
        --do-parallel\
        --nClusters 2\
-       --outPrefix "generated-datasets/mCAD/"
+       --outPrefix "Curated/mCAD/"
 
 # VSC
 python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/VSC.txt\
        --ics $path_to_boolode/data/VSC_ics.txt --max-time 5 --num-cells $NUMCELLS\
        --do-parallel\
        --nClusters 5\
-       --outPrefix "generated-datasets/VSC/"
+       --outPrefix "Curated/VSC/"
 
 # HSC
 python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/HSC.txt\
        --ics $path_to_boolode/data/HSC_ics.txt --max-time 8 --num-cells $NUMCELLS\
        --do-parallel\
        --nClusters 4\
-       --outPrefix "generated-datasets/HSC/"
+       --outPrefix "Curated/HSC/"
 
 # GSD
-python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/HSC.txt\
-       --ics $path_to_boolode/data/HSC_ics.txt --max-time 8 --num-cells $NUMCELLS\
+python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/GSD.txt\
+       --ics $path_to_boolode/data/GSD_ics.txt --max-time 8 --num-cells $NUMCELLS\
        --do-parallel\
        --nClusters 2\
-       --outPrefix "generated-datasets/HSC/"
+       --outPrefix "Curated/GSD/"
        
