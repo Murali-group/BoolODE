@@ -77,20 +77,22 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.
        --do-parallel\
        --nClusters $numclusters\
        --outPrefix $output_dir$output_name"/"
-
-echo "Generating dropouts"
-python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/ExpressionData.csv"\
-       -p $output_dir$output_name"/PseudoTime.csv"\
-       -r $output_dir$output_name"/refNetwork.csv"\
-       -n $numcells -d --drop-cutoff 0.7 --drop-prob 0.7 -i 1\
-       --outPrefix $output_dir$output_name"/"$output_name"-70/"
-
+       
 echo "Running slingshot"
 numclusters=3
 python $path_to_boolode/scripts/runSlingshot.py --expr $output_dir$output_name"/ExpressionData.csv"\
        --pseudo $output_dir$output_name"/PseudoTime.csv"\
        --outPrefix $output_dir$output_name\
        --nClusters=$numclusters -r 200
+
+
+echo "Generating dropouts for q=50 for "$model_name
+python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/ExpressionData.csv"\
+       -p $output_dir$output_name"/PseudoTime.csv"\
+       -r $output_dir$output_name"/refNetwork.csv"\
+       -n $numcells -d --drop-cutoff 0.5 --drop-prob 0.5 -i 1\
+       --outPrefix $output_dir$output_name"/"$output_name"-50/"
+
 
 # VSC
 model_name="VSC"
@@ -103,19 +105,19 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.
        --nClusters $numclusters\
        --outPrefix $output_dir$output_name"/"
 
-echo "Generating dropouts"
-python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/ExpressionData.csv"\
-       -p $output_dir$output_name"/PseudoTime.csv"\
-       -r $output_dir$output_name"/refNetwork.csv"\
-       -n $numcells -d --drop-cutoff 0.7 --drop-prob 0.7 -i 1\
-       --outPrefix $output_dir$output_name"/"$output_name"-70/"
-
 echo "Running slingshot"
 numclusters=6
 python $path_to_boolode/scripts/runSlingshot.py --expr $output_dir$output_name"/ExpressionData.csv"\
        --pseudo $output_dir$output_name"/PseudoTime.csv"\
        --outPrefix $output_dir$output_name\
        --nClusters=$numclusters -r 200
+       
+echo "Generating dropouts for q=50 for "$model_name
+python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/ExpressionData.csv"\
+       -p $output_dir$output_name"/PseudoTime.csv"\
+       -r $output_dir$output_name"/refNetwork.csv"\
+       -n $numcells -d --drop-cutoff 0.5 --drop-prob 0.5 -i 1\
+       --outPrefix $output_dir$output_name"/"$output_name"-50/"
 
 # HSC
 model_name="HSC"
@@ -126,20 +128,22 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/HSC.txt\
        --do-parallel\
        --nClusters $numclusters\
        --outPrefix $output_dir$output_name"/"
-
-echo "Generating dropouts"
-python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/ExpressionData.csv"\
-       -p $output_dir$output_name"/PseudoTime.csv"\
-       -r $output_dir$output_name"/refNetwork.csv"\
-       -n $numcells -d --drop-cutoff 0.7 --drop-prob 0.7 -i 1\
-       --outPrefix $output_dir$output_name"/"$output_name"-70/"
-
+       
 echo "Running slingshot"
 numclusters=5
 python $path_to_boolode/scripts/runSlingshot.py --expr $output_dir$output_name"/ExpressionData.csv"\
        --pseudo $output_dir$output_name"/PseudoTime.csv"\
        --outPrefix $output_dir$output_name\
        --nClusters=$numclusters -r 200
+       
+echo "Generating dropouts for q=50 for "$model_name
+python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/ExpressionData.csv"\
+       -p $output_dir$output_name"/PseudoTime.csv"\
+       -r $output_dir$output_name"/refNetwork.csv"\
+       -n $numcells -d --drop-cutoff 0.5 --drop-prob 0.5 -i 1\
+       --outPrefix $output_dir$output_name"/"$output_name"-50/"
+
+
 
 # GSD
 output_name="GSD"
@@ -151,16 +155,17 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.
        --nClusters $numclusters\
        --outPrefix $output_dir$output_name"/"
 
-echo "Generating dropouts"
-python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/ExpressionData.csv"\
-       -p $output_dir$output_name"/PseudoTime.csv"\
-       -r $output_dir$output_name"/refNetwork.csv"\
-       -n $numcells -d --drop-cutoff 0.7 --drop-prob 0.7 -i 1\
-       --outPrefix $output_dir$output_name"/"$output_name"-70/"
-
 echo "Running slingshot"
 numclusters=3
 python $path_to_boolode/scripts/runSlingshot.py --expr $output_dir$output_name"/ExpressionData.csv"\
        --pseudo $output_dir$output_name"/PseudoTime.csv"\
        --outPrefix $output_dir$output_name\
        --nClusters=$numclusters -r 200
+       
+echo "Generating dropouts for q=50 for "$model_name
+python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/ExpressionData.csv"\
+       -p $output_dir$output_name"/PseudoTime.csv"\
+       -r $output_dir$output_name"/refNetwork.csv"\
+       -n $numcells -d --drop-cutoff 0.5 --drop-prob 0.5 -i 1\
+       --outPrefix $output_dir$output_name"/"$output_name"-50/"
+
