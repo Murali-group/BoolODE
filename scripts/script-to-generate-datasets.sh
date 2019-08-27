@@ -7,7 +7,7 @@
 # value, and the -i option will set all parameters to a single sampled value.
 
 path_to_boolode="../"
-NUMCELLS="5000"
+NUMCELLS="2000"
 
 # Synthetic Networks
 # Linear
