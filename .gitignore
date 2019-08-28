@@ -107,3 +107,10 @@ venv.bak/
 *.csv
 src/model.py*
 /*.txt
+/data/*
+/src/final-plots.py
+/src/run-in-parallel.py
+/src/tsne-gene-gradients.py
+/start-scripts.py
+/simulatedmodels.sh
+/.Rhistory
