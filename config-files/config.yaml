@@ -1,0 +1,20 @@
+global_settings:
+  model_dir: "data"
+  output_dir: "Synthetic"
+
+jobs:
+  - name: "dyn-LI-1"
+    #model_definition: "dyn-linear.txt"
+    model_initial_conditions: "dyn-linear_ics.txt"
+    simulation_time: 5
+    num_cells: 20
+
+  - name: "dyn-LI-2"
+    model_definition: "dyn-linear.txt"
+    model_initial_conditions: "dyn-linear_ics.txt"
+    simulation_time: 5
+    num_cells: 20
+    do_parallel: True
+ 
+
+  

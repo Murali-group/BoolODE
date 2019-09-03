@@ -90,7 +90,7 @@ def writeParametersToFile(ModelSpec, outPrefix, outname='parameters.txt'):
     :param outname: User defined name for parameters file. Default is parameters.txt
     :type outname: str (Optional)
     """
-    with open(outPrefix + outname,'w') as out:
+    with open(str(outPrefix) + '/'  + outname,'w') as out:
         for k, v in ModelSpec['pars'].items():
             out.write(k+'\t'+str(v) + '\n')
 
@@ -153,7 +153,7 @@ def get_ss(P):
     return(ss)
 
 def generateInputFiles(resultDF, outputfilenames, BoolDF, withoutRules,
-                       parameterInputsPath,
+                       parameterInputsDF,
                        outPrefix=''):
     """
     Generates input files required from the Beeline pipeline
@@ -215,7 +215,7 @@ def generateInputFiles(resultDF, outputfilenames, BoolDF, withoutRules,
                                'Type':ty})
         refNetDF = pd.DataFrame(refnet)
         refNetDF.drop_duplicates(inplace=True)
-        refNetDF.to_csv(outPrefix + 'refNetwork.csv',sep=',',index=False)
+        refNetDF.to_csv(str(outPrefix) + '/refNetwork.csv',sep=',',index=False)
         
         # PseudoTime.csv
         print('2. PseudoTime.csv')
@@ -228,7 +228,7 @@ def generateInputFiles(resultDF, outputfilenames, BoolDF, withoutRules,
         PseudoTimeDict = {'Cell ID':cellID, 'PseudoTime':pseudotime,
                           'Time':time,'Experiment':experiment}
         PseudoTimeDF = pd.DataFrame(PseudoTimeDict)
-        PseudoTimeDF.to_csv(outPrefix + 'PseudoTime.csv',sep=',',index=False)
+        PseudoTimeDF.to_csv(str(outPrefix) + '/PseudoTime.csv',sep=',',index=False)
         PseudoTimeDF.index = PseudoTimeDF['Cell ID']
         
         # ExpressionData.csv
@@ -237,9 +237,9 @@ def generateInputFiles(resultDF, outputfilenames, BoolDF, withoutRules,
             columns = list(resultDF.columns)
             columns = [c.replace('-','_') for c in columns]
             resultDF.columns = columns
-            if len(parameterInputsPath) == 0:
+            if parameterInputsDF is not None:
                 resultDF = resultDF.drop(withoutRules, axis=0)
-            resultDF.to_csv(outPrefix+'ExpressionData.csv',sep=',')
+            resultDF.to_csv(str(outPrefix) + '/ExpressionData.csv',sep=',')
         else:
             print('Dataset too large. Skipping generation of ExpressionData.csv.\n Please sample from simulations.')
             
@@ -314,3 +314,20 @@ def sampleCellFromTraj(cellid,
 
     sampleDF = pd.DataFrame(sampleDict)
     return(sampleDF)
+
+
+def checkValidInputPath(path):
+    if os.path.isfile(path):
+        df = pd.read_csv(path,sep='\t')
+        return(df)
+    else:
+        return(None)
+
+def checkValidModelDefinitionPath(path, name):
+    # Check if model defintion file exists
+    if not os.path.isfile(path):
+        print("Error in definition of job "  + name)
+        print("Please specify path to Boolean model")
+        return False
+    return True
+    

@@ -1,26 +1,28 @@
 #!/usr/bin/env python
 # coding: utf-8
 __author__ = 'Amogh Jalihal'
+import os
 import sys
-import numpy as np
-import scipy as sc
-import pandas as pd
-from itertools import combinations
-from scipy.integrate import odeint
-from sklearn.cluster import KMeans
+import ast
 import time
 import importlib
 import warnings
-from tqdm import tqdm 
+import numpy as np
+import scipy as sc
+import pandas as pd
+from tqdm import tqdm
+from pathlib import Path
 from optparse import OptionParser
-from multiprocessing import Process, Lock, Manager
-import ast
+from itertools import combinations
+from scipy.integrate import odeint
+from sklearn.cluster import KMeans
+from BoolODE import simulatorUtils as  utils
+from BoolODE import simulatorCore as simulator 
 from importlib.machinery import SourceFileLoader
-import utils 
-import simulator 
+from multiprocessing import Process, Lock, Manager
+
 
 np.seterr(all='raise')
-import os
 
 def readBooleanRules(path, parameterInputsPath, outPrefix='',
                      add_dummy=False, max_parents=1):
@@ -39,13 +41,13 @@ def readBooleanRules(path, parameterInputsPath, outPrefix='',
     :type max_parents: int
 
     :returns:
-        - DF: Dataframe containing rules
+        - df: Dataframe containing rules
         - withoutrules: list of nodes in input file without rules
     """
-    DF = pd.read_csv(path,sep='\t',engine='python')
-    withRules = list(DF['Gene'].values)
+    df = pd.read_csv(path,sep='\t',engine='python')
+    withRules = list(df['Gene'].values)
     allnodes = set()
-    for ind,row in DF.iterrows():
+    for ind,row in df.iterrows():
         rhs = row['Rule']
         rhs = rhs.replace('(',' ')
         rhs = rhs.replace(')',' ')
@@ -54,11 +56,11 @@ def readBooleanRules(path, parameterInputsPath, outPrefix='',
         reg = [t for t in tokens if t not in ['not','and','or','']]
         allnodes.update(set(reg))
 
-    withoutRules = allnodes.difference(set(withRules))
+    withoutRules = list(allnodes.difference(set(withRules)))
     for n in withoutRules:
         if len(parameterInputsPath) == 0:
             print(n, "has no rule, adding self-activation.")
-            DF = DF.append({'Gene':n,'Rule':n},ignore_index=True)
+            df = df.append({'Gene':n,'Rule':n},ignore_index=True)
         else:
             print("Treating %s as parameter" % {n})
     ## Add dummy genes
@@ -73,15 +75,15 @@ def readBooleanRules(path, parameterInputsPath, outPrefix='',
             #                                     np.random.choice(list(allnodes),
             #                                                      size=np.random.choice([i+1 for i in range(len(allnodes)-1)]))])},
             #                ignore_index = True)
-            DF = DF.append({'Gene':'dummy' + str(dg),
+            df = df.append({'Gene':'dummy' + str(dg),
                             'Rule':' or '.join([s for s in \
                                                 np.random.choice(list(allnodes),
                                                                  size=max_parents)])},
                            ignore_index = True)
-            DF.to_csv(outPrefix + 'rules-with-added-genes.csv')
+            df.to_csv(outPrefix + 'rules-with-added-genes.csv')
             
-    print(DF)
-    return DF, withoutRules
+    print(df)
+    return df, withoutRules
 
 def getParameters(DF,identicalPars,
                   samplePars,
@@ -591,12 +593,11 @@ def simulateAndSample(argdict):
     ## 0 steady state, with all genes/proteins dying out
     retry = True
     trys = 0
-    
     ## timepoints
     tps = [i for i in range(1,len(tspan))]
     ## gene ids
     gid = [i for i,n in varmapper.items() if 'x_' in n]
-    outPrefix = outPrefix +'simulations/'
+    outPrefix = outPrefix + '/simulations/'
     while retry:
         seed += 1000
         y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
@@ -777,6 +778,7 @@ def Experiment(Model, ModelSpec,tspan,
 
         ## Construct dictionary of arguments to be passed
         ## to simulateAndSample(), done in parallel
+        outPrefix = str(outPrefix)
         argdict = {}
         argdict['allParameters'] = allParameters
         argdict['parNames'] = parNames
@@ -803,13 +805,10 @@ def Experiment(Model, ModelSpec,tspan,
         if sampleCells:
             argdict['header'] = header
 
-        simfilepath = outPrefix + 'simulations/'
-        if len(simfilepath) > 0:
-            if '/' in simfilepath:
-                outDir = '/'.join(simfilepath.split('/')[:-1])
-                if not os.path.exists(simfilepath):
-                    print(simfilepath, "does not exist, creating it...")
-                    os.makedirs(simfilepath)
+        simfilepath = Path(outPrefix, './simulations/')
+        if not os.path.exists(simfilepath):
+            print(simfilepath, "does not exist, creating it...")
+            os.makedirs(simfilepath)
         print('Starting simulations')
         start = time.time()
         ########################
@@ -841,10 +840,10 @@ def Experiment(Model, ModelSpec,tspan,
             groupedDict = {} 
         for cellid in tqdm(range(num_cells)):
             if sampleCells:
-                df = pd.read_csv(outPrefix + 'simulations/E'+str(cellid) + '-cell.csv',index_col=0)
+                df = pd.read_csv(outPrefix + '/simulations/E'+str(cellid) + '-cell.csv',index_col=0)
                 df = df.sort_index()                
             else:
-                df = pd.read_csv(outPrefix + 'simulations/E'+str(cellid) + '.csv',index_col=0)
+                df = pd.read_csv(outPrefix + '/simulations/E'+str(cellid) + '.csv',index_col=0)
                 df = df.sort_index()
                 groupedDict['E' + str(cellid)] = df.values.ravel()
             frames.append(df.T)
@@ -895,132 +894,91 @@ def Experiment(Model, ModelSpec,tspan,
         outputfilenames.append(outPrefix + name +'_experiment.txt')
     return outputfilenames, resultN
             
-def parseArgs(args):
-    parser = OptionParser()
-    parser.add_option('', '--max-time', type='int',default=20,
-                      help='Total time of simulation. (Default = 20)')
-    parser.add_option('', '--num-cells', type='int',default=100,
-                      help='Number of cells sample. (Default = 100)')
-    parser.add_option('', '--sample-cells', action='store_true',default=False,
-                      help="Sample a single cell from each trajectory?\n"
-                      "By default will store full trajectory of each simulation (Default = False)")    
-    parser.add_option('', '--add-dummy', action="store_true",default=False,
-                      help='Add dummy genes')        
-    parser.add_option('-n', '--normalize-trajectory', action="store_true",default=False,
-                      help="Min-Max normalize genes across all experiments")
-    parser.add_option('-i', '--identical-pars', action="store_true",default=False,
-                      help="Set single value to similar parameters\n"
-                      "NOTE: Consider setting this if you are using --sample-pars.")
-    parser.add_option('-s', '--sample-pars', action="store_true",default=False,
-                      help="Sample rate parameters around the hardcoded means\n"
-                      ", using 10% stand. dev.")
-    parser.add_option('', '--std', type='float',default=0.1,
-                      help="If sampling parameters, specify standard deviation. (Default 0.1)")
-    parser.add_option('', '--write-protein', action="store_true",default=False,
-                      help="Write both protein and RNA values to file. Useful for debugging.")
-    parser.add_option('-b', '--burn-in', action="store_true",default=False,
-                      help="Treats the first 25% of the time course as burnin\n"
-                      ", samples from the rest.")        
-    parser.add_option('', '--outPrefix', type = 'str',default='',
-                      help='Prefix for output files.')
-    parser.add_option('', '--path', type='str',
-                      help='Path to boolean model file')
-    parser.add_option('', '--inputs', type='str',default='',
-                      help='Path to input parameter files. This is different from specifying a parameter set!')
-    parser.add_option('', '--pset', type='str',default='',
-                      help='Path to pre-generated parameter set.')        
-    parser.add_option('', '--ics', type='str',default='',
-                      help='Path to list of initial conditions')
-    parser.add_option('', '--strengths', type='str',default='',
-                      help='Path to list of interaction strengths')
-    parser.add_option('', '--species-type', type='str',default='',
-                      help="Path to list of molecular species type file."\
-                      "Useful to specify proteins/genes")
-    parser.add_option('-c', '--nClusters', type='int',default='1',
-                      help='Number of expected clusters in the dataset. (Default = 1)')    
-    parser.add_option('', '--max-parents', type='int',default='1',
-                      help='Number of parents to add to dummy genes. (Default = 1)')    
-    parser.add_option('', '--do-parallel', action="store_true",default=False,
-                      help='Run simulations in parallel. Recommended for > 50 simulations')    
+# def parseArgs(args):
+#     parser = OptionParser()
+#     parser.add_option('', '--max-time', type='int',default=20,
+#                       help='Total time of simulation. (Default = 20)')
+#     parser.add_option('', '--num-cells', type='int',default=100,
+#                       help='Number of cells sample. (Default = 100)')
+#     parser.add_option('', '--sample-cells', action='store_true',default=False,
+#                       help="Sample a single cell from each trajectory?\n"
+#                       "By default will store full trajectory of each simulation (Default = False)")    
+#     parser.add_option('', '--add-dummy', action="store_true",default=False,
+#                       help='Add dummy genes')        
+#     parser.add_option('-n', '--normalize-trajectory', action="store_true",default=False,
+#                       help="Min-Max normalize genes across all experiments")
+#     parser.add_option('-i', '--identical-pars', action="store_true",default=False,
+#                       help="Set single value to similar parameters\n"
+#                       "NOTE: Consider setting this if you are using --sample-pars.")
+#     parser.add_option('-s', '--sample-pars', action="store_true",default=False,
+#                       help="Sample rate parameters around the hardcoded means\n"
+#                       ", using 10% stand. dev.")
+#     parser.add_option('', '--std', type='float',default=0.1,
+#                       help="If sampling parameters, specify standard deviation. (Default 0.1)")
+#     parser.add_option('', '--write-protein', action="store_true",default=False,
+#                       help="Write both protein and RNA values to file. Useful for debugging.")
+#     parser.add_option('-b', '--burn-in', action="store_true",default=False,
+#                       help="Treats the first 25% of the time course as burnin\n"
+#                       ", samples from the rest.")        
+#     parser.add_option('', '--outPrefix', type = 'str',default='',
+#                       help='Prefix for output files.')
+#     parser.add_option('', '--path', type='str',
+#                       help='Path to boolean model file')
+#     parser.add_option('', '--inputs', type='str',default='',
+#                       help='Path to input parameter files. This is different from specifying a parameter set!')
+#     parser.add_option('', '--pset', type='str',default='',
+#                       help='Path to pre-generated parameter set.')        
+#     parser.add_option('', '--ics', type='str',default='',
+#                       help='Path to list of initial conditions')
+#     parser.add_option('', '--strengths', type='str',default='',
+#                       help='Path to list of interaction strengths')
+#     parser.add_option('', '--species-type', type='str',default='',
+#                       help="Path to list of molecular species type file."\
+#                       "Useful to specify proteins/genes")
+#     parser.add_option('-c', '--nClusters', type='int',default='1',
+#                       help='Number of expected clusters in the dataset. (Default = 1)')    
+#     parser.add_option('', '--max-parents', type='int',default='1',
+#                       help='Number of parents to add to dummy genes. (Default = 1)')    
+#     parser.add_option('', '--do-parallel', action="store_true",default=False,
+#                       help='Run simulations in parallel. Recommended for > 50 simulations')    
         
-    (opts, args) = parser.parse_args(args)
+#     (opts, args) = parser.parse_args(args)
 
-    return opts, args
+#     return opts, args
 
-def main(args):
+
+    
+def startRun(settings):
+    validInput = utils.checkValidModelDefinitionPath(settings['path'], settings['name'])
+    if not validInput:
+        return
+    
     startfull = time.time()
-    opts, args = parseArgs(args)
-    path = opts.path
-    if path is None or len(path) == 0:
-        print("Please specify path to Boolean model")
-        sys.exit()
 
-    tmax = opts.max_time
-    numCells = opts.num_cells
-    identicalPars = opts.identical_pars
-    burnin = opts.burn_in
-    samplePars = opts.sample_pars
-    sampleStd = opts.std
-    outPrefix = opts.outPrefix
-    parameterInputsPath = opts.inputs
-    parameterSetPath = opts.pset
-    icsPath = opts.ics    
-    writeProtein = opts.write_protein
-    normalizeTrajectory = opts.normalize_trajectory
-    interactionStrengthPath = opts.strengths
-    speciesTypePath = opts.species_type
-    add_dummy = opts.add_dummy
-    sampleCells = opts.sample_cells
-    nClusters = opts.nClusters
-    max_parents = opts.max_parents
-    doParallel = opts.do_parallel    
-    # if output directory doesn't exist
-    # create one!
-    if len(outPrefix) > 0:
-        if '/' in outPrefix:
-            outDir = '/'.join(outPrefix.split('/')[:-1])
-            if not os.path.exists(outDir):
-                print(outDir, "does not exist, creating it...")
-                os.makedirs(outDir)
+    outdir = settings['outprefix']
+    if not os.path.exists(outdir):
+        print(outdir, "does not exist, creating it...")
+        os.makedirs(outdir)
+
+    parameterInputsDF = utils.checkValidInputPath(settings['parameter_inputs_path'])
+    parameterSetDF = utils.checkValidInputPath(settings['parameter_set_path'])
+    icsDF = utils.checkValidInputPath(settings['icsPath'])
+    interactionStrengthDF = utils.checkValidInputPath(settings['interaction_strength_path']) 
+    speciesTypeDF = utils.checkValidInputPath(settings['species_type_path'])
     
-    if len(parameterInputsPath) > 0: 
-        parameterInputsDF = pd.read_csv(parameterInputsPath,sep='\t')
-    else:
-        parameterInputsDF = None
-        
-    if len(parameterSetPath) > 0: 
-        parameterSetDF = pd.read_csv(parameterSetPath,
-                                     header=None,
-                                     sep='\t',
-                                     index_col=0)
-    else:
-        parameterSetDF = None
-
-    if len(icsPath) > 0: 
-        icsDF = pd.read_csv(icsPath,sep='\t',engine='python')
-    else:
-        icsDF = None
-
-    if len(interactionStrengthPath) > 0:
-        print("Interaction Strengths are supplied")
-        interactionStrengthDF = pd.read_csv(interactionStrengthPath,sep='\t',engine='python')
-    else:
-        interactionStrengthDF = None
-
-    if len(speciesTypePath) > 0: 
-        speciesTypeDF = pd.read_csv(speciesTypePath,sep='\t')
-    else:
-        speciesTypeDF = None
-        
-    ## Hardcoded  ODE simulation time steps
-    ## This can be reduced
-    timesteps = 100
-    tspan = np.linspace(0,tmax,tmax*timesteps)
+    tmax = settings['simulation_time']    
+    integration_step_size = settings['integration_step_size']
+    tspan = np.linspace(0,tmax,int(tmax/integration_step_size))
     
-    DF, withoutRules = readBooleanRules(path, parameterInputsPath,
-                                        outPrefix, add_dummy, max_parents)
-    if len(withoutRules) == 0:
-        withoutRules = []
+    rulesdf, withoutRules = readBooleanRules(settings['path'],
+                                             settings['parameter_inputs_path'],
+                                             settings['outprefix'],
+                                             settings['add_dummy'],
+                                             settings['max_parents'])
+
+    # TODO cleanup
+    # if len(withoutRules) == 0:
+    #     withoutRules = []
         
     it = 0
     someexception = True
@@ -1032,9 +990,10 @@ def main(args):
                 parameterInputs,\
                 genelist,\
                 proteinlist,\
-                x_max = generateModelDict(DF,identicalPars,
-                                          samplePars,
-                                          sampleStd,
+                x_max = generateModelDict(rulesdf,
+                                          settings['identical_pars'],
+                                          settings['sample_pars'],
+                                          settings['sample_std'],
                                           withoutRules,
                                           speciesTypeDF,
                                           parameterInputsDF,
@@ -1042,8 +1001,11 @@ def main(args):
                                           interactionStrengthDF)
             # FIXME : ask user to pass row if parameter input file
             # Hardcoded. We only care about one input vector, say the first one
-            if len(parameterInputsPath) > 0:
+            # TODO check this
+            # this seems unnecessary
+            if parameterInputsDF is not None:
                 ModelSpec['pars'].update(parameterInputs[0])
+                
             varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
             parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
             dir_path  = utils.writeModelToFile(ModelSpec)
@@ -1053,25 +1015,25 @@ def main(args):
             outputfilenames, resultDF = Experiment(model.Model,
                                                    ModelSpec,
                                                    tspan,
-                                                   numCells,
-                                                   sampleCells,
+                                                   settings['num_cells'],
+                                                   settings['sample_cells'],
                                                    varmapper, parmapper,
-                                                   genelist,proteinlist,
-                                                   outPrefix, icsDF,
-                                                   nClusters,
+                                                   genelist, proteinlist,
+                                                   settings['outprefix'],
+                                                   icsDF,
+                                                   settings['nClusters'],
                                                    x_max,
-                                                   doParallel,
-                                                   burnin=burnin,
-                                                   writeProtein=writeProtein,
-                                                   normalizeTrajectory=normalizeTrajectory)
+                                                   settings['doParallel'],
+                                                   burnin=settings['burnin'],
+                                                   writeProtein=settings['writeProtein'],
+                                                   normalizeTrajectory=settings['normalizeTrajectory'])
             print('Generating input files for pipline...')
             start = time.time()
-            utils.generateInputFiles(resultDF, outputfilenames, DF,
-                               withoutRules,
-                               parameterInputsPath,
-                               outPrefix=outPrefix)
+            utils.generateInputFiles(resultDF, outputfilenames, rulesdf,
+                                     withoutRules,
+                                     parameterInputsDF,
+                                     outPrefix=settings['outprefix'])
             print('Input file generation took %0.2f s' % (time.time() - start))
-
             
             someexception= False
             
@@ -1079,10 +1041,10 @@ def main(args):
             it +=1 
             print(e,"\nattempt %d" %it)
         
-    utils.writeParametersToFile(ModelSpec, outPrefix)
+    utils.writeParametersToFile(ModelSpec, settings['outprefix'])
     print("BoolODE.py took %0.2fs"% (time.time() - startfull))
     print('all done.')    
 
-if __name__ == "__main__":
-    main(sys.argv)
+# if __name__ == "__main__":
+#     main(sys.argv)
 
