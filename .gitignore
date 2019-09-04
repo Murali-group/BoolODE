@@ -105,7 +105,7 @@ venv.bak/
 
 *.png
 *.csv
-src/model.py*
+model.py*
 /*.txt
 /data/*
 /src/final-plots.py
