@@ -152,7 +152,7 @@ def get_ss(P):
     ss = [p for p in P[-1,:]]
     return(ss)
 
-def generateInputFiles(resultDF, outputfilenames, BoolDF, withoutRules,
+def generateInputFiles(resultDF, BoolDF, withoutRules,
                        parameterInputsDF,
                        outPrefix=''):
     """
@@ -172,76 +172,75 @@ def generateInputFiles(resultDF, outputfilenames, BoolDF, withoutRules,
     :type outPrefix: str (Optional)
     """
     
-    for f in outputfilenames:
-        print('1. refNetwork')
-        refnet = []
-        genes = set(BoolDF['Gene'].values)
-        genes = genes.difference(set(withoutRules))
-        inputs = withoutRules
+    print('1. refNetwork')
+    refnet = []
+    genes = set(BoolDF['Gene'].values)
+    genes = genes.difference(set(withoutRules))
+    inputs = withoutRules
 
-        for g in genes:
-            row = BoolDF[BoolDF['Gene'] == g]
-            rhs = list(row['Rule'].values)[0]
-            rule = list(row['Rule'].values)[0]
-            rhs = rhs.replace('(',' ')
-            rhs = rhs.replace(')',' ')
-            tokens = rhs.split(' ')
-            if len(withoutRules) == 0:
-                inputs = []
-                avoidthese = ['and','or', 'not', '']
-            else:
-                avoidthese = list(withoutRules)
-                avoidthese.extend(['and','or', 'not', ''])
+    for g in genes:
+        row = BoolDF[BoolDF['Gene'] == g]
+        rhs = list(row['Rule'].values)[0]
+        rule = list(row['Rule'].values)[0]
+        rhs = rhs.replace('(',' ')
+        rhs = rhs.replace(')',' ')
+        tokens = rhs.split(' ')
+        if len(withoutRules) == 0:
+            inputs = []
+            avoidthese = ['and','or', 'not', '']
+        else:
+            avoidthese = list(withoutRules)
+            avoidthese.extend(['and','or', 'not', ''])
 
-            regulators = [t for t in tokens if (t in genes or t in inputs) if t not in avoidthese]
-            if 'not' in tokens:
-                whereisnot = tokens.index('not')
+        regulators = [t for t in tokens if (t in genes or t in inputs) if t not in avoidthese]
+        if 'not' in tokens:
+            whereisnot = tokens.index('not')
+        else:
+            whereisnot = None
+        for r in regulators:
+            if whereisnot is None:
+                ty = '+'
             else:
-                whereisnot = None
-            for r in regulators:
-                if whereisnot is None:
+                if type(whereisnot) is int:
+                    whereisnot = [whereisnot]
+                
+                if tokens.index(r) < whereisnot[0]:
                     ty = '+'
                 else:
-                    if type(whereisnot) is int:
-                        whereisnot = [whereisnot]
-                    
-                    if tokens.index(r) < whereisnot[0]:
-                        ty = '+'
-                    else:
-                        ty = '-'
-                 # Regulator is Gene1 and Target is Gene2
-                refnet.append({'Gene2':g, 
-                               'Gene1':r,
-                               'Type':ty})
-        refNetDF = pd.DataFrame(refnet)
-        refNetDF.drop_duplicates(inplace=True)
-        refNetDF.to_csv(str(outPrefix) + '/refNetwork.csv',sep=',',index=False)
-        
-        # PseudoTime.csv
-        print('2. PseudoTime.csv')
-        cellID = list(resultDF.columns)
-        time = [float(c.split('_')[1].replace('-','.')) for c in cellID]
-        experiment = [int(c.split('_')[0].split('E')[1]) for c in cellID]
-        pseudotime = minmaxnorm(time)
-        cellID = [c.replace('-','_') for c in cellID]
+                    ty = '-'
+             # Regulator is Gene1 and Target is Gene2
+            refnet.append({'Gene2':g, 
+                           'Gene1':r,
+                           'Type':ty})
+    refNetDF = pd.DataFrame(refnet)
+    refNetDF.drop_duplicates(inplace=True)
+    refNetDF.to_csv(str(outPrefix) + '/refNetwork.csv',sep=',',index=False)
+    
+    # PseudoTime.csv
+    print('2. PseudoTime.csv')
+    cellID = list(resultDF.columns)
+    time = [float(c.split('_')[1].replace('-','.')) for c in cellID]
+    experiment = [int(c.split('_')[0].split('E')[1]) for c in cellID]
+    pseudotime = minmaxnorm(time)
+    cellID = [c.replace('-','_') for c in cellID]
 
-        PseudoTimeDict = {'Cell ID':cellID, 'PseudoTime':pseudotime,
-                          'Time':time,'Experiment':experiment}
-        PseudoTimeDF = pd.DataFrame(PseudoTimeDict)
-        PseudoTimeDF.to_csv(str(outPrefix) + '/PseudoTime.csv',sep=',',index=False)
-        PseudoTimeDF.index = PseudoTimeDF['Cell ID']
-        
-        # ExpressionData.csv
-        if len(resultDF.columns) < 1e5:
-            print('3. ExpressionData.csv')
-            columns = list(resultDF.columns)
-            columns = [c.replace('-','_') for c in columns]
-            resultDF.columns = columns
-            if parameterInputsDF is not None:
-                resultDF = resultDF.drop(withoutRules, axis=0)
-            resultDF.to_csv(str(outPrefix) + '/ExpressionData.csv',sep=',')
-        else:
-            print('Dataset too large. Skipping generation of ExpressionData.csv.\n Please sample from simulations.')
+    PseudoTimeDict = {'Cell ID':cellID, 'PseudoTime':pseudotime,
+                      'Time':time,'Experiment':experiment}
+    PseudoTimeDF = pd.DataFrame(PseudoTimeDict)
+    PseudoTimeDF.to_csv(str(outPrefix) + '/PseudoTime.csv',sep=',',index=False)
+    PseudoTimeDF.index = PseudoTimeDF['Cell ID']
+    
+    # ExpressionData.csv
+    if len(resultDF.columns) < 1e5:
+        print('3. ExpressionData.csv')
+        columns = list(resultDF.columns)
+        columns = [c.replace('-','_') for c in columns]
+        resultDF.columns = columns
+        if parameterInputsDF is not None:
+            resultDF = resultDF.drop(withoutRules, axis=0)
+        resultDF.to_csv(str(outPrefix) + '/ExpressionData.csv',sep=',')
+    else:
+        print('Dataset too large. Skipping generation of ExpressionData.csv.\n Please sample from simulations.')
             
 
 def sampleTimeSeries(num_timepoints, expnum,\

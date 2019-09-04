@@ -21,7 +21,6 @@ from BoolODE import simulatorCore as simulator
 from importlib.machinery import SourceFileLoader
 from multiprocessing import Process, Lock, Manager
 
-
 np.seterr(all='raise')
 
 def readBooleanRules(path, parameterInputsPath, outPrefix='',
@@ -476,35 +475,6 @@ def generateModelDict(DF,identicalPars,
     ModelSpec['ics'] = ics
     return ModelSpec, parameterInputs, genelist, proteinlist, x_max
 
-
-def simulateModel(Model, y0, parameters,isStochastic, tspan,seed):
-    """Call numerical integration functions, either odeint() from Scipy,
-    or simulator.eulersde() defined in simulator.py. By default, stochastic simulations are
-    carried out using simulator.eulersde.
-
-    :param Model: Function defining ODE model
-    :type Model: function
-    :param y0: array of initial values for each state variable
-    :type y0: array
-    :param parameters: list of parameter values to be used in simulations
-    :type parameters: list
-    :param isStochastic: User defined parameter. Default = True, can be turned off to perform ODE simulations.
-    :type isStochastic: bool
-    :param tspan: Time points to simulate
-    :type tspan: ndarray
-    :param seed: Seed to initialize random number generator
-    :type seed: float
-    :returns: 
-        - P: Time course from numerical integration
-    :rtype: ndarray
-
-    """
-    if not isStochastic:
-        P = odeint(Model,y0,tspan,args=(parameters,))
-    else:
-        P = simulator.eulersde(Model,simulator.noise,y0,tspan,parameters,seed=seed)
-    return(P)
-
 def getInitialCondition(ss, ModelSpec, rnaIndex,
                         proteinIndex,
                         genelist, proteinlist,
@@ -562,7 +532,6 @@ def simulateAndSample(argdict):
     allParameters = argdict['allParameters']
     parNames = argdict['parNames']
     Model = argdict['Model']
-    isStochastic = argdict['isStochastic']
     tspan = argdict['tspan']
     varmapper = argdict['varmapper']
     timeIndex = argdict['timeIndex']
@@ -582,8 +551,13 @@ def simulateAndSample(argdict):
     seed = argdict['seed']
     pars = argdict['pars']
     x_max = argdict['x_max']
+    
+    # Retained for debugging
+    isStochastic = True
+    
     if sampleCells:
         header = argdict['header']
+        
     pars = {}
     for k, v in allParameters.items():
         pars[k] = v
@@ -604,7 +578,7 @@ def simulateAndSample(argdict):
                                      genelist, proteinlist,
                                      varmapper,revvarmapper)
         
-        P = simulateModel(Model, y0_exp, pars, isStochastic, tspan, seed)
+        P = simulator.simulateModel(Model, y0_exp, pars, isStochastic, tspan, seed)
         P = P.T
         retry = False
         ## Extract Time points
@@ -646,7 +620,6 @@ def simulateAndSample(argdict):
 
     # write to file
     df.to_csv(outPrefix + 'E'+ str(cellid) + '.csv')
-
     
 def Experiment(Model, ModelSpec,tspan,
                num_cells,
@@ -747,206 +720,119 @@ def Experiment(Model, ModelSpec,tspan,
                 else:
                     ss[revvarmapper['x_'+g]] = 0.01
             
-    outputfilenames = []
-    for isStochastic in [True]: 
-        # "WT" simulation
-        if len(proteinlist) == 0:
-            result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
-        else:
-            speciesoi = [revvarmapper['p_' + p] for p in proteinlist]
-            speciesoi.extend([revvarmapper['x_' + g] for g in genelist])
-            result = pd.DataFrame(index=pd.Index([varmapper[i] for i in speciesoi]))
-            
-        frames = []
-        if burnin:
-            burninFraction = 0.25 # Chosen arbitrarily as 25%
-            # Ignore the first 25% of the simulation
-            startat = int(np.ceil(burninFraction*len(tspan)))
-        else:
-            startat = 0
-            
-        # Index of every possible time point. Sample from this list
-        timeIndex = [i for i in range(startat, len(tspan))]        
-        if sampleCells:
+    if len(proteinlist) == 0:
+        result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
+    else:
+        speciesoi = [revvarmapper['p_' + p] for p in proteinlist]
+        speciesoi.extend([revvarmapper['x_' + g] for g in genelist])
+        result = pd.DataFrame(index=pd.Index([varmapper[i] for i in speciesoi]))
+        
+    # Index of every possible time point. Sample from this list
+    startat = 0
+    timeIndex = [i for i in range(startat, len(tspan))]        
+    if sampleCells:
+        # pre-define the time points from which a cell will be sampled
+        # per simulation
+        sampleAt = np.random.choice(timeIndex, size=num_cells)
+        header = ['E' + str(cellid) + '_' + str(time) \
+                  for cellid, time in\
+                  zip(range(num_cells), sampleAt)]
 
-            # pre-define the time points from which a cell will be sampled
-            # per simulation
-            sampleAt = np.random.choice(timeIndex, size=num_cells)
-            header = ['E' + str(cellid) + '_' + str(time) \
-                      for cellid, time in\
-                      zip(range(num_cells), sampleAt)]
+    ## Construct dictionary of arguments to be passed
+    ## to simulateAndSample(), done in parallel
+    outPrefix = str(outPrefix)
+    argdict = {}
+    argdict['allParameters'] = allParameters
+    argdict['parNames'] = parNames
+    argdict['Model'] = Model
+    argdict['tspan'] = tspan
+    argdict['varmapper'] = varmapper
+    argdict['timeIndex'] = timeIndex
+    argdict['genelist'] = genelist
+    argdict['proteinlist'] = proteinlist
+    argdict['writeProtein'] = writeProtein
+    argdict['outPrefix'] = outPrefix
+    argdict['sampleCells'] = sampleCells
+    argdict['pars'] = pars
+    argdict['ss'] = ss
+    argdict['ModelSpec'] = ModelSpec
+    argdict['rnaIndex'] = rnaIndex
+    argdict['proteinIndex'] = proteinIndex
+    argdict['genelist'] = genelist
+    argdict['proteinlist'] = proteinlist
+    argdict['revvarmapper'] = revvarmapper
+    argdict['x_max'] = x_max
 
-        ## Construct dictionary of arguments to be passed
-        ## to simulateAndSample(), done in parallel
-        outPrefix = str(outPrefix)
-        argdict = {}
-        argdict['allParameters'] = allParameters
-        argdict['parNames'] = parNames
-        argdict['Model'] = Model
-        argdict['isStochastic'] = isStochastic
-        argdict['tspan'] = tspan
-        argdict['varmapper'] = varmapper
-        argdict['timeIndex'] = timeIndex
-        argdict['genelist'] = genelist
-        argdict['proteinlist'] = proteinlist
-        argdict['writeProtein'] = writeProtein
-        argdict['outPrefix'] = outPrefix
-        argdict['sampleCells'] = sampleCells
-        argdict['pars'] = pars
-        argdict['ss'] = ss
-        argdict['ModelSpec'] = ModelSpec
-        argdict['rnaIndex'] = rnaIndex
-        argdict['proteinIndex'] = proteinIndex
-        argdict['genelist'] = genelist
-        argdict['proteinlist'] = proteinlist
-        argdict['revvarmapper'] = revvarmapper
-        argdict['x_max'] = x_max
+    if sampleCells:
+        argdict['header'] = header
 
-        if sampleCells:
-            argdict['header'] = header
-
-        simfilepath = Path(outPrefix, './simulations/')
-        if not os.path.exists(simfilepath):
-            print(simfilepath, "does not exist, creating it...")
-            os.makedirs(simfilepath)
-        print('Starting simulations')
-        start = time.time()
-        ########################
-        if doParallel:
-            ## Carry out simulations in parrallel
-            lock = Lock()
-            jobs = []
-            for cellid in range(num_cells):
-                argdict['seed'] = cellid
-                argdict['cellid'] = cellid
-                p = Process(target=simulateAndSample,args=([argdict]))
-                p.start()
-                #p.join()
-        else:
-            for cellid in tqdm(range(num_cells)):
-                argdict['seed'] = cellid
-                argdict['cellid'] = cellid
-                simulateAndSample(argdict)
-        ########################
-        ## Sleep for 1 s to allow for IO. Hack necessary for smalle number of simulations
-        ## where sim time < IO time.
-        time.sleep(1)
-        print("Simulations took %0.3f s"%(time.time() - start))
-        frames = []
-        print('starting to concat files')
-        start = time.time()
-        if not sampleCells:
-            # initialize dictionary to hold raveled values, used to cluster
-            groupedDict = {} 
+    simfilepath = Path(outPrefix, './simulations/')
+    if not os.path.exists(simfilepath):
+        print(simfilepath, "does not exist, creating it...")
+        os.makedirs(simfilepath)
+    print('Starting simulations')
+    start = time.time()
+    ########################
+    if doParallel:
+        ## Carry out simulations in parrallel
+        lock = Lock()
+        jobs = []
+        for cellid in range(num_cells):
+            argdict['seed'] = cellid
+            argdict['cellid'] = cellid
+            p = Process(target=simulateAndSample,args=([argdict]))
+            p.start()
+            #p.join()
+    else:
         for cellid in tqdm(range(num_cells)):
-            if sampleCells:
-                df = pd.read_csv(outPrefix + '/simulations/E'+str(cellid) + '-cell.csv',index_col=0)
-                df = df.sort_index()                
-            else:
-                df = pd.read_csv(outPrefix + '/simulations/E'+str(cellid) + '.csv',index_col=0)
-                df = df.sort_index()
-                groupedDict['E' + str(cellid)] = df.values.ravel()
-            frames.append(df.T)
-        stop = time.time()
-        print("Concating files took %.2f s" %(stop-start))
-        result = pd.concat(frames,axis=0)
-        result = result.T
-        indices = result.index
-        newindices = [i.replace('x_','') for i in indices]
-        result.index = pd.Index(newindices)
-        
-        if not sampleCells:
-            ## Carry out k-means clustering to identify which
-            ## trajectory a simulation belongs to
-            print('Starting k-means clustering')
-            #headers = result.columns
-            # simulations = sorted(list(set([h.split('_')[0] + '_' for h in headers])))
-            ## group each simulation
-            #groupedDict = {} 
-            ## The following loop takes time for a large number of
-            ## simulations
-            #print('Raveling dataframe to start clustering')
-            #for s in tqdm(simulations):
-            #    groupedDict[s] = result.loc[:, result.columns.str.startswith(s)].values.ravel()
-            groupedDF = pd.DataFrame.from_dict(groupedDict)
-            print('Clustering simulations...')
-            start = time.time()            
-            # Find clusters in the experiments
-            clusterLabels= KMeans(n_clusters=nClusters,
-                                  n_jobs=8).fit(groupedDF.T.values).labels_
-            print('Clustering took %0.3fs' % (time.time() - start))
-            clusterDF = pd.DataFrame(data=clusterLabels, index =\
-                                     groupedDF.columns, columns=['cl'])
-        ##################################################
-
-        if normalizeTrajectory:
-            resultN = utils.normalizeExp(result)
+            argdict['seed'] = cellid
+            argdict['cellid'] = cellid
+            simulateAndSample(argdict)
+    ########################
+    ## Sleep for 1 s to allow for IO. Hack necessary for smalle number of simulations
+    ## where sim time < IO time.
+    time.sleep(1)
+    print("Simulations took %0.3f s"%(time.time() - start))
+    frames = []
+    print('starting to concat files')
+    start = time.time()
+    if not sampleCells:
+        # initialize dictionary to hold raveled values, used to cluster
+        groupedDict = {} 
+    for cellid in tqdm(range(num_cells)):
+        if sampleCells:
+            df = pd.read_csv(outPrefix + '/simulations/E'+str(cellid) + '-cell.csv',index_col=0)
+            df = df.sort_index()                
         else:
-            resultN = result
-            
-        if isStochastic:
-            name = 'stoch'
-        else:
-            name = 'ode'
-
-        if not sampleCells:
-            clusterDF.to_csv(outPrefix + 'ClusterIds.csv')
-        outputfilenames.append(outPrefix + name +'_experiment.txt')
-    return outputfilenames, resultN
-            
-# def parseArgs(args):
-#     parser = OptionParser()
-#     parser.add_option('', '--max-time', type='int',default=20,
-#                       help='Total time of simulation. (Default = 20)')
-#     parser.add_option('', '--num-cells', type='int',default=100,
-#                       help='Number of cells sample. (Default = 100)')
-#     parser.add_option('', '--sample-cells', action='store_true',default=False,
-#                       help="Sample a single cell from each trajectory?\n"
-#                       "By default will store full trajectory of each simulation (Default = False)")    
-#     parser.add_option('', '--add-dummy', action="store_true",default=False,
-#                       help='Add dummy genes')        
-#     parser.add_option('-n', '--normalize-trajectory', action="store_true",default=False,
-#                       help="Min-Max normalize genes across all experiments")
-#     parser.add_option('-i', '--identical-pars', action="store_true",default=False,
-#                       help="Set single value to similar parameters\n"
-#                       "NOTE: Consider setting this if you are using --sample-pars.")
-#     parser.add_option('-s', '--sample-pars', action="store_true",default=False,
-#                       help="Sample rate parameters around the hardcoded means\n"
-#                       ", using 10% stand. dev.")
-#     parser.add_option('', '--std', type='float',default=0.1,
-#                       help="If sampling parameters, specify standard deviation. (Default 0.1)")
-#     parser.add_option('', '--write-protein', action="store_true",default=False,
-#                       help="Write both protein and RNA values to file. Useful for debugging.")
-#     parser.add_option('-b', '--burn-in', action="store_true",default=False,
-#                       help="Treats the first 25% of the time course as burnin\n"
-#                       ", samples from the rest.")        
-#     parser.add_option('', '--outPrefix', type = 'str',default='',
-#                       help='Prefix for output files.')
-#     parser.add_option('', '--path', type='str',
-#                       help='Path to boolean model file')
-#     parser.add_option('', '--inputs', type='str',default='',
-#                       help='Path to input parameter files. This is different from specifying a parameter set!')
-#     parser.add_option('', '--pset', type='str',default='',
-#                       help='Path to pre-generated parameter set.')        
-#     parser.add_option('', '--ics', type='str',default='',
-#                       help='Path to list of initial conditions')
-#     parser.add_option('', '--strengths', type='str',default='',
-#                       help='Path to list of interaction strengths')
-#     parser.add_option('', '--species-type', type='str',default='',
-#                       help="Path to list of molecular species type file."\
-#                       "Useful to specify proteins/genes")
-#     parser.add_option('-c', '--nClusters', type='int',default='1',
-#                       help='Number of expected clusters in the dataset. (Default = 1)')    
-#     parser.add_option('', '--max-parents', type='int',default='1',
-#                       help='Number of parents to add to dummy genes. (Default = 1)')    
-#     parser.add_option('', '--do-parallel', action="store_true",default=False,
-#                       help='Run simulations in parallel. Recommended for > 50 simulations')    
-        
-#     (opts, args) = parser.parse_args(args)
-
-#     return opts, args
-
-
+            df = pd.read_csv(outPrefix + '/simulations/E'+str(cellid) + '.csv',index_col=0)
+            df = df.sort_index()
+            groupedDict['E' + str(cellid)] = df.values.ravel()
+        frames.append(df.T)
+    stop = time.time()
+    print("Concating files took %.2f s" %(stop-start))
+    result = pd.concat(frames,axis=0)
+    result = result.T
+    indices = result.index
+    newindices = [i.replace('x_','') for i in indices]
+    result.index = pd.Index(newindices)
+    
+    if not sampleCells:
+        ## Carry out k-means clustering to identify which
+        ## trajectory a simulation belongs to
+        print('Starting k-means clustering')
+        groupedDF = pd.DataFrame.from_dict(groupedDict)
+        print('Clustering simulations...')
+        start = time.time()            
+        # Find clusters in the experiments
+        clusterLabels= KMeans(n_clusters=nClusters,
+                              n_jobs=8).fit(groupedDF.T.values).labels_
+        print('Clustering took %0.3fs' % (time.time() - start))
+        clusterDF = pd.DataFrame(data=clusterLabels, index =\
+                                 groupedDF.columns, columns=['cl'])
+        clusterDF.to_csv(outPrefix + '/ClusterIds.csv')        
+    ##################################################
+    
+    return result
     
 def startRun(settings):
     validInput = utils.checkValidModelDefinitionPath(settings['path'], settings['name'])
@@ -1012,7 +898,7 @@ def startRun(settings):
             ## Load file from path
             model = SourceFileLoader("model", dir_path + "/model.py").load_module()
             #import model
-            outputfilenames, resultDF = Experiment(model.Model,
+            resultDF = Experiment(model.Model,
                                                    ModelSpec,
                                                    tspan,
                                                    settings['num_cells'],
@@ -1029,7 +915,7 @@ def startRun(settings):
                                                    normalizeTrajectory=settings['normalizeTrajectory'])
             print('Generating input files for pipline...')
             start = time.time()
-            utils.generateInputFiles(resultDF, outputfilenames, rulesdf,
+            utils.generateInputFiles(resultDF, rulesdf,
                                      withoutRules,
                                      parameterInputsDF,
                                      outPrefix=settings['outprefix'])
@@ -1044,7 +930,4 @@ def startRun(settings):
     utils.writeParametersToFile(ModelSpec, settings['outprefix'])
     print("BoolODE.py took %0.2fs"% (time.time() - startfull))
     print('all done.')    
-
-# if __name__ == "__main__":
-#     main(sys.argv)
 

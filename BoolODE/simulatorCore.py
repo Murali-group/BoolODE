@@ -61,3 +61,31 @@ def eulersde(f,G,y0,tspan,pars,seed=0.,dW=None):
         currtime += h
         n += 1 
     return y
+
+def simulateModel(Model, y0, parameters,isStochastic, tspan,seed):
+    """Call numerical integration functions, either odeint() from Scipy,
+    or simulator.eulersde() defined in simulator.py. By default, stochastic simulations are
+    carried out using simulator.eulersde.
+
+    :param Model: Function defining ODE model
+    :type Model: function
+    :param y0: array of initial values for each state variable
+    :type y0: array
+    :param parameters: list of parameter values to be used in simulations
+    :type parameters: list
+    :param isStochastic: User defined parameter. Default = True, can be turned off to perform ODE simulations.
+    :type isStochastic: bool
+    :param tspan: Time points to simulate
+    :type tspan: ndarray
+    :param seed: Seed to initialize random number generator
+    :type seed: float
+    :returns: 
+        - P: Time course from numerical integration
+    :rtype: ndarray
+
+    """
+    if not isStochastic:
+        P = odeint(Model,y0,tspan,args=(parameters,))
+    else:
+        P = eulersde(Model,noise,y0,tspan,parameters,seed=seed)
+    return(P)

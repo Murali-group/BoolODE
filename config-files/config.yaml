@@ -15,6 +15,7 @@ jobs:
     simulation_time: 5
     num_cells: 20
     do_parallel: True
+    sample_cells: True
  
 
   
