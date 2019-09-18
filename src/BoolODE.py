@@ -3,17 +3,14 @@
 __author__ = 'Amogh Jalihal'
 import sys
 import numpy as np
-import scipy as sc
 import pandas as pd
 from itertools import combinations
 from scipy.integrate import odeint
 from sklearn.cluster import KMeans
 import time
-import importlib
-import warnings
 from tqdm import tqdm 
 from optparse import OptionParser
-from multiprocessing import Process, Lock, Manager
+import multiprocessing as mp
 import ast
 from importlib.machinery import SourceFileLoader
 import utils 
@@ -580,6 +577,7 @@ def simulateAndSample(argdict):
     seed = argdict['seed']
     pars = argdict['pars']
     x_max = argdict['x_max']
+
     if sampleCells:
         header = argdict['header']
     pars = {}
@@ -641,12 +639,10 @@ def simulateAndSample(argdict):
         trys += 1
         if trys > 1:
             print('try', trys)
-            
 
     # write to file
-    df.to_csv(outPrefix + 'E'+ str(cellid) + '.csv')
+    df.to_csv(outPrefix + 'E' + str(cellid) + '.csv')
 
-    
 def Experiment(Model, ModelSpec,tspan,
                num_cells,
                sampleCells,
@@ -814,15 +810,16 @@ def Experiment(Model, ModelSpec,tspan,
         start = time.time()
         ########################
         if doParallel:
-            ## Carry out simulations in parrallel
-            lock = Lock()
-            jobs = []
-            for cellid in range(num_cells):
-                argdict['seed'] = cellid
-                argdict['cellid'] = cellid
-                p = Process(target=simulateAndSample,args=([argdict]))
-                p.start()
-                #p.join()
+            with mp.Pool() as pool:
+                jobs = []
+
+                for cellid in range(num_cells):
+                    cell_args = dict(argdict, seed=cellid, cellid=cellid)
+                    job = pool.apply_async(simulateAndSample, args=(cell_args,))
+                    jobs.append(job)
+
+                for job in jobs:
+                    job.wait()
         else:
             for cellid in tqdm(range(num_cells)):
                 argdict['seed'] = cellid
