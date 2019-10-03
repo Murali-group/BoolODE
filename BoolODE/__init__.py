@@ -1,26 +1,40 @@
+import os
 import yaml
 import argparse
 import itertools
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List
+# Local imports
 from BoolODE import model_generator as mg
-import os
+from BoolODE import post_processing as po
+
 
 class GlobalSettings(object):
     def __init__(self,
-                 model_dir, output_dir) -> None:
-        
+                 model_dir, output_dir,
+                 do_simulations, do_post_processing) -> None:
         self.model_dir = model_dir
         self.output_dir = output_dir
+        self.do_simulations = do_simulations
+        self.do_post_processing = do_post_processing        
 
 class JobSettings(object):
     '''
     TODO document
     '''
-
     def __init__(self, jobs) -> None:
         self.jobs = jobs
+        
+class PostProcSettings(object):
+    def __init__(self,
+                 dropout_jobs,
+                 slingshot_jobs) -> None:
+        
+        self.dropout_jobs = dropout_jobs
+        self.slingshot_jobs = slingshot_jobs
+
+
 
 class BoolODE(object):
     '''
@@ -30,11 +44,14 @@ class BoolODE(object):
     '''
 
     def __init__(self,
-            job_settings: JobSettings,
-            global_settings: GlobalSettings) -> None:
+                 job_settings: JobSettings,
+                 global_settings: GlobalSettings,
+                 postproc_settings: PostProcSettings
+    ) -> None:
 
         self.job_settings = job_settings
         self.global_settings = global_settings
+        self.post_settings = postproc_settings        
         self.jobs: Dict[int, Dict] = self.__process_jobs()
 
     def __process_jobs(self) -> Dict[int, Dict]:
@@ -67,7 +84,6 @@ class BoolODE(object):
             data['burnin'] = job.get('burn_in',False)
             data['writeProtein'] = job.get('write_protein',False)
             data['normalizeTrajectory'] = job.get('normalize_trajectory',False)
-
             data['add_dummy'] = job.get('add_dummy',False)
             data['max_parents'] = job.get('max_parents',1)
 
@@ -81,8 +97,47 @@ class BoolODE(object):
         base_output_dir = self.global_settings.output_dir
 
         alljobs =  self.jobs.keys()
+        print('Creating output folders')
         for jobid in alljobs:
-            mg.startRun(self.jobs[jobid])
+            outdir = self.jobs[jobid]['outprefix']
+            if not os.path.exists(outdir):
+                print(outdir, "does not exist, creating it...")
+                os.makedirs(outdir)
+        if self.global_settings.do_simulations:
+            print('Starting simulations')
+            for jobid in alljobs:
+                mg.startRun(self.jobs[jobid])
+        if self.global_settings.do_post_processing:
+            print('Starting post processing')
+            self.do_post_processing()
+
+    def do_post_processing(self):
+        """
+        Call runSlingShot, and generateDropouts, if specified by the user.
+        """
+        alljobs =  self.jobs.keys()        
+        if self.post_settings.dropout_jobs is not None:
+            print('Starting denDropouts...')
+            for drop in self.post_settings.dropout_jobs:
+                for jobid in alljobs:
+                    settings = {}
+                    settings['outPrefix'] = drop['name']#self.jobs[jobid]['outPrefix']
+                    settings['expr'] = Path(self.jobs[jobid]['outprefix']\
+                                            ,'ExpressionData.csv')
+                    settings['pseudo'] = Path(self.jobs[jobid]['outprefix']\
+                                              ,'PseudoTime.csv')
+                    settings['refNet'] = Path(self.jobs[jobid]['outprefix']\
+                                              ,'refNetwork.csv')
+                    settings['dropout'] = drop.get('dropout', 100)                
+                    settings['nCells'] = drop.get('nCells', 100)
+                    settings['drop-cutoff'] = drop.get('drop-cutoff', 0.0)
+                    settings['drop-prob'] = drop.get('drop-prob', 0.0)
+                    settings['samplenum'] = drop.get('nCells', 100)
+                    print(settings)
+            
+        if self.post_settings.slingshot_jobs is not None:
+            print('Currently not implemented')
+
         
 class ConfigParser(object):
     '''
@@ -96,54 +151,29 @@ class ConfigParser(object):
             ConfigParser.__parse_job_settings(
                 config_map['jobs']),
             ConfigParser.__parse_global_settings(
-                config_map['global_settings']),            
+                config_map['global_settings']),
+            ConfigParser.__parse_postproc_settings(
+                config_map['post_processing'])            
         )
 
     @staticmethod
     def __parse_job_settings(joblist) -> JobSettings:
         jobs = joblist
-        
         return JobSettings(jobs)
     
     @staticmethod
     def __parse_global_settings(input_settings_map) -> GlobalSettings:
         model_dir = input_settings_map['model_dir']
         output_dir = input_settings_map['output_dir']
-
+        do_simulations = input_settings_map['do_simulations']
+        do_post_processing = input_settings_map['do_post_processing']                
         return GlobalSettings(model_dir,
-                              output_dir)    
-    
-    # @staticmethod
-    # def __parse_input_settings(input_settings_map) -> InputSettings:
-    #     model_dir = input_settings_map['model_dir']
-    #     dataset_dir = input_settings_map['dataset_dir']
-    #     datasets = input_settings_map['datasets']
-
-    #     return InputSettings(
-    #             Path(input_dir, dataset_dir),
-    #             datasets,
-    #             ConfigParser.__parse_algorithms(
-    #             input_settings_map['algorithms']))
-
-
-    # @staticmethod
-    # def __parse_algorithms(algorithms_list):
-    #     algorithms = []
-    #     for algorithm in algorithms_list:
-    #             combos = [dict(zip(algorithm['params'], val))
-    #                 for val in itertools.product(
-    #                     *(algorithm['params'][param]
-    #                         for param in algorithm['params']))]
-    #             for combo in combos:
-    #                 algorithms.append([algorithm['name'],combo])
-            
-
-    #     return algorithms
-
-    # @staticmethod
-    # def __parse_output_settings(output_settings_map) -> OutputSettings:
-    #     output_dir = Path(output_settings_map['output_dir'])
-    #     output_prefix = Path(output_settings_map['output_prefix'])
-
-    #     return OutputSettings(output_dir,
-    #                          output_prefix)
+                              output_dir,
+                              do_simulations,
+                              do_post_processing)
+    @staticmethod
+    def __parse_postproc_settings(input_settings_map) -> GlobalSettings:
+        dropout_jobs = input_settings_map.get('Dropouts', None)
+        slingshot_jobs = input_settings_map.get('slingshot', None)
+        #output_dir = input_settings_map['output_dir']
+        return PostProcSettings(dropout_jobs, slingshot_jobs)        

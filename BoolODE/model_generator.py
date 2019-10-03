@@ -5,10 +5,8 @@ import os
 import sys
 import ast
 import time
-import importlib
 import warnings
 import numpy as np
-import scipy as sc
 import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
@@ -19,7 +17,7 @@ from sklearn.cluster import KMeans
 from BoolODE import simulatorUtils as  utils
 from BoolODE import simulatorCore as simulator 
 from importlib.machinery import SourceFileLoader
-from multiprocessing import Process, Lock, Manager
+import multiprocessing as mp
 
 np.seterr(all='raise')
 
@@ -617,9 +615,8 @@ def simulateAndSample(argdict):
         if trys > 1:
             print('try', trys)
             
-
     # write to file
-    df.to_csv(outPrefix + 'E'+ str(cellid) + '.csv')
+    df.to_csv(outPrefix + 'E' + str(cellid) + '.csv')
     
 def Experiment(Model, ModelSpec,tspan,
                num_cells,
@@ -774,24 +771,26 @@ def Experiment(Model, ModelSpec,tspan,
     start = time.time()
     ########################
     if doParallel:
-        ## Carry out simulations in parrallel
-        lock = Lock()
-        jobs = []
-        for cellid in range(num_cells):
-            argdict['seed'] = cellid
-            argdict['cellid'] = cellid
-            p = Process(target=simulateAndSample,args=([argdict]))
-            p.start()
-            #p.join()
+        ### Contributed by matthieubulte
+        with mp.Pool() as pool:
+            jobs = []
+            for cellid in range(num_cells):
+                cell_args = dict(argdict, seed=cellid, cellid=cellid)
+                job = pool.apply_async(simulateAndSample, args=(cell_args,))
+                jobs.append(job)
+                
+            for job in jobs:
+                job.wait()
+        ###
     else:
         for cellid in tqdm(range(num_cells)):
             argdict['seed'] = cellid
             argdict['cellid'] = cellid
             simulateAndSample(argdict)
     ########################
-    ## Sleep for 1 s to allow for IO. Hack necessary for smalle number of simulations
-    ## where sim time < IO time.
-    time.sleep(1)
+    # ## Sleep for 1 s to allow for IO. Hack necessary for smalle number of simulations
+    # ## where sim time < IO time.
+    # time.sleep(1)
     print("Simulations took %0.3f s"%(time.time() - start))
     frames = []
     print('starting to concat files')
@@ -862,10 +861,6 @@ def startRun(settings):
                                              settings['add_dummy'],
                                              settings['max_parents'])
 
-    # TODO cleanup
-    # if len(withoutRules) == 0:
-    #     withoutRules = []
-        
     it = 0
     someexception = True
     while someexception:
@@ -897,22 +892,21 @@ def startRun(settings):
             dir_path  = utils.writeModelToFile(ModelSpec)
             ## Load file from path
             model = SourceFileLoader("model", dir_path + "/model.py").load_module()
-            #import model
             resultDF = Experiment(model.Model,
-                                                   ModelSpec,
-                                                   tspan,
-                                                   settings['num_cells'],
-                                                   settings['sample_cells'],
-                                                   varmapper, parmapper,
-                                                   genelist, proteinlist,
-                                                   settings['outprefix'],
-                                                   icsDF,
-                                                   settings['nClusters'],
-                                                   x_max,
-                                                   settings['doParallel'],
-                                                   burnin=settings['burnin'],
-                                                   writeProtein=settings['writeProtein'],
-                                                   normalizeTrajectory=settings['normalizeTrajectory'])
+                                  ModelSpec,
+                                  tspan,
+                                  settings['num_cells'],
+                                  settings['sample_cells'],
+                                  varmapper, parmapper,
+                                  genelist, proteinlist,
+                                  settings['outprefix'],
+                                  icsDF,
+                                  settings['nClusters'],
+                                  x_max,
+                                  settings['doParallel'],
+                                  burnin=settings['burnin'],
+                                  writeProtein=settings['writeProtein'],
+                                  normalizeTrajectory=settings['normalizeTrajectory'])
             print('Generating input files for pipline...')
             start = time.time()
             utils.generateInputFiles(resultDF, rulesdf,
@@ -920,7 +914,6 @@ def startRun(settings):
                                      parameterInputsDF,
                                      outPrefix=settings['outprefix'])
             print('Input file generation took %0.2f s' % (time.time() - start))
-            
             someexception= False
             
         except FloatingPointError as e:

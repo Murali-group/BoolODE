@@ -1,6 +1,8 @@
 global_settings:
   model_dir: "data"
   output_dir: "Synthetic"
+  do_simulations: False
+  do_post_processing: True
 
 jobs:
   - name: "dyn-LI-1"
@@ -16,6 +18,18 @@ jobs:
     num_cells: 20
     do_parallel: True
     sample_cells: True
- 
 
+post_processing:
+  Dropouts:
+    - name: "0"
+      dropout: False
+      nCells: 100
+      
+    - name: "50_50"
+      dropout: True
+      nCells: 100
+      drop-cutoff: 0.5
+      drop-prob: 0.5      
+        
+    
   

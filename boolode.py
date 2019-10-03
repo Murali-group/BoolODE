@@ -30,7 +30,7 @@ def main():
     config_file = opts.config
     with open(config_file, 'r') as conf:
         boolodejobs = bo.ConfigParser.parse(conf)
-        
+    
     boolodejobs.execute_jobs()
     print('Jobs finished')
 
