@@ -153,7 +153,7 @@ def get_ss(P):
     return(ss)
 
 def generateInputFiles(resultDF, BoolDF, withoutRules,
-                       parameterInputsDF,
+                       parameterInputsDF,tmax,numcells,
                        outPrefix=''):
     """
     Generates input files required from the Beeline pipeline
@@ -231,7 +231,7 @@ def generateInputFiles(resultDF, BoolDF, withoutRules,
     PseudoTimeDF.index = PseudoTimeDF['Cell ID']
     
     # ExpressionData.csv
-    if len(resultDF.columns) < 1e5:
+    if len(resultDF.columns) < 1e3:
         print('3. ExpressionData.csv')
         columns = list(resultDF.columns)
         columns = [c.replace('-','_') for c in columns]
@@ -240,8 +240,15 @@ def generateInputFiles(resultDF, BoolDF, withoutRules,
             resultDF = resultDF.drop(withoutRules, axis=0)
         resultDF.to_csv(str(outPrefix) + '/ExpressionData.csv',sep=',')
     else:
-        print('Dataset too large. Skipping generation of ExpressionData.csv.\n Please sample from simulations.')
-            
+        print("Dataset too large."
+              "\nSampling %d cells, one from each simulated trajectory." % numcells)
+        times = np.random.choice([i for i in range(1,tmax*100)],numcells)
+        expdf = pd.DataFrame(columns=['E' + str(i) + '_' + str(times[i])\
+                                      for i in range(numcells)],
+                             index=resultDF.index)
+        for c in expdf.columns:
+            expdf[c] = resultDF[c]
+        expdf.to_csv(str(outPrefix) + '/ExpressionData.csv',sep=',')
 
 def sampleTimeSeries(num_timepoints, expnum,\
                      tspan,  P,\

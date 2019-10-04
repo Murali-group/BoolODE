@@ -597,19 +597,19 @@ def simulateAndSample(argdict):
                 retry= True
                 break
         
-        if sampleCells:
-            ## Write a single cell to file
-            ## These samples allow for quickly and
-            ## reproducibly testing the output.
-            sampledf = utils.sampleCellFromTraj(cellid,
-                                          tspan, 
-                                          P,
-                                          varmapper, timeIndex,
-                                          genelist, proteinlist,
-                                          header,
-                                          writeProtein=writeProtein)
-            sampledf = sampledf.T
-            sampledf.to_csv(outPrefix + 'E' + str(cellid) + '-cell.csv')            
+        # if sampleCells:
+        #     ## Write a single cell to file
+        #     ## These samples allow for quickly and
+        #     ## reproducibly testing the output.
+        #     sampledf = utils.sampleCellFromTraj(cellid,
+        #                                   tspan, 
+        #                                   P,
+        #                                   varmapper, timeIndex,
+        #                                   genelist, proteinlist,
+        #                                   header,
+        #                                   writeProtein=writeProtein)
+        #     sampledf = sampledf.T
+        #     sampledf.to_csv(outPrefix + 'E' + str(cellid) + '-cell.csv')            
             
         trys += 1
         if trys > 1:
@@ -675,8 +675,8 @@ def Experiment(Model, ModelSpec,tspan,
     :param normalizeTrajectory: Bool specifying if the gene expression values should be scaled between 0 and 1.
     :type normalizeTrajectory: bool 
     """
-    if not sampleCells:
-        print("Note: Simulated trajectories will be clustered. nClusters = %d" % nClusters)
+    # if not sampleCells:
+    #     print("Note: Simulated trajectories will be clustered. nClusters = %d" % nClusters)
     ####################    
     allParameters = dict(ModelSpec['pars'])
     parNames = sorted(list(allParameters.keys()))
@@ -727,13 +727,13 @@ def Experiment(Model, ModelSpec,tspan,
     # Index of every possible time point. Sample from this list
     startat = 0
     timeIndex = [i for i in range(startat, len(tspan))]        
-    if sampleCells:
-        # pre-define the time points from which a cell will be sampled
-        # per simulation
-        sampleAt = np.random.choice(timeIndex, size=num_cells)
-        header = ['E' + str(cellid) + '_' + str(time) \
-                  for cellid, time in\
-                  zip(range(num_cells), sampleAt)]
+    # if sampleCells:
+    #     # pre-define the time points from which a cell will be sampled
+    #     # per simulation
+    #     sampleAt = np.random.choice(timeIndex, size=num_cells)
+    #     header = ['E' + str(cellid) + '_' + str(time) \
+    #               for cellid, time in\
+    #               zip(range(num_cells), sampleAt)]
 
     ## Construct dictionary of arguments to be passed
     ## to simulateAndSample(), done in parallel
@@ -760,8 +760,8 @@ def Experiment(Model, ModelSpec,tspan,
     argdict['revvarmapper'] = revvarmapper
     argdict['x_max'] = x_max
 
-    if sampleCells:
-        argdict['header'] = header
+    # if sampleCells:
+    #     argdict['header'] = header
 
     simfilepath = Path(outPrefix, './simulations/')
     if not os.path.exists(simfilepath):
@@ -815,7 +815,7 @@ def Experiment(Model, ModelSpec,tspan,
     newindices = [i.replace('x_','') for i in indices]
     result.index = pd.Index(newindices)
     
-    if not sampleCells:
+    if nClusters > 1:
         ## Carry out k-means clustering to identify which
         ## trajectory a simulation belongs to
         print('Starting k-means clustering')
@@ -828,7 +828,9 @@ def Experiment(Model, ModelSpec,tspan,
         print('Clustering took %0.3fs' % (time.time() - start))
         clusterDF = pd.DataFrame(data=clusterLabels, index =\
                                  groupedDF.columns, columns=['cl'])
-        clusterDF.to_csv(outPrefix + '/ClusterIds.csv')        
+        clusterDF.to_csv(outPrefix + '/ClusterIds.csv')
+    else:
+        print('Requested nClusters=1, not performing k-means clustering')
     ##################################################
     
     return result
@@ -911,7 +913,7 @@ def startRun(settings):
             start = time.time()
             utils.generateInputFiles(resultDF, rulesdf,
                                      withoutRules,
-                                     parameterInputsDF,
+                                     parameterInputsDF,tmax,settings['num_cells'],
                                      outPrefix=settings['outprefix'])
             print('Input file generation took %0.2f s' % (time.time() - start))
             someexception= False

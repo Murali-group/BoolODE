@@ -1,4 +1,5 @@
 import os
+import sys
 import yaml
 import argparse
 import itertools
@@ -33,7 +34,6 @@ class PostProcSettings(object):
         
         self.dropout_jobs = dropout_jobs
         self.slingshot_jobs = slingshot_jobs
-
 
 
 class BoolODE(object):
@@ -117,26 +117,48 @@ class BoolODE(object):
         """
         alljobs =  self.jobs.keys()        
         if self.post_settings.dropout_jobs is not None:
-            print('Starting denDropouts...')
+            print('Starting genDropouts...')
             for drop in self.post_settings.dropout_jobs:
+
                 for jobid in alljobs:
                     settings = {}
-                    settings['outPrefix'] = drop['name']#self.jobs[jobid]['outPrefix']
+                    settings['outPrefix'] = self.global_settings.output_dir +\
+                        '/' + self.jobs[jobid]['name'] +\
+                        '/' + self.jobs[jobid]['name']
                     settings['expr'] = Path(self.jobs[jobid]['outprefix']\
                                             ,'ExpressionData.csv')
                     settings['pseudo'] = Path(self.jobs[jobid]['outprefix']\
                                               ,'PseudoTime.csv')
                     settings['refNet'] = Path(self.jobs[jobid]['outprefix']\
                                               ,'refNetwork.csv')
-                    settings['dropout'] = drop.get('dropout', 100)                
+                    settings['dropout'] = drop.get('dropout', True)                
                     settings['nCells'] = drop.get('nCells', 100)
-                    settings['drop-cutoff'] = drop.get('drop-cutoff', 0.0)
-                    settings['drop-prob'] = drop.get('drop-prob', 0.0)
-                    settings['samplenum'] = drop.get('nCells', 100)
-                    print(settings)
-            
+                    settings['drop_cutoff'] = drop.get('drop_cutoff', 0.0)
+                    settings['drop_prob'] = drop.get('drop_prob', 0.0)
+                    po.genDropouts(settings)
+                    
         if self.post_settings.slingshot_jobs is not None:
-            print('Currently not implemented')
+            print('Starting SlingShot...')
+            for sshot in self.post_settings.slingshot_jobs:
+                for jobid in alljobs:
+                    settings = {}
+                    settings['outPrefix'] = self.global_settings.output_dir +\
+                        '/' + self.jobs[jobid]['name'] +\
+                        '/' + self.jobs[jobid]['name'] + '-ss' 
+                    settings['expr'] = Path(self.jobs[jobid]['outprefix']\
+                                            ,'ExpressionData.csv')
+                    settings['pseudo'] = Path(self.jobs[jobid]['outprefix']\
+                                              ,'PseudoTime.csv')
+                    settings['refNet'] = Path(self.jobs[jobid]['outprefix']\
+                                              ,'refNetwork.csv')
+                    if self.jobs[jobid]['nClusters'] == 1:
+                        settings['nClusters'] = 1
+                    else:
+                        settings['nClusters'] = self.jobs[jobid]['nClusters'] + 1
+                    settings['noEnd'] = sshot.get('noEnd', False)
+                    settings['perplexity'] = sshot.get('perplexity', 300)
+                    po.computeSSPT(settings)                    
+            
 
         
 class ConfigParser(object):
@@ -174,6 +196,6 @@ class ConfigParser(object):
     @staticmethod
     def __parse_postproc_settings(input_settings_map) -> GlobalSettings:
         dropout_jobs = input_settings_map.get('Dropouts', None)
-        slingshot_jobs = input_settings_map.get('slingshot', None)
+        slingshot_jobs = input_settings_map.get('Slingshot', None)
         #output_dir = input_settings_map['output_dir']
         return PostProcSettings(dropout_jobs, slingshot_jobs)        
