@@ -21,15 +21,17 @@ jobs:
 
 post_processing:
   Dropouts:
-    - name: "0"
-      dropout: False
+    - dropout: False
       nCells: 100
       
-    - name: "50_50"
-      dropout: True
+    - dropout: False
       nCells: 100
-      drop-cutoff: 0.5
-      drop-prob: 0.5      
-        
-    
-  
+      drop_cutoff: 0.5
+      drop_prob: 0.5
+      
+    - dropout: False
+      nCells: 100
+      drop_cutoff: 0.7
+      drop_prob: 0.7
+  Slingshot:
+    - perplexity: 400
