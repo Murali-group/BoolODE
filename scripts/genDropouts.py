@@ -41,7 +41,7 @@ def parseArgs(args):
 
     return opts, args
 
-def genSamples(opts):
+def genDropouts(opts):
     if opts.samplenum is None:
         print('Please specify sample number')
         sys.exit()
@@ -83,7 +83,7 @@ def genSamples(opts):
         
 def main(args):
     opts, args = parseArgs(args)
-    genSamples(opts)
+    genDropouts(opts)
 
 if __name__ == '__main__':
     main(sys.argv)
