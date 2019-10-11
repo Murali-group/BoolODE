@@ -14,6 +14,7 @@ output_dir="Synthetic/"
 
 # Linear
 output_name="dyn-LI"
+model_name="dyn-linear"
 echo "Simulating "$model_name
 python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.txt\
        --ics $path_to_boolode/data/$model_name"_ics.txt" --max-time 5 --num-cells $numcells\
