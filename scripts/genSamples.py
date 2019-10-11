@@ -47,7 +47,7 @@ def genSamples(opts):
         # Create cell ids
         simids = np.random.choice(range(num_experiments), size=opts.nCells, replace=False)
         fids = ['E'+ str(sid) + '.csv' for sid in simids]            
-        timepoints = np.random.choice(range(1,max_time), size=opts.nCells)
+        timepoints = np.random.choice(range(1,maxtime), size=opts.nCells)
         min_t = min(timepoints)
         max_t = max(timepoints)
         pts = [(t - min_t)/(max_t - min_t) for t in timepoints]
@@ -60,10 +60,10 @@ def genSamples(opts):
             df.sort_index(inplace=True)
             sample.append(df[cid].to_frame())
         sampledf = pd.concat(sample,axis=1)
-        sampledf.to_csv(outfpath + 'ExpressionData.csv')
+        sampledf.to_csv(outfpath + '/ExpressionData.csv')
         ## Read refNetwork.csv
         refdf = pd.read_csv(opts.input_path + '/refNetwork.csv')
-        refdf.to_csv(outfpath + 'refNetwork.csv',index=False)
+        refdf.to_csv(outfpath + '/refNetwork.csv',index=False)
         if len(numclusters) == 1:
             ptdf = pd.DataFrame(np.array(pts),
                             index=pd.Index(cellids),columns = ['PseudoTime'])
@@ -74,7 +74,7 @@ def genSamples(opts):
             for (cid, row), pt in zip(ptdf.iterrows(), pts):
                 ptdf.loc[cid]['PseudoTime' +\
                               str(int(subsetcluster.loc[cid.split('_')[0]]['cl']) + 1)] = round(pt,5)
-        ptdf.to_csv(outfpath + 'PseudoTime.csv',na_rep='NA')                    
+        ptdf.to_csv(outfpath + '/PseudoTime.csv',na_rep='NA')                    
 
 def main(args):
     opts, args = parseArgs(args)
