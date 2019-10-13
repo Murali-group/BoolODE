@@ -5,9 +5,15 @@
 #  --sample-par --std 0.05 -i
 # The above will specify a standard deviation of 5% of the default parameter
 # value, and the -i option will set all parameters to a single sampled value.
+# In order to generate samples, we use the scripts/genSamples.py
+# The -d option specified number of datasets to generate (Set to 5)
+# Each dataset will have a sample of 500 cells from the full set of 2000 simulations
+# This is specified using the -n option.
 
 path_to_boolode=".."
 numcells="2000"
+numcellssample="500"
+numdatasets="5"
 
 # Synthetic Networks
 output_dir="Synthetic/"
@@ -20,6 +26,8 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.
        --ics $path_to_boolode/data/$model_name"_ics.txt" --max-time 5 --num-cells $numcells\
        --do-parallel\
        --outPrefix $output_dir$output_name"/"
+python $path_to_boolode/scripts/genSamples.py -p $output_dir$output_name"/"\
+       -n $numcellssample -d $numdatasets
 
 # Linear Long
 output_name="dyn-LL"
@@ -28,6 +36,8 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.
        --ics $path_to_boolode/data/$model_name"_ics.txt" --max-time 15 --num-cells $numcells\
        --do-parallel\
        --outPrefix $output_dir$output_name"/"
+python $path_to_boolode/scripts/genSamples.py -p $output_dir$output_name"/"\
+       -n $numcellssample -d $numdatasets
        
 # Cycle
 output_name="dyn-CY"
@@ -36,6 +46,8 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.
        --ics $path_to_boolode/data/$model_name"_ics.txt" --max-time 8 --num-cells $numcells\
        --do-parallel\
        --outPrefix $output_dir$output_name"/"
+python $path_to_boolode/scripts/genSamples.py -p $output_dir$output_name"/"\
+       -n $numcellssample -d $numdatasets
        
 # Bifurcating
 output_name="dyn-BF"
@@ -45,6 +57,8 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.
        --do-parallel\
        --nClusters 2\
        --outPrefix $output_dir$output_name"/"
+python $path_to_boolode/scripts/genSamples.py -p $output_dir$output_name"/"\
+       -n $numcellssample -d $numdatasets
 
 # Bifurcating-converging
 model_name="dyn-bifurcating-converging"
@@ -54,6 +68,8 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.
        --do-parallel\
        --nClusters 2\
        --outPrefix $output_dir$output_name"/"
+python $path_to_boolode/scripts/genSamples.py -p $output_dir$output_name"/"\
+       -n $numcellssample -d $numdatasets
 
 # Trifurcating
 model_name="dyn-trifurcating"
@@ -63,6 +79,8 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.
        --do-parallel\
        --nClusters 3\
        --outPrefix $output_dir$output_name"/"
+python $path_to_boolode/scripts/genSamples.py -p $output_dir$output_name"/"\
+       -n $numcellssample -d $numdatasets
 
 
 # # Curated models
@@ -78,6 +96,8 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.
        --do-parallel\
        --nClusters $numclusters\
        --outPrefix $output_dir$output_name"/"
+python $path_to_boolode/scripts/genSamples.py -p $output_dir$output_name"/"\
+       -n $numcellssample -d $numdatasets
        
 echo "Running slingshot"
 numclusters=3
@@ -85,7 +105,8 @@ python $path_to_boolode/scripts/runSlingshot.py --expr $output_dir$output_name"/
        --pseudo $output_dir$output_name"/PseudoTime.csv"\
        --outPrefix $output_dir$output_name\
        --nClusters=$numclusters -r 200
-
+python $path_to_boolode/scripts/genSamples.py -p $output_dir$output_name"/"\
+       -n $numcellssample -d $numdatasets
 
 echo "Generating dropouts for q=50 for "$model_name
 python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/ExpressionData.csv"\
@@ -93,7 +114,6 @@ python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/Expr
        -r $output_dir$output_name"/refNetwork.csv"\
        -n $numcells -d --drop-cutoff 0.5 --drop-prob 0.5 -i 1\
        --outPrefix $output_dir$output_name"/"$output_name"-50/"
-
 
 # VSC
 model_name="VSC"
@@ -105,6 +125,8 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.
        --do-parallel\
        --nClusters $numclusters\
        --outPrefix $output_dir$output_name"/"
+python $path_to_boolode/scripts/genSamples.py -p $output_dir$output_name"/"\
+       -n $numcellssample -d $numdatasets
 
 echo "Running slingshot"
 numclusters=6
@@ -129,6 +151,8 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.
        --do-parallel\
        --nClusters $numclusters\
        --outPrefix $output_dir$output_name"/"
+python $path_to_boolode/scripts/genSamples.py -p $output_dir$output_name"/"\
+       -n $numcellssample -d $numdatasets
        
 echo "Running slingshot"
 numclusters=5
@@ -144,8 +168,6 @@ python $path_to_boolode/scripts/genDropouts.py  -e $output_dir$output_name"/Expr
        -n $numcells -d --drop-cutoff 0.5 --drop-prob 0.5 -i 1\
        --outPrefix $output_dir$output_name"/"$output_name"-50/"
 
-
-
 # GSD
 output_name="GSD"
 model_name="GSD"
@@ -155,6 +177,8 @@ python $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name.
        --do-parallel\
        --nClusters $numclusters\
        --outPrefix $output_dir$output_name"/"
+python $path_to_boolode/scripts/genSamples.py -p $output_dir$output_name"/"\
+       -n $numcellssample -d $numdatasets
 
 echo "Running slingshot"
 numclusters=3
