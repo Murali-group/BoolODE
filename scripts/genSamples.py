@@ -70,7 +70,7 @@ def genSamples(opts):
         else:
             subsetcluster = clusterdf.loc[[cid.split('_')[0] for cid in cellids]]
             ptdf = pd.DataFrame(index=pd.Index(cellids),
-                                columns = ['PseudoTime' + str(1+i) for i in range(numclusters)])
+                                columns = ['PseudoTime' + str(1+i) for i in range(len(numclusters))])
             for (cid, row), pt in zip(ptdf.iterrows(), pts):
                 ptdf.loc[cid]['PseudoTime' +\
                               str(int(subsetcluster.loc[cid.split('_')[0]]['cl']) + 1)] = round(pt,5)
