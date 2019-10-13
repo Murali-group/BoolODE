@@ -7,7 +7,7 @@
 # value, and the -i option will set all parameters to a single sampled value.
 # In order to generate samples, we use the scripts/genSamples.py
 # The -d option specified number of datasets to generate (Set to 1)
-# Each dataset will have a sample of 500 cells from the full set of 2000 simulations
+# Each dataset will have a sample of 500 cells from the full set of 600 simulations
 # This is specified using the -n option.
 
 path_to_boolode=".."
