@@ -13,7 +13,7 @@ import importlib
 import warnings
 from tqdm import tqdm 
 from optparse import OptionParser
-from multiprocessing import Process, Lock, Manager
+import multiprocessing as mp
 import ast
 from importlib.machinery import SourceFileLoader
 import utils 
@@ -814,15 +814,17 @@ def Experiment(Model, ModelSpec,tspan,
         start = time.time()
         ########################
         if doParallel:
-            ## Carry out simulations in parrallel
-            lock = Lock()
-            jobs = []
-            for cellid in range(num_cells):
-                argdict['seed'] = cellid
-                argdict['cellid'] = cellid
-                p = Process(target=simulateAndSample,args=([argdict]))
-                p.start()
-                #p.join()
+            ### Contributed by matthieubulte
+            with mp.Pool() as pool:
+                jobs = []
+                for cellid in range(num_cells):
+                    cell_args = dict(argdict, seed=cellid, cellid=cellid)
+                    job = pool.apply_async(simulateAndSample, args=(cell_args,))
+                    jobs.append(job)
+                    
+                for job in jobs:
+                    job.wait()
+            ###            
         else:
             for cellid in tqdm(range(num_cells)):
                 argdict['seed'] = cellid
