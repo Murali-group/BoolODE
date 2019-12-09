@@ -8,17 +8,20 @@ from pathlib import Path
 from typing import Dict, List
 # Local imports
 from BoolODE import model_generator as mg
+from BoolODE import run_experiment as runexp
 from BoolODE import post_processing as po
 
 
 class GlobalSettings(object):
     def __init__(self,
                  model_dir, output_dir,
-                 do_simulations, do_post_processing) -> None:
+                 do_simulations, do_post_processing,
+                 modeltype) -> None:
         self.model_dir = model_dir
         self.output_dir = output_dir
         self.do_simulations = do_simulations
-        self.do_post_processing = do_post_processing        
+        self.do_post_processing = do_post_processing
+        self.modeltype = modeltype
 
 class JobSettings(object):
     '''
@@ -86,6 +89,7 @@ class BoolODE(object):
             data['normalizeTrajectory'] = job.get('normalize_trajectory',False)
             data['add_dummy'] = job.get('add_dummy',False)
             data['max_parents'] = job.get('max_parents',1)
+            data['modeltype'] = self.global_settings.modeltype
 
             jobs[jobid] = data
         return(jobs)
@@ -106,7 +110,7 @@ class BoolODE(object):
         if self.global_settings.do_simulations:
             print('Starting simulations')
             for jobid in alljobs:
-                mg.startRun(self.jobs[jobid])
+                runexp.startRun(self.jobs[jobid])
         if self.global_settings.do_post_processing:
             print('Starting post processing')
             self.do_post_processing()
@@ -188,11 +192,14 @@ class ConfigParser(object):
         model_dir = input_settings_map['model_dir']
         output_dir = input_settings_map['output_dir']
         do_simulations = input_settings_map['do_simulations']
-        do_post_processing = input_settings_map['do_post_processing']                
+        do_post_processing = input_settings_map['do_post_processing']
+        modeltype = input_settings_map['modeltype']
+        
         return GlobalSettings(model_dir,
                               output_dir,
                               do_simulations,
-                              do_post_processing)
+                              do_post_processing,
+                              modeltype)
     @staticmethod
     def __parse_postproc_settings(input_settings_map) -> GlobalSettings:
         dropout_jobs = input_settings_map.get('Dropouts', None)

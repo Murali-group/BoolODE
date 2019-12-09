@@ -3,6 +3,61 @@ import pandas as pd
 import os
 import sys
 
+def heavisideThreshold(value):
+    if int(value) == 1:
+        return 1
+    elif int(value) == 0:
+        return -1
+
+def getRegulatorsInRule(rule, species, inputs):
+    """
+    Helper function to tokenize a rule into regulators.
+    Returns three lists of regulator names.
+    1. allreg is the list of all valid regulators
+    2. regulatorySpecies are other model variables that are regulators
+    3. inputreg are the regulators that are model inputs
+    """
+    rhs = rule
+    rhs = rhs.replace('(',' ')
+    rhs = rhs.replace(')',' ')
+    tokens = rhs.split(' ')
+
+    allreg = set([t for t in tokens if (t in species or t in inputs)])
+    regulatorySpecies = set([t for t in tokens if t in species])
+    inputreg = set([t for t in tokens if t in inputs])
+
+    return((allreg, regulatorySpecies, inputreg))
+
+def createRegulatoryTerms(combinationOfRegulators,
+                          modeltype,
+                          strengthSpecified,
+                          regulatorsWithStrength,
+                          regSpecies):
+    if modeltype == 'hill':
+        # Create the hill function terms for each regulator
+        hills = []
+        for reg in combinationOfRegulators:
+            if strengthSpecified and (reg in regulatorsWithStrength):
+                hillThresholdName = 'k_' + reg+ '_' + currSp
+            else:
+                hillThresholdName = 'k_' + reg
+
+            if reg in regSpecies:
+                hills.append('(p_'+ reg +'/'+hillThresholdName+')^n_'+ reg)
+            else:
+                # Note: Only proteins can be regulators
+                hills.append('('+ reg +'/'+hillThresholdName+')^n_'+ reg)
+                
+        mult = '*'.join(hills)
+        return mult
+    
+    elif modeltype == 'heaviside':
+        terms = []
+        for reg in combinationOfRegulators:
+            terms.append('p_' + reg)
+        mult = '*'.join(terms)
+        return mult        
+
 def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
     """
     Generates a gaussian random number which is
@@ -38,7 +93,7 @@ def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
             K.append(k)
     return K
 
-def writeModelToFile(ModelSpec, prefix=''):
+def writeModelToFile(ModelSpec, outPrefix=''):
     """
     Writes model to file as a python function, which is then imported.
 
@@ -53,9 +108,10 @@ def writeModelToFile(ModelSpec, prefix=''):
     """
     varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
     parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}
-    dir_path = os.path.dirname(os.path.realpath(__file__))    
-    print("I am in " + dir_path)
-    with open(dir_path+"/"+prefix+'model.py','w') as out:
+    path_to_model = outPrefix / 'model.py'#os.path.dirname(os.path.realpath(__file__))    
+    # print("I am in " + dir_path)
+    
+    with open(path_to_model,'w') as out:
         out.write('#####################################################\n')
         out.write('import numpy as np\n')
         out.write('# This file is created automatically\n')
@@ -77,7 +133,7 @@ def writeModelToFile(ModelSpec, prefix=''):
         out.write('    dY = np.array([' + outstr+ '])\n')
         out.write('    return(dY)\n')
         out.write('#####################################################')
-    return dir_path 
+    return path_to_model
 
 def writeParametersToFile(ModelSpec, outPrefix, outname='parameters.txt'):
     """
