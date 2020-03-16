@@ -96,4 +96,4 @@ More more details, please see Supplementary section 1 of the preprint.
 
 If you use BoolODE in your research, please cite:
 
-Aditya Pratapa, Amogh Jalihal, Jeffrey Law, Aditya Bharadwaj, and T M Murali. Benchmarking algorithms for gene regulatory network inference from single-cell transcriptomic data, bioRxiv (2019). doi.org/10.1101/642926
+Aditya Pratapa, Amogh Jalihal, Jeffrey Law, Aditya Bharadwaj, and T M Murali. Benchmarking algorithms for gene regulatory network inference from single-cell transcriptomic data, Nature Methods, (2020). https://doi.org/10.1038/s41592-019-0690-6
