@@ -122,7 +122,7 @@ def getParameters(DF,identicalPars,
             (mRNATranscription/mRNADegradation)
     x_max = (mRNATranscription/mRNADegradation)
     hillThreshold = y_max/2
-    heavisideSigma = 5
+    heavisideSigma = 10.#5
 
     # Chosen arbitrarily
     signalingtimescale = 5.0
