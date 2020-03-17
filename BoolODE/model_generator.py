@@ -447,9 +447,11 @@ def generateModelDict(DF,identicalPars,
                 ##################################################
 
                 if modeltype == 'hill':
-                    par['a_' + currSp +'_'  + '_'.join(list(combinationOfRegulators))] = int(boolodespace['boolval'])
+                    par['a_' + currSp +'_'  + '_'.join(list(combinationOfRegulators))] = \
+                        int(boolodespace['boolval'])
                 elif modeltype == 'heaviside':
-                    par['w_' + currSp +'_'  + '_'.join(list(combinationOfRegulators))] = 0.1*utils.heavisideThreshold(boolodespace['boolval'])                    
+                    par['w_' + currSp +'_'  + '_'.join(list(combinationOfRegulators))] = \
+                        0.1*utils.heavisideThreshold(boolodespace['boolval'])                    
 
         if modeltype == 'hill':
             num += ' )'
@@ -457,7 +459,8 @@ def generateModelDict(DF,identicalPars,
             f = '(' + num + '/' + den + ')'
         elif modeltype == 'heaviside':
             exponent += ')'
-            f = '(1./(1. + np.exp(np.sign('+exponent+')*min(100.,abs(' + exponent+ ')))))'
+            maxexp = '10.' # '100'
+            f = '(1./(1. + np.exp(np.sign('+exponent+')*min(' +maxexp +',abs(' + exponent+ ')))))'
         
         if currSp in proteinlist:
             Production =  f

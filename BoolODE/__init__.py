@@ -64,7 +64,7 @@ class BoolODE(object):
         jobs = {}#: Dict[int, Dict] = defaultdict(list)
         for jobid, job in enumerate(self.job_settings.jobs):
             data = {}
-            # Create output folder if it doesnt exust
+            # Create output folder if it doesnt exist
             data['name'] = job.get('name')
             data['outprefix'] = Path(self.global_settings.output_dir, job.get('name'))
             data['path'] = Path(self.global_settings.model_dir, job.get('model_definition',''))

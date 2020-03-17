@@ -4,6 +4,10 @@ import os
 import sys
 
 def heavisideThreshold(value):
+    """
+    This decides whether the basal parameter omega_0 should 
+    be 1 (basal expression) or -1 (basal repression)
+    """
     if int(value) == 1:
         return 1
     elif int(value) == 0:

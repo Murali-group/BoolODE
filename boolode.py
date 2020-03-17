@@ -8,7 +8,7 @@ def get_parser():
         line parameters
     '''
     parser = argparse.ArgumentParser(
-        description='Run pathway reconstruction pipeline.')
+        description='Run BoolODE to generate synthetic scRNAseq data.\n Please specify config file.')
 
     parser.add_argument('--config', default='config.yaml',
         help='Path to config file')
