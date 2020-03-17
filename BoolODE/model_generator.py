@@ -53,7 +53,7 @@ def readBooleanRules(path, parameterInputsPath, outPrefix='',
 
     withoutRules = list(allnodes.difference(set(withRules)))
     for n in withoutRules:
-        if len(parameterInputsPath) == 0:
+        if not Path(parameterInputsPath):
             print(n, "has no rule, adding self-activation.")
             df = df.append({'Gene':n,'Rule':n},ignore_index=True)
         else:
