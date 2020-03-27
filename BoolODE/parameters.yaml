@@ -1,0 +1,16 @@
+# This file provides the default values of kinetic parameters
+# used in BoolODE. BoolODE provides the option to sample
+# parameters from a narrow range around these defaults in which
+# trajectory information is preserved. Users can change these
+# kinetic parameters, but there is no guarantee that arbitrary
+# parameter combinations will produce the desired trajectories.
+
+mRNATranscription: 20.
+mRNADegradation: 10. # mRNATranscription / 2.
+proteinTranslation: 10.
+proteinDegradation: 1.0
+heavisideSigma: 10.
+
+signalingTimescale: 5.0
+hillCoefficient: 10.
+interactionStrength: 1.0

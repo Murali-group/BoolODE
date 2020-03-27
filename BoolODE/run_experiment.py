@@ -17,9 +17,9 @@ from sklearn.cluster import KMeans
 from importlib.machinery import SourceFileLoader
 import multiprocessing as mp
 # local imports
-from BoolODE import simulatorUtils as  utils
+from BoolODE import utils
 from BoolODE import model_generator as mg
-from BoolODE import simulatorCore as simulator 
+from BoolODE import simulator 
 
 np.seterr(all='raise')
 
@@ -261,12 +261,13 @@ def startRun(settings):
     tmax = settings['simulation_time']    
     integration_step_size = settings['integration_step_size']
     tspan = np.linspace(0,tmax,int(tmax/integration_step_size))
-    
-    rulesdf, withoutRules = mg.readBooleanRules(settings['path'],
-                                             settings['parameter_inputs_path'],
-                                             settings['outprefix'],
-                                             settings['add_dummy'],
-                                             settings['max_parents'])
+
+    modelgenerator = ModelGenerator(settings)
+    # rulesdf, withoutRules = mg.readBooleanRules(settings['path'],
+    #                                          settings['parameter_inputs_path'],
+    #                                          settings['outprefix'],
+    #                                          settings['add_dummy'],
+    #                                          settings['max_parents'])
 
     it = 0
     someexception = True

@@ -5,13 +5,79 @@ import sys
 
 def heavisideThreshold(value):
     """
-    This decides whether the basal parameter omega_0 should 
+    Decides whether the basal parameter omega_0 should 
     be 1 (basal expression) or -1 (basal repression)
     """
     if int(value) == 1:
         return 1
     elif int(value) == 0:
         return -1
+
+def loadParameterValues():
+    """
+    Checks for valid parameters in parameters.yaml file
+    """
+    with open('parameter.yaml','r') as parameterfile:
+        parameterDefaults = yaml.safe_load(parameterfile)
+        
+    requiredPars = ['mRNATranscription',
+                    'mRNADegradation',
+                    'proteinTranslation',
+                    'proteinDegradation',
+                    'heavisideSigma',
+                    'signalingTimescale',
+                    'hillCoefficient',
+                    'interactionStrength']
+    boolodeDefaults = {
+        'mRNATranscription':20.,
+        'mRNADegradation':10.,
+        'proteinTranslation':10.,
+        'proteinDegradation':1.0,
+        'heavisideSigma':10.,
+        'signalingTimescale':5.0,
+        'hillCoefficient':10.,
+        'interactionStrength':1.0
+    }
+    kineticParameterDefaults = {}
+    for rp in requiredPars:
+        if rp not in parameterDefaults:
+            print("%s is missing from the config file. Using default value.")            
+        kineticParameterDefaults = parameterDefaults.get(rp, boolodeDefaults[rp])
+
+    # Max level checks
+    x_max = kineticParameterDefaults['mRNATranscription']/kineticParameterDefaults['mRNADegradation']
+    y_max = x_max*(kineticParameterDefaults['proteinTranslation']/kineticParameterDefaults['proteinDegradation'])
+    
+    if x_max != 2.0:
+        print('Warning: max(mRNA) != 2.0')
+    if y_max != 20.:
+        print('Warning: max(protein) != 20.0')
+
+    return kineticParameterDefaults
+
+# def doSpecialChecks(withoutRules,
+#                     parameterInputsDF,
+#                     parameterSetDF,
+#                     interactionStrengthDF,):
+#     pars = {}
+
+#     ## Check 3:
+#     ## Whether to sample parameters or stick to defaults
+#     if samplePars:
+
+
+
+#     ## Final Check.
+#     ## If parameterSetDF is specified, reassign
+#     ## parameter values to those from table
+#     ## This guarantees that all the parameters are defined without
+#     ## specific checks in parameterSetDF
+#     if parameterSetDF is not None:
+#         for pname, pvalue in parameterSetDF.iterrows():
+#             par[pname] = pvalue[1]
+
+#     return par
+
 
 def getRegulatorsInRule(rule, species, inputs):
     """
@@ -383,11 +449,15 @@ def sampleCellFromTraj(cellid,
 
 
 def checkValidInputPath(path):
-    if os.path.isfile(path):
-        df = pd.read_csv(path,sep='\t')
-        return(df)
-    else:
-        return(None)
+    """
+    Returns dataframe of file at path.
+    If path is not valid, returns empty dataframe.
+    """
+    df = pd.DataFrame()
+    if Path(path):
+        df = pd.read_csv(path, sep='\t')
+    return(df)
+
 
 def checkValidModelDefinitionPath(path, name):
     # Check if model defintion file exists
