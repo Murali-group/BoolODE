@@ -33,9 +33,11 @@ class JobSettings(object):
 class PostProcSettings(object):
     def __init__(self,
                  dropout_jobs,
+                 dimred_jobs,
                  slingshot_jobs) -> None:
         
         self.dropout_jobs = dropout_jobs
+        self.dimred_jobs = dimred_jobs
         self.slingshot_jobs = slingshot_jobs
 
 
@@ -49,9 +51,7 @@ class BoolODE(object):
     def __init__(self,
                  job_settings: JobSettings,
                  global_settings: GlobalSettings,
-                 postproc_settings: PostProcSettings
-    ) -> None:
-
+                 postproc_settings: PostProcSettings) -> None:
         self.job_settings = job_settings
         self.global_settings = global_settings
         self.post_settings = postproc_settings        
@@ -59,15 +59,17 @@ class BoolODE(object):
 
     def __process_jobs(self) -> Dict[int, Dict]:
         '''
-        TODO add docs
+        Creates a list of jobs, where each job is specified by 
+        the values in a dictionary called data.
+        Default parameter values are specified here.
         '''
-        jobs = {}#: Dict[int, Dict] = defaultdict(list)
+        jobs = {}
         for jobid, job in enumerate(self.job_settings.jobs):
             data = {}
             # Create output folder if it doesnt exist
             data['name'] = job.get('name')
             data['outprefix'] = Path(self.global_settings.output_dir, job.get('name'))
-            data['path'] = Path(self.global_settings.model_dir, job.get('model_definition',''))
+            data['modelpath'] = Path(self.global_settings.model_dir, job.get('model_definition',''))
             data['simulation_time'] = job.get('simulation_time',20)
             data['icsPath'] = Path(self.global_settings.model_dir, job.get('model_initial_conditions',''))
             data['num_cells'] = job.get('num_cells',100)
@@ -76,13 +78,17 @@ class BoolODE(object):
             data['doParallel'] = job.get('do_parallel',False)            
             data['identical_pars'] = job.get('identical_pars',False)
             data['sample_pars'] = job.get('sample_pars',False)
-            data['sample_std'] = job.get('std',0.1)
+            data['sample_std'] = job.get('sample_std',0.1)
             data['integration_step_size'] = job.get('integration_step_size',0.01)            
             # Optional Settings
-            data['parameter_inputs_path'] = Path(self.global_settings.model_dir, job.get('parameter_inputs_path',''))
-            data['parameter_set_path'] = Path(self.global_settings.model_dir, job.get('parameter_set_path',''))
-            data['interaction_strength_path'] = Path(self.global_settings.model_dir, job.get('interaction_strength_path',''))
-            data['species_type_path'] = Path(self.global_settings.model_dir, job.get('species_type_path',''))            
+            data['parameter_inputs_path'] = Path(self.global_settings.model_dir,\
+                                                 job.get('parameter_inputs_path',''))
+            data['parameter_set_path'] = Path(self.global_settings.model_dir,\
+                                              job.get('parameter_set_path',''))
+            data['interaction_strength_path'] = Path(self.global_settings.model_dir,\
+                                                     job.get('interaction_strength_path',''))
+            data['species_type_path'] = Path(self.global_settings.model_dir,\
+                                             job.get('species_type_path',''))            
             # Simulator settings
             data['burnin'] = job.get('burn_in',False)
             data['writeProtein'] = job.get('write_protein',False)
@@ -96,7 +102,20 @@ class BoolODE(object):
 
     def execute_jobs(self, parallel=False, num_threads=1):
         '''
-        Run each of the algorithms
+        Run each user specified job. 
+        BoolODE runs two types of functions
+        1. If `do_simulation == TRUE`, perform SDE simulations of model specified as Boolean rules. 
+        2. If `do_post_processing == TRUE` perform the list of post processing operations specified.
+
+        Note:
+        -----
+        We recommend 
+        
+        Warning:
+        -------
+        This function automatically creates folders for each job name 
+        as specified in the config file, if the folder doesn't already exist.
+        Contents of existing folders will be rewritten!
         '''
         base_output_dir = self.global_settings.output_dir
 
@@ -119,13 +138,17 @@ class BoolODE(object):
         """
         Call runSlingShot, and generateDropouts, if specified by the user.
         """
-        alljobs =  self.jobs.keys()        
+        alljobs =  self.jobs.keys()
+        filetypedict = {'expr':'ExpressionData.csv',
+                        'pseudo':'PseudoTime.csv',
+                        'refNet':'refNetwork.csv'}        
         if self.post_settings.dropout_jobs is not None:
             print('Starting genDropouts...')
             for drop in self.post_settings.dropout_jobs:
-
+                num_invalid = 0
                 for jobid in alljobs:
                     settings = {}
+                    invalid = False
                     settings['outPrefix'] = self.global_settings.output_dir +\
                         '/' + self.jobs[jobid]['name'] +\
                         '/' + self.jobs[jobid]['name']
@@ -139,13 +162,50 @@ class BoolODE(object):
                     settings['nCells'] = drop.get('nCells', 100)
                     settings['drop_cutoff'] = drop.get('drop_cutoff', 0.0)
                     settings['drop_prob'] = drop.get('drop_prob', 0.0)
-                    po.genDropouts(settings)
                     
+                    for filetype in ['expr', 'pseudo', 'refNet']:
+                        if not settings[filetype].is_file():
+                            print(self.jobs[jobid]['name'], ': ',filetypedict[filetype], "not found. Retry with `do_simulations: True` in global_settings.")                            
+                            invalid = True
+                            num_invalid += 1
+                            break
+                    if not invalid:
+                        po.genDropouts(settings)
+                if num_invalid == len(alljobs):
+                    break
+                    
+        if self.post_settings.dimred_jobs is not None:
+            print("Starting dimesionality reduction using tSNE")
+            for dimred_jobs in self.post_settings.dimred_jobs:
+                num_invalid = 0
+                for jobid in alljobs:
+                    settings = {}
+                    invalid = False                    
+                    settings['expr'] = Path(self.jobs[jobid]['outprefix'],\
+                                            'ExpressionData.csv')
+                    settings['pseudo'] = Path(self.jobs[jobid]['outprefix'],\
+                                            'PseudoTime.csv')
+                    settings['perplexity'] = dimred_jobs['perplexity']
+                    for filetype in ['expr', 'pseudo']:
+                        if not settings[filetype].is_file():
+                            print(self.jobs[jobid]['name'], ':',filetypedict[filetype], "not found. Retry with `do_simulations: True` in global_settings.")                            
+                            invalid = True
+                            num_invalid += 1
+                            break
+                    if not invalid:
+                        po.doDimRed(settings)
+                        all_invalid = False
+                if num_invalid == len(alljobs):
+                    break
+                        
         if self.post_settings.slingshot_jobs is not None:
+            if self.post_settings.dimred_jobs is not None:
+                print("Using default perplexity=300. (Specify `perplexity` under DimRed.)")
             print('Starting SlingShot...')
             for sshot in self.post_settings.slingshot_jobs:
                 for jobid in alljobs:
                     settings = {}
+                    invalid = False
                     settings['outPrefix'] = self.global_settings.output_dir +\
                         '/' + self.jobs[jobid]['name'] +\
                         '/' + self.jobs[jobid]['name'] + '-ss' 
@@ -161,10 +221,15 @@ class BoolODE(object):
                         settings['nClusters'] = self.jobs[jobid]['nClusters'] + 1
                     settings['noEnd'] = sshot.get('noEnd', False)
                     settings['perplexity'] = sshot.get('perplexity', 300)
-                    po.computeSSPT(settings)                    
-            
 
-        
+                    for filetype in ['expr', 'pseudo', 'refNet']:
+                        if not settings[filetype].is_file():
+                            print(self.jobs[jobid]['name'], ': ',filetypedict[filetype], "not found. Retry with `do_simulations: True` in global_settings.")
+                            invalid = True
+                            break
+                    if not invalid:
+                        po.computeSSPT(settings)                    
+            
 class ConfigParser(object):
     '''
     Define static methods for parsing a config file that sets a large number
@@ -189,11 +254,30 @@ class ConfigParser(object):
     
     @staticmethod
     def __parse_global_settings(input_settings_map) -> GlobalSettings:
+        required_fields = ['model_dir',
+                           'output_dir',
+                           'do_simulations',
+                           'do_post_processing',
+                           'modeltype']
+        print("Global settings:")
+        print("----------------")        
+        for rf in required_fields:
+            try:
+                print(f"\t{rf}: {input_settings_map[rf]}")
+            except Exception:
+                print("!!Missing inputs!!")
+                print(f"BoolODE global settings is missing '{rf}'")
+                print(f"Please specify {rf} in the input config file!\nExiting BoolODE...")
+                sys.exit()
+                
         model_dir = input_settings_map['model_dir']
         output_dir = input_settings_map['output_dir']
         do_simulations = input_settings_map['do_simulations']
         do_post_processing = input_settings_map['do_post_processing']
         modeltype = input_settings_map['modeltype']
+
+
+
         
         return GlobalSettings(model_dir,
                               output_dir,
@@ -204,5 +288,5 @@ class ConfigParser(object):
     def __parse_postproc_settings(input_settings_map) -> GlobalSettings:
         dropout_jobs = input_settings_map.get('Dropouts', None)
         slingshot_jobs = input_settings_map.get('Slingshot', None)
-        #output_dir = input_settings_map['output_dir']
-        return PostProcSettings(dropout_jobs, slingshot_jobs)        
+        dimred_jobs = input_settings_map.get('DimRed', None)
+        return PostProcSettings(dropout_jobs, dimred_jobs, slingshot_jobs)        

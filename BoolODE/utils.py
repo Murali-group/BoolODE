@@ -1,7 +1,10 @@
-import numpy as np
-import pandas as pd
 import os
 import sys
+import yaml
+import numpy as np
+import pandas as pd
+from pathlib import Path
+
 
 def heavisideThreshold(value):
     """
@@ -17,7 +20,7 @@ def loadParameterValues():
     """
     Checks for valid parameters in parameters.yaml file
     """
-    with open('parameter.yaml','r') as parameterfile:
+    with open(str(Path(__file__).parent.absolute()) + '/parameters.yaml','r') as parameterfile:
         parameterDefaults = yaml.safe_load(parameterfile)
         
     requiredPars = ['mRNATranscription',
@@ -42,7 +45,7 @@ def loadParameterValues():
     for rp in requiredPars:
         if rp not in parameterDefaults:
             print("%s is missing from the config file. Using default value.")            
-        kineticParameterDefaults = parameterDefaults.get(rp, boolodeDefaults[rp])
+        kineticParameterDefaults[rp] = parameterDefaults.get(rp, boolodeDefaults[rp])
 
     # Max level checks
     x_max = kineticParameterDefaults['mRNATranscription']/kineticParameterDefaults['mRNADegradation']
@@ -54,30 +57,6 @@ def loadParameterValues():
         print('Warning: max(protein) != 20.0')
 
     return kineticParameterDefaults
-
-# def doSpecialChecks(withoutRules,
-#                     parameterInputsDF,
-#                     parameterSetDF,
-#                     interactionStrengthDF,):
-#     pars = {}
-
-#     ## Check 3:
-#     ## Whether to sample parameters or stick to defaults
-#     if samplePars:
-
-
-
-#     ## Final Check.
-#     ## If parameterSetDF is specified, reassign
-#     ## parameter values to those from table
-#     ## This guarantees that all the parameters are defined without
-#     ## specific checks in parameterSetDF
-#     if parameterSetDF is not None:
-#         for pname, pvalue in parameterSetDF.iterrows():
-#             par[pname] = pvalue[1]
-
-#     return par
-
 
 def getRegulatorsInRule(rule, species, inputs):
     """
@@ -98,35 +77,6 @@ def getRegulatorsInRule(rule, species, inputs):
 
     return((allreg, regulatorySpecies, inputreg))
 
-def createRegulatoryTerms(combinationOfRegulators,
-                          modeltype,
-                          strengthSpecified,
-                          regulatorsWithStrength,
-                          regSpecies):
-    if modeltype == 'hill':
-        # Create the hill function terms for each regulator
-        hills = []
-        for reg in combinationOfRegulators:
-            if strengthSpecified and (reg in regulatorsWithStrength):
-                hillThresholdName = 'k_' + reg+ '_' + currSp
-            else:
-                hillThresholdName = 'k_' + reg
-
-            if reg in regSpecies:
-                hills.append('(p_'+ reg +'/'+hillThresholdName+')^n_'+ reg)
-            else:
-                # Note: Only proteins can be regulators
-                hills.append('('+ reg +'/'+hillThresholdName+')^n_'+ reg)
-                
-        mult = '*'.join(hills)
-        return mult
-    
-    elif modeltype == 'heaviside':
-        terms = []
-        for reg in combinationOfRegulators:
-            terms.append('p_' + reg)
-        mult = '*'.join(terms)
-        return mult        
 
 def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
     """
@@ -162,63 +112,6 @@ def getSaneNval(size,lo=1.,hi=10.,mu=2.,sig=2.,identicalPars=False):
                 k = np.random.normal(mu, sig)
             K.append(k)
     return K
-
-def writeModelToFile(ModelSpec, outPrefix=''):
-    """
-    Writes model to file as a python function, which is then imported.
-
-    :param ModelSpec: ODE equations stored in a dictionary
-    :type ModelSpec: dict
-    :param prefix: Optional argument that specifies prefix to model filename
-    :type prefix: str
-    :returns:
-        - dir_path : path to output directory
-    :rtype: str
-        
-    """
-    varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
-    parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}
-    path_to_model = outPrefix / 'model.py'#os.path.dirname(os.path.realpath(__file__))    
-    # print("I am in " + dir_path)
-    
-    with open(path_to_model,'w') as out:
-        out.write('#####################################################\n')
-        out.write('import numpy as np\n')
-        out.write('# This file is created automatically\n')
-        out.write('def Model(Y,t,pars):\n')
-        out.write('    # Parameters\n')
-        par_names = sorted(ModelSpec['pars'].keys())
-        for i,p in enumerate(par_names):
-            out.write('    ' + p + ' = pars[' + str(i) + ']\n')
-        outstr = ''
-        out.write('    # Variables\n')
-        for i in range(len(varmapper.keys())):
-            out.write('    ' + varmapper[i] + ' = Y[' + str(i) + ']\n')
-            outstr += 'd' + varmapper[i] + ','
-        for i in range(len(varmapper.keys())):
-            vdef = ModelSpec['varspecs'][varmapper[i]]
-            vdef = vdef.replace('^','**')
-            out.write('    d' + varmapper[i] + ' = '+vdef+'\n')
-            
-        out.write('    dY = np.array([' + outstr+ '])\n')
-        out.write('    return(dY)\n')
-        out.write('#####################################################')
-    return path_to_model
-
-def writeParametersToFile(ModelSpec, outPrefix, outname='parameters.txt'):
-    """
-    Writes dictionary of parameters to file
-
-    :param ModelSpec: Model definition dictionary containing the keys 'ics', 'pars', and 'varspec' 
-    :type ModelSpec: dict 
-    :param outPrefix: Prefix to output folder name
-    :type outPrefix: str
-    :param outname: User defined name for parameters file. Default is parameters.txt
-    :type outname: str (Optional)
-    """
-    with open(str(outPrefix) + '/'  + outname,'w') as out:
-        for k, v in ModelSpec['pars'].items():
-            out.write(k+'\t'+str(v) + '\n')
 
 def minmaxnorm(X):
     """Scales the values in X
@@ -423,7 +316,6 @@ def sampleCellFromTraj(cellid,
     time points and rows corresponding to genes
     """
     revvarmapper = {v:k for k,v in varmapper.items()}
-    #experimentTimePoints = [h for h in header if 'E' + str(expnum) in h]
     rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
     sampleDict = {}
     timepoint = int(header[cellid].split('_')[1])
@@ -454,8 +346,8 @@ def checkValidInputPath(path):
     If path is not valid, returns empty dataframe.
     """
     df = pd.DataFrame()
-    if Path(path):
-        df = pd.read_csv(path, sep='\t')
+    if path.is_file():
+        df = pd.read_csv(path, sep='\t',engine='python')
     return(df)
 
 

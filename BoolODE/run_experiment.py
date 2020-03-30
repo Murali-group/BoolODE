@@ -18,20 +18,15 @@ from importlib.machinery import SourceFileLoader
 import multiprocessing as mp
 # local imports
 from BoolODE import utils
-from BoolODE import model_generator as mg
+from BoolODE.model_generator import GenerateModel
 from BoolODE import simulator 
 
 np.seterr(all='raise')
 
-def Experiment(Model, ModelSpec,tspan,
-               num_cells,
-               sampleCells,
-               varmapper, parmapper,
-               genelist, proteinlist,
-               outPrefix,icsDF,
-               nClusters,
-               x_max,
-               doParallel,
+def Experiment(mg, Model,
+               tspan,
+               settings,
+               icsDF,
                burnin=False,writeProtein=False,
                normalizeTrajectory=False):
     """
@@ -83,90 +78,93 @@ def Experiment(Model, ModelSpec,tspan,
     # if not sampleCells:
     #     print("Note: Simulated trajectories will be clustered. nClusters = %d" % nClusters)
     ####################    
-    allParameters = dict(ModelSpec['pars'])
+    allParameters = dict(mg.ModelSpec['pars'])
     parNames = sorted(list(allParameters.keys()))
     ## Use default parameters 
-    pars = [ModelSpec['pars'][k] for k in parNames]
+    pars = [mg.ModelSpec['pars'][k] for k in parNames]
     ####################
-    rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
-    revvarmapper = {v:k for k,v in varmapper.items()}
-    proteinIndex = [i for i in range(len(varmapper.keys())) if 'p_' in varmapper[i]]
+    rnaIndex = [i for i in range(len(mg.varmapper.keys())) if 'x_' in mg.varmapper[i]]
+    revvarmapper = {v:k for k,v in mg.varmapper.items()}
+    proteinIndex = [i for i in range(len(mg.varmapper.keys())) if 'p_' in mg.varmapper[i]]
 
-    y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
-    ss = np.zeros(len(varmapper.keys()))
+    y0 = [mg.ModelSpec['ics'][mg.varmapper[i]] for i in range(len(mg.varmapper.keys()))]
+    ss = np.zeros(len(mg.varmapper.keys()))
     
-    for i,k in varmapper.items():
+    for i,k in mg.varmapper.items():
         if 'x_' in k:
             ss[i] = 1.0
         elif 'p_' in k:
-            if k.replace('p_','') in proteinlist:
+            if k.replace('p_','') in mg.proteinlist:
                 # Seting them to the threshold
                 # causes them to drop to 0 rapidly
                 # TODO: try setting to threshold < v < y_max
                 ss[i] = 20.
             
-    if icsDF is not None:
+    if not icsDF.empty:
         icsspec = icsDF.loc[0]
         genes = ast.literal_eval(icsspec['Genes'])
         values = ast.literal_eval(icsspec['Values'])
         icsmap = {g:v for g,v in zip(genes,values)}
-        for i,k in varmapper.items():
-            for p in proteinlist:
+        for i,k in mg.varmapper.items():
+            for p in mg.proteinlist:
                 if p in icsmap.keys():
                     ss[revvarmapper['p_'+p]] = icsmap[p]
                 else:
                     ss[revvarmapper['p_'+p]] = 0.01
-            for g in genelist:
+            for g in mg.genelist:
                 if g in icsmap.keys():
                     ss[revvarmapper['x_'+g]] = icsmap[g]
                 else:
                     ss[revvarmapper['x_'+g]] = 0.01
             
-    if len(proteinlist) == 0:
-        result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
+    if len(mg.proteinlist) == 0:
+        result = pd.DataFrame(index=pd.Index([mg.varmapper[i] for i in rnaIndex]))
     else:
         speciesoi = [revvarmapper['p_' + p] for p in proteinlist]
-        speciesoi.extend([revvarmapper['x_' + g] for g in genelist])
-        result = pd.DataFrame(index=pd.Index([varmapper[i] for i in speciesoi]))
+        speciesoi.extend([revvarmapper['x_' + g] for g in mg.genelist])
+        result = pd.DataFrame(index=pd.Index([mg.varmapper[i] for i in speciesoi]))
         
     # Index of every possible time point. Sample from this list
     startat = 0
     timeIndex = [i for i in range(startat, len(tspan))]        
-    if sampleCells:
-        # pre-define the time points from which a cell will be sampled
-        # per simulation
-        sampleAt = np.random.choice(timeIndex, size=num_cells)
-        header = ['E' + str(cellid) + '_' + str(time) \
-                  for cellid, time in\
-                  zip(range(num_cells), sampleAt)]
 
     ## Construct dictionary of arguments to be passed
     ## to simulateAndSample(), done in parallel
-    outPrefix = str(outPrefix)
+    outPrefix = str(settings['outprefix'])
     argdict = {}
+    argdict['mg'] = mg
     argdict['allParameters'] = allParameters
     argdict['parNames'] = parNames
     argdict['Model'] = Model
     argdict['tspan'] = tspan
-    argdict['varmapper'] = varmapper
+    argdict['varmapper'] = mg.varmapper
     argdict['timeIndex'] = timeIndex
-    argdict['genelist'] = genelist
-    argdict['proteinlist'] = proteinlist
+    argdict['genelist'] = mg.genelist
+    argdict['proteinlist'] = mg.proteinlist
     argdict['writeProtein'] = writeProtein
     argdict['outPrefix'] = outPrefix
-    argdict['sampleCells'] = sampleCells
+    argdict['sampleCells'] = settings['sample_cells']
     argdict['pars'] = pars
     argdict['ss'] = ss
-    argdict['ModelSpec'] = ModelSpec
+    argdict['ModelSpec'] = mg.ModelSpec
     argdict['rnaIndex'] = rnaIndex
     argdict['proteinIndex'] = proteinIndex
-    argdict['genelist'] = genelist
-    argdict['proteinlist'] = proteinlist
     argdict['revvarmapper'] = revvarmapper
-    argdict['x_max'] = x_max
+    argdict['x_max'] = mg.kineticParameterDefaults['x_max']
 
-    if sampleCells:
+    if settings['sample_cells']:
+        # pre-define the time points from which a cell will be sampled
+        # per simulation
+        sampleAt = np.random.choice(timeIndex, size=settings['num_cells'])
+        header = ['E' + str(cellid) + '_' + str(time) \
+                  for cellid, time in\
+                  zip(range(settings['num_cells']), sampleAt)]
+        
         argdict['header'] = header
+    else:
+        # initialize dictionary to hold raveled values, used to cluster
+        # This will be useful later.
+        groupedDict = {}         
 
     simfilepath = Path(outPrefix, './simulations/')
     if not os.path.exists(simfilepath):
@@ -174,37 +172,30 @@ def Experiment(Model, ModelSpec,tspan,
         os.makedirs(simfilepath)
     print('Starting simulations')
     start = time.time()
-    ########################
-    if doParallel:
-        ### Contributed by matthieubulte
+
+    if settings['doParallel']:
         with mp.Pool() as pool:
             jobs = []
-            for cellid in range(num_cells):
+            for cellid in range(settings['num_cells']):
                 cell_args = dict(argdict, seed=cellid, cellid=cellid)
                 job = pool.apply_async(simulateAndSample, args=(cell_args,))
                 jobs.append(job)
                 
             for job in jobs:
                 job.wait()
-        ###
     else:
-        for cellid in tqdm(range(num_cells)):
+        for cellid in tqdm(range(settings['num_cells'])):
             argdict['seed'] = cellid
             argdict['cellid'] = cellid
             simulateAndSample(argdict)
-    ########################
-    # ## Sleep for 1 s to allow for IO. Hack necessary for smalle number of simulations
-    # ## where sim time < IO time.
-    # time.sleep(1)
+
     print("Simulations took %0.3f s"%(time.time() - start))
     frames = []
     print('starting to concat files')
     start = time.time()
-    if not sampleCells:
-        # initialize dictionary to hold raveled values, used to cluster
-        groupedDict = {} 
-    for cellid in tqdm(range(num_cells)):
-        if sampleCells:
+
+    for cellid in tqdm(range(settings['num_cells'])):
+        if settings['sample_cells']:
             df = pd.read_csv(outPrefix + '/simulations/E'+str(cellid) + '-cell.csv',index_col=0)
             df = df.sort_index()                
         else:
@@ -220,7 +211,7 @@ def Experiment(Model, ModelSpec,tspan,
     newindices = [i.replace('x_','') for i in indices]
     result.index = pd.Index(newindices)
     
-    if nClusters > 1:
+    if settings['nClusters'] > 1:
         ## Carry out k-means clustering to identify which
         ## trajectory a simulation belongs to
         print('Starting k-means clustering')
@@ -228,7 +219,7 @@ def Experiment(Model, ModelSpec,tspan,
         print('Clustering simulations...')
         start = time.time()            
         # Find clusters in the experiments
-        clusterLabels= KMeans(n_clusters=nClusters,
+        clusterLabels= KMeans(n_clusters=settings['nCluster'],
                               n_jobs=8).fit(groupedDF.T.values).labels_
         print('Clustering took %0.3fs' % (time.time() - start))
         clusterDF = pd.DataFrame(data=clusterLabels, index =\
@@ -241,9 +232,7 @@ def Experiment(Model, ModelSpec,tspan,
     return result
     
 def startRun(settings):
-    validInput = utils.checkValidModelDefinitionPath(settings['path'], settings['name'])
-    if not validInput:
-        return
+    validInput = utils.checkValidModelDefinitionPath(settings['modelpath'], settings['name'])
     
     startfull = time.time()
 
@@ -262,80 +251,47 @@ def startRun(settings):
     integration_step_size = settings['integration_step_size']
     tspan = np.linspace(0,tmax,int(tmax/integration_step_size))
 
-    modelgenerator = ModelGenerator(settings)
-    # rulesdf, withoutRules = mg.readBooleanRules(settings['path'],
-    #                                          settings['parameter_inputs_path'],
-    #                                          settings['outprefix'],
-    #                                          settings['add_dummy'],
-    #                                          settings['max_parents'])
-
-    it = 0
-    someexception = True
-    while someexception:
-        try:
-            genesDict = {}
+    mg = GenerateModel(settings,
+                       parameterInputsDF,
+                       parameterSetDF,
+                       interactionStrengthDF)
+    #         # FIXME : ask user to pass row if parameter input file
+    #         # Hardcoded. We only care about one input vector, say the first one
+    #         # TODO check this
+    #         # this seems unnecessary
+    #         if parameterInputsDF is not None:
+    #             ModelSpec['pars'].update(parameterInputs[0])
             
-            ModelSpec,\
-                parameterInputs,\
-                genelist,\
-                proteinlist,\
-                x_max = mg.generateModelDict(rulesdf,
-                                          settings['identical_pars'],
-                                          settings['sample_pars'],
-                                          settings['sample_std'],
-                                          withoutRules,
-                                          speciesTypeDF,
-                                          parameterInputsDF,
-                                          parameterSetDF,
-                                          interactionStrengthDF,
-                                          settings['modeltype'])
-            # FIXME : ask user to pass row if parameter input file
-            # Hardcoded. We only care about one input vector, say the first one
-            # TODO check this
-            # this seems unnecessary
-            if parameterInputsDF is not None:
-                ModelSpec['pars'].update(parameterInputs[0])
-                
-            varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
-            parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
-            path_to_model  = utils.writeModelToFile(ModelSpec, outPrefix=settings['outprefix'])
-            utils.writeParametersToFile(ModelSpec, settings['outprefix'])            
-            ## Load file from path
-            print(path_to_model.as_posix())
-            model = SourceFileLoader("model", path_to_model.as_posix()).load_module()
-            resultDF = Experiment(model.Model,
-                                  ModelSpec,
-                                  tspan,
-                                  settings['num_cells'],
-                                  settings['sample_cells'],
-                                  varmapper, parmapper,
-                                  genelist, proteinlist,
-                                  settings['outprefix'],
-                                  icsDF,
-                                  settings['nClusters'],
-                                  x_max,
-                                  settings['doParallel'],
-                                  burnin=settings['burnin'],
-                                  writeProtein=settings['writeProtein'],
-                                  normalizeTrajectory=settings['normalizeTrajectory'])
-            print('Generating input files for pipline...')
-            start = time.time()
-            utils.generateInputFiles(resultDF, rulesdf,
-                                     withoutRules,
-                                     parameterInputsDF,tmax,settings['num_cells'],
-                                     outPrefix=settings['outprefix'])
-            print('Input file generation took %0.2f s' % (time.time() - start))
-            someexception= False
-            
-        except FloatingPointError as e:
-            it +=1 
-            print(e,"\nattempt %d" %it)
-        
+    #     except FloatingPointError as e:
+    #         it +=1 
+    #         print(e,"\nattempt %d" %it)
 
+    ###################### Start -->
+    genesDict = {}
+    
+    model = SourceFileLoader("model", mg.path_to_ode_model.as_posix()).load_module()
+    resultDF = Experiment(mg, model.Model,
+                          tspan,
+                          settings,
+                          icsDF,
+                          burnin=settings['burnin'],
+                          writeProtein=settings['writeProtein'],
+                          normalizeTrajectory=settings['normalizeTrajectory'])
+    print('Generating input files for pipline...')
+    start = time.time()
+    utils.generateInputFiles(resultDF, mg.df,
+                             mg.withoutRules,
+                             parameterInputsDF,
+                             tmax,
+                             settings['num_cells'],
+                             outPrefix=settings['outprefix'])
+    print('Input file generation took %0.2f s' % (time.time() - start))
+    ##########################<--- End
+    
     print("BoolODE.py took %0.2fs"% (time.time() - startfull))
-    print('all done.')    
 
 def simulateAndSample(argdict):
+    mg = argdict['mg']
     allParameters = argdict['allParameters']
     parNames = argdict['parNames']
     Model = argdict['Model']
@@ -381,7 +337,7 @@ def simulateAndSample(argdict):
     outPrefix = outPrefix + '/simulations/'
     while retry:
         seed += 1000
-        y0_exp = mg.getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
+        y0_exp = simulator.getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
                                      genelist, proteinlist,
                                      varmapper,revvarmapper)
         
@@ -394,6 +350,7 @@ def simulateAndSample(argdict):
                           index=pd.Index(genelist),
                           columns = ['E' + str(cellid) +'_' +str(i)\
                                      for i in tps])
+        df.to_csv(outPrefix + 'E' + str(cellid) + '.csv')        
         ## Heuristic:
         ## If the largest value of a protein achieved in a simulation is
         ## less than 10% of the y_max, drop the simulation.
@@ -426,6 +383,3 @@ def simulateAndSample(argdict):
         
         if trys > 1:
             print('try', trys)
-            
-
-    

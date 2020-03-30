@@ -89,3 +89,56 @@ def simulateModel(Model, y0, parameters,isStochastic, tspan,seed):
     else:
         P = eulersde(Model,noise,y0,tspan,parameters,seed=seed)
     return(P)
+
+def getInitialCondition(ss, ModelSpec, rnaIndex,
+                        proteinIndex,
+                        genelist, proteinlist,
+                        varmapper,revvarmapper):
+    """
+    Calculate the initial values of all state variables. 
+    Takes into consideration user defined initial conditions, and computes the steady 
+    states of the protein variables based on the estimated values of their corresponding genes.
+
+    :param ss: Steady state array
+    :type ss: ndarray
+    :param ModelSpec: Dictionary of dictionary specifying the ODE model, containing parameters, initial conditions and equations.
+    :type ModelSpec: dict
+    :param rnaIndex: list of indices of genes
+    :type rnaIndex: list
+    :param proteinIndex: List of indices of proteins
+    :type proteinIndex: list
+    :param genelist: List of names of all genes in the model
+    :type genelist: list
+    :param proteinlist: List of names of all proteins in the model
+    :type proteinlist: list
+    :param varmapper: Mapper: {variable name : index}
+    :type varmapper: dict
+    :param revvarmapper: Mapper: {index : variable name}
+    :type revvarmapper: dict
+    :returns:
+        - newics: List containing new initial conditions
+    """
+
+    # Initialize
+    new_ics = [0 for _ in range(len(varmapper.keys()))]
+    # Set the mRNA ics
+    for ind in rnaIndex:
+        if ss[ind] < 0:
+            ss[ind] = 0.0
+        new_ics[ind] =  ss[ind]
+        if new_ics[ind] < 0:
+            new_ics[ind] = 0
+    for p in proteinlist:
+        ind = revvarmapper['p_'+p]
+        if ss[ind] < 0:
+            ss[ind] = 0.0
+        new_ics[ind] =  ss[ind]
+        if new_ics[ind] < 0:
+            new_ics[ind] = 0            
+    # Calculate the Protein ics based on mRNA levels
+    for genename in genelist:
+        pss = ((ModelSpec['pars']['r_' + genename])/\
+                                      (ModelSpec['pars']['l_p_' + genename]))\
+                                      *new_ics[revvarmapper['x_' + genename]]
+        new_ics[revvarmapper['p_' + genename.replace('_','')]] = pss
+    return(new_ics)

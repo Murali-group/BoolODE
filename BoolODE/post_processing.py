@@ -65,9 +65,10 @@ def genDropouts(opts):
 
     DropOutDF.to_csv(path + '/ExpressionData.csv')
 
-
-
 def genSamples(opts):
+    """
+    TODO: Document
+    """
     if opts.input_path is None:
         print('Input path is invalid.')
         sys.exit()
@@ -118,6 +119,26 @@ def genSamples(opts):
                               str(int(subsetcluster.loc[cid.split('_')[0]]['cl']) + 1)] = round(pt,5)
         ptdf.to_csv(outfpath + '/PseudoTime.csv',na_rep='NA')                        
 
+def doDimRed(opts):
+    """
+    Carry out dimensionality reduction
+    """
+    ExpDF = pd.read_csv(opts['expr'],index_col=0, header = 0)
+    ptDF = pd.read_csv(opts['pseudo'],index_col=0, header = 0)
+    perplexity = opts['perplexity']
+    print(perplexity)
+    print("Computing TSNE...")
+    DimRedRes = TSNE(n_components = 2, perplexity = perplexity).fit_transform(ExpDF.T)
+    
+    DimRedDF = pd.DataFrame(DimRedRes,columns=['dim1','dim2'],
+                            index=pd.Index(list(ExpDF.columns)))
+    DimRedDF.loc[:,'pt'] = ptDF.min(axis='columns')    
+    DimRedDF.to_csv(str(opts['expr'].parent) + '/tsne' + str(perplexity)+'.tsv', sep='\t')
+    plt.figure()
+    plt.scatter(DimRedDF.dim1, DimRedDF.dim2, c=DimRedDF.pt)
+    plt.savefig(str(opts['expr'].parent)+'/tsne' + str(perplexity) + '.png')
+    plt.close()
+    
 def computeSSPT(opts):
     #nClust, outPath, noEnd = False, perplexity = 500):
     '''
@@ -144,20 +165,20 @@ def computeSSPT(opts):
     else:
         ### Compute PseudoTime ordering using slingshot
         
-        # Step-1: Compute dimensionality reduction
+        # Step-1: Compute dimensionality reduction. This is done in doDimRed().
         # Currently only does TSNE
         # TODO: Add PCA
-        print("Computing TSNE...")
-        DimRedRes = TSNE(n_components = 2, perplexity = perplexity).fit_transform(ExpDF.T)
 
-        # Step-2: Convert TSNE results to a dataframe
-        DimRedDF = pd.DataFrame(DimRedRes,columns=['dim1','dim2'],
-                                 index=pd.Index(list(ExpDF.columns)))
+        # Step-2: Read TSNE results to a dataframe
+        if not Path(settings['expr'].parent / 'tsne.tsv').is_file():
+            # First compute tSNE if this hasn't been done
+            doDimRed(opts)
+        DimRedDF = pd.read_csv(settings['expr'].parent / 'tsne.tsv',sep='\t')
         
         # Step-3: Compute kMeans clustering
         DimRedDF.loc[:,'cl'] = KMeans(n_clusters = nClust).fit(ExpDF.T).labels_
         # Identify starting cluster
-        DimRedDF.loc[:,'pt'] = ptDF.min(axis='columns')
+
         
         # Step-4: Identify cells corresponding to initial and final states
         # Cells in initial states are identified from cluster with smallest
@@ -252,7 +273,6 @@ def computeSSPT(opts):
                         palette = "viridis", 
                         ax = axes[0][0])
 
-        #tn['Original'] = tn['Original'].astype('category')
         sns.scatterplot(x='dim1',y='dim2', 
         data = tn,  hue = 'Original',
         palette = "Set1", 
