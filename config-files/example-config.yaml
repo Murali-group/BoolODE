@@ -3,6 +3,11 @@
 ## 1. global_settings: Define paths to model files and BoolODE settings
 ## 2. jobs: list specifying each simulations to perform
 ## 3. post_processing: Specify the type of post processing to perform on BoolODE simulation output
+
+## NOTE: This file is merely an example that documents all the possible fields
+##       that users can specify. Using this file as input to BoolODE will not
+##       necessarily give meaningful results.
+
 global_settings:
   ## Path to folder containing Boolean model definition files
   model_dir: "data"
@@ -32,7 +37,13 @@ jobs:
     ## depend on the size of the network, i.e. the number of genes.
     simulation_time: 5
 
-    ## OPTIONAL SETTINGS
+    ## Number of cells
+    ## In BoolODE as many simulations as number of cells are performed
+    ## Then, one timepoint is sampeld from each trajectory
+    ## Default=100
+    num_cells: 500
+    
+    ############### OPTIONAL SETTINGS #################
     
     ## The number of steady state clusters that are expected.
     ## If this is not known, we recommend running BoolODE first,
@@ -42,9 +53,10 @@ jobs:
     ## If nClusters > 1, kMeans clustering is performed on the combined trajectories.
     nClusters: 1
     
-    # Run simulations in parallel: Recommended.
-    # This is False by default, as debugging is easier
-    # when not running in parallel.
+    ## Run simulations in parallel: Recommended.
+    ## This is False by default, as debugging is easier
+    ## when not running in parallel.
+    ## Default=False
     do_parallel: True
     
     ## Name of file containing initial conditions
@@ -65,7 +77,7 @@ jobs:
     ## even if sample_pars is True.
     # parameter_set: ""
     
-    ## ADVANCED MODEL SETTINGS
+    ############### ADVANCED MODEL SETTINGS #################
     ## These might not be relevant to a given model
     
     ## Name of file containing parameter inputs
@@ -73,10 +85,21 @@ jobs:
     ## has a fixed value, say constitutively ON or OFF. These are
     ## identified as the nodes with no corresponding Boolean rules.
     ## Please see "dyn-consecutive-bifurcating.txt" where there is no rule for g1
-    # parameter_inputs_path:
+    # parameter_inputs:
+
+    ## Name of file specifying the species type of each node
+    ## By default, each node in the Boolean model file is represented as
+    ## a 'gene' and a 'protein' variable. In some cases, the Boolean
+    ## model might have "pure" protein variables, which are not TFs.
+    ## Users can specify such nodes by specifying their type as 'protein'.
+    ## See the file below for an example
+    species_type: "dyn-linear_type.txt"
 
     ## Name of file containing interaction strengths
-    # interaction_strengths: ""
+    ## A stronger interaction between two 'genes' is represented
+    ## by a smaller threshold of activation. Specify the strength
+    ## as a number between 1 and 20. (Max protein level=20)
+    interaction_strengths: "dyn-linear_strengths.txt"
     
 post_processing:
   ## BoolODE can carry out post processing of simulation files
@@ -99,7 +122,8 @@ post_processing:
 
   ## Induce dropouts in the dataset to mimic scRNAseq datasets
   ## - If droutput is False, no dropouts are induced, and
-  ## nCells are sampled from the simulations.
+  ## sample_size are sampled from the simulations.
+  ## NOTE: If sample_size > num_cells, num_cells cells are sampled instead
   ## - If dropout is True, the user can further specify
   ##   1. drop_cutoff - Gene expression cutoff as the expression percentile.
   ##                    Expression values lower than this cutoff are dropped out
@@ -110,15 +134,15 @@ post_processing:
   ## with probability of 0.5.
   Dropouts:
     - droupout: False
-      nCells: 100
+      sample_size: 100
       
     - dropout: True
-      nCells: 100
+      sample_size: 400
       drop_cutoff: 0.5
       drop_prob: 0.5
 
     - dropout: True
-      nCells: 100
+      sample_size: 800 # This will end up sampling 500 cells
       drop_cutoff: 0.7
       drop_prob: 0.7
 
