@@ -1,0 +1,132 @@
+## This is an example file describing all possible user configurations for BoolODE
+## BoolODE requires three types of configuration:
+## 1. global_settings: Define paths to model files and BoolODE settings
+## 2. jobs: list specifying each simulations to perform
+## 3. post_processing: Specify the type of post processing to perform on BoolODE simulation output
+global_settings:
+  ## Path to folder containing Boolean model definition files
+  model_dir: "data"
+  
+  ## Path to output folder. This folder is created if it doesn't exist
+  output_dir: "Debug"
+  
+  ## Do BoolODE model generation and SDE simulations? 
+  do_simulations: True
+
+  ## Do post processing on simulation output? This requires that the simulations be run first
+  do_post_processing: True
+  
+  ## Type of equations to use for the activation function. One of ['hill','heaviside']  
+  modeltype: 'hill'          
+
+jobs:
+  ## List of jobs defining the settings for each simulation
+  ## This name should be unique. A folder with this name is created to store simulation output  
+  - name: "dyn-linear-1"
+    
+    ## Name of Boolean model file, tab separated two column file with columns ['Gene', 'Rule']
+    model_definition: "dyn-linear.txt"
+    
+    ## The length of simulation to be performed
+    ## Since the kinetic parameters are preset, the time to steady state will
+    ## depend on the size of the network, i.e. the number of genes.
+    simulation_time: 5
+
+    ## OPTIONAL SETTINGS
+    
+    ## The number of steady state clusters that are expected.
+    ## If this is not known, we recommend running BoolODE first,
+    ## and visualizing the output using tSNE to get a sense of the number
+    ## of steady states to be expected.
+    ## Default=1
+    ## If nClusters > 1, kMeans clustering is performed on the combined trajectories.
+    nClusters: 1
+    
+    # Run simulations in parallel: Recommended.
+    # This is False by default, as debugging is easier
+    # when not running in parallel.
+    do_parallel: True
+    
+    ## Name of file containing initial conditions
+    ## If not specified, all genes are initialized to their half maximal value
+    model_initial_conditions: "dyn-linear_ics.txt"
+
+    ## Sample parameters?
+    ## Default=False, kinetic parameters are set to preset values
+    sample_pars: True
+
+    ## If sample_pars, what standard deviation to use
+    ## Default=0.1
+    sample_std: 0.5
+
+    ## Path to previously generated parameter set
+    ## Useful for reproducibility if parameters are sampled
+    ## If this is selected, then parameters are not sampled
+    ## even if sample_pars is True.
+    # parameter_set: ""
+    
+    ## ADVANCED MODEL SETTINGS
+    ## These might not be relevant to a given model
+    
+    ## Name of file containing parameter inputs
+    ## A Parameter input is some node in the Boolean network that
+    ## has a fixed value, say constitutively ON or OFF. These are
+    ## identified as the nodes with no corresponding Boolean rules.
+    ## Please see "dyn-consecutive-bifurcating.txt" where there is no rule for g1
+    # parameter_inputs_path:
+
+    ## Name of file containing interaction strengths
+    # interaction_strengths: ""
+    
+post_processing:
+  ## BoolODE can carry out post processing of simulation files
+  ## Note that these functions will fail if the required input
+  ## files are not present. Make sure the simulations are run
+  ## before setting do_post_processing to True
+  
+  ## Carry out dimensionality reduction using tSNE, with
+  ## the specified perplexity
+  ## Since tSNE can be a little finicky, different perplexities
+  ## can be specified. For each value of perplexity, the following
+  ## files are produced:
+  ## 1. tsne-[perplexity].csv contains the first 2 tSNE dimensions for each
+  ##     cell in ExpressionData.csv
+  ## 2. tsne-[perplexity].png plots the csv file, where each 'cell' is colored by
+  ##    the simulation time
+  DimRed:
+    - perplexity: 100
+    - perplexity: 200      
+
+  ## Induce dropouts in the dataset to mimic scRNAseq datasets
+  ## - If droutput is False, no dropouts are induced, and
+  ## nCells are sampled from the simulations.
+  ## - If dropout is True, the user can further specify
+  ##   1. drop_cutoff - Gene expression cutoff as the expression percentile.
+  ##                    Expression values lower than this cutoff are dropped out
+  ##   2. drop_prob - The probability of dropping an expression value that
+  ##                  satisfies drop_cutoff.
+  ## Thus, if drop_cutoff = 0.5 and drop_prob = 0.5, expression values
+  ## lower than the 50th percentile of all expression values are dropped
+  ## with probability of 0.5.
+  Dropouts:
+    - droupout: False
+      nCells: 100
+      
+    - dropout: True
+      nCells: 100
+      drop_cutoff: 0.5
+      drop_prob: 0.5
+
+    - dropout: True
+      nCells: 100
+      drop_cutoff: 0.7
+      drop_prob: 0.7
+
+  ## Run Slingshot Pseudotime Computation on BoolODE output
+  ## NOTE: BoolODE provides a dockerized version of Slingshot in the
+  ## folder /slingshot-docker.
+  ## In order to run this, you will need to install docker.
+  ## Please read the documentation in BEELINE for links to setting up
+  ## docker on your machine.
+  # Slingshot:
+  #   - perplexity: 200
