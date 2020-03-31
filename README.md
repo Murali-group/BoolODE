@@ -30,10 +30,14 @@ jobs:
     sample_cells: False
     
 post_processing:
+  - GenSamples:
+    - sample_size: 200
+      nDatasets: 10
+      
   - DimRed:
     - perplexity: 200
     
-  - Dropouts 
+  - Dropouts:
     - dropout: True
       sample_size: 100
       drop_cutoff: 0.5
