@@ -232,51 +232,54 @@ def Experiment(mg, Model,
     return result
     
 def startRun(settings):
+    """
+    Start a simulation run. Loads model file, starts an Experiment(),
+    and generates the appropriate input files
+    """
     validInput = utils.checkValidModelDefinitionPath(settings['modelpath'], settings['name'])
-    
     startfull = time.time()
 
     outdir = settings['outprefix']
     if not os.path.exists(outdir):
         print(outdir, "does not exist, creating it...")
         os.makedirs(outdir)
-
+        
+    ##########################################
+    ## Read advanced model specification files
+    ## If these are not specified, the dataFrame objects
+    ## are left empty
     parameterInputsDF = utils.checkValidInputPath(settings['parameter_inputs_path'])
-    parameterSetDF = utils.checkValidInputPath(settings['parameter_set_path'])
+    parameterSetDF = utils.checkValidInputPath(settings['parameter_set'])
     icsDF = utils.checkValidInputPath(settings['icsPath'])
-    interactionStrengthDF = utils.checkValidInputPath(settings['interaction_strength_path']) 
-    speciesTypeDF = utils.checkValidInputPath(settings['species_type_path'])
-    
+    interactionStrengthDF = utils.checkValidInputPath(settings['interaction_strengths'])
+
+    speciesTypeDF = utils.checkValidInputPath(settings['species_type'])
+    ##########################################
+
+    # Simulator settings
     tmax = settings['simulation_time']    
     integration_step_size = settings['integration_step_size']
     tspan = np.linspace(0,tmax,int(tmax/integration_step_size))
 
+    # Generate the ODE model from the specified boolean model
     mg = GenerateModel(settings,
                        parameterInputsDF,
                        parameterSetDF,
                        interactionStrengthDF)
-    #         # FIXME : ask user to pass row if parameter input file
-    #         # Hardcoded. We only care about one input vector, say the first one
-    #         # TODO check this
-    #         # this seems unnecessary
-    #         if parameterInputsDF is not None:
-    #             ModelSpec['pars'].update(parameterInputs[0])
-            
-    #     except FloatingPointError as e:
-    #         it +=1 
-    #         print(e,"\nattempt %d" %it)
-
-    ###################### Start -->
     genesDict = {}
-    
+
+    # Load the ODE model file
     model = SourceFileLoader("model", mg.path_to_ode_model.as_posix()).load_module()
+
+    ## Function call - do the in silico experiment
     resultDF = Experiment(mg, model.Model,
                           tspan,
                           settings,
                           icsDF,
-                          burnin=settings['burnin'],
                           writeProtein=settings['writeProtein'],
                           normalizeTrajectory=settings['normalizeTrajectory'])
+    
+    # Write simulation output. Creates ground truth files.
     print('Generating input files for pipline...')
     start = time.time()
     utils.generateInputFiles(resultDF, mg.df,

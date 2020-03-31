@@ -23,11 +23,9 @@ from BoolODE import simulator
 from importlib.machinery import SourceFileLoader
 
 class GenerateModel:
-    """
-    Generate an ODE model from the Boolean rule file specified by the user.
+    """Class that holds model attributes. Provides helper functions to convert a Boolean model
+    to an ODE model
     
-    Parameters:
-    -----------
     :param settings: User defined job settings. This is created in boolode.do_post_processing()
     :type settings: dict
     :param parameterInputsDF: User specified parmeter inputs. Specified in config YAML as a path.
@@ -36,14 +34,17 @@ class GenerateModel:
     :type parameterSetDF: pandas DataFrame
     :param interactionStrengthDF: User specified interaction strengths. Specified in config YAML as a path
     :type interactionStrengthDF: pandas DataFrame
-    :param withRules: Nodes/genes in Boolean rules file with an associated Boolean rule
-    :type withRules: list
-    :param withoutRules: Nodes/genes in Boolean rules file that do not have an associated Boolean rule. If found, such nodes will be treated as ??
-    :type withoutRules: list
     """
     def __init__(self, settings, parameterInputsDF, parameterSetDF, interactionStrengthDF) -> None:
         """
-        initialize.
+        This class is initialized with the job_settings dictionary created 
+        by the BoolODE class. Additionally, three dataframe objects are required:
+
+        1. parameterInputsDF - specifies parameter inputs
+        2. parameterSetDF - specifies pregenerated python file containing kinetic parameter values
+        3. interactionStrengthDF - specifies interactions strengths
+
+        By default, if these aren't specified by the user, BoolODE stores empty pandas DataFrame objects.
         """
         self.settings = settings
         self.parameterInputsDF = parameterInputsDF
@@ -81,12 +82,16 @@ class GenerateModel:
         
     def readBooleanRules(self):
         """
-        Reads a rule file from path and stores the rules in a dictionary
-        
-    
-        :returns:
-            - df: Dataframe containing rules
-            - withoutrules: list of nodes in input file without rules
+        Reads a rule file from path and stores the rules in a dictionary.
+        Performs the following transformations:
+
+        1. Parses each Boolean rule to extract nodes in the model
+        2. Identifies nodes without corresponding rules: (a) If a parameterInput file is specified and the node under consideration
+           is present in the file, the node is treated as an input parameter
+           (b) Else, a self-edge is added to the node
+        3. Adds dummy genes - *This is experimental*
+        4. Finally, create a gene (x\_) and protein (p\_)  variable corresponding to 
+           each node in the network, taking into consideration user defined types.
         """
         self.df = pd.read_csv(self.settings['modelpath'], sep='\t', engine='python')
         
@@ -158,8 +163,21 @@ class GenerateModel:
                     self.genelist.append(node)
     
     def addDummyGenes(self):
-        ## Add dummy genes
-        ## determinisitcally add parents
+        """
+        Add dummy genes. 
+        Starts with the user specified Boolean model, and grows the
+        network by adding new 'dummy' nodes to each existing node.
+        In the current configuration, the user can specify `max_parents`
+        which specifies the number of parent nodes of every dummy node.
+        Currently, twice as many dummy nodes as nodes in the original graph
+        are added. 
+
+        .. todo::
+            Expand this function by adding user defined number of nodes.
+
+        .. warning::
+            This feature is experimental.
+        """
         print('using max_parents=' + str(self.settings['max_parents']))
         num_dummy = 2*len(allnodes)
         for dg in range(num_dummy):
@@ -177,13 +195,14 @@ class GenerateModel:
         self.df.to_csv(self.setting['outPrefix'] + 'rules-with-added-genes.csv')        
         
     def getParameters(self):
-        """
-        Create dictionary of parameters and values. Assigns
-        parameter values by evaluating the Boolean expression
-        for each variable.
-    
-            pars : dict
-                Dictionary of parameters 
+        """Create and assigns the kinetic parameters for each equations the
+        corresponding parameter value.
+
+        .. note::
+            Default kinetic parameter values are stored in ./parameters.yaml. This
+            is provided to make it easy for users to define different defaults, but it 
+            other parameter values have not been tested extensively, and might not
+            yield the expected results.
         """
     
         self.kineticParameterDefaults = utils.loadParameterValues()
@@ -263,17 +282,19 @@ class GenerateModel:
         If a parameter input file is specified,
         Every row in parameterInputsDF contains two
         columns:
-        - 'Input' specifies the name of input parameter
-        - 'Value' specified the input state, typically 1 or 0, but
-          for HIGH and LOW inputs respectively, but any float between
-          0 and 1 is valid input.
+
+        1. 'Input' specifies the name of input parameter
+        2. 'Value' specified the input state, typically 1 or 0, but for HIGH and LOW inputs respectively, but any float between 0 and 1 is valid input.
+          
         Now, we create a fake hill term for this input, even
         though there is no equation corresponding to it. Thus,
         we create a hillThreshold and hillCoefficient 
         term for it. This is useful so we can treat this input
         parameter as a "regulator" and leave the structure of
         the logic term unchanged.
-        TODO Add appropriate parameters if heaviside
+
+        .. todo::
+            Add appropriate parameters if heaviside
         """
         parameterInputsDict  = {}
         hillThreshold = self.kineticParameterDefaults['hillThreshold']
@@ -303,13 +324,15 @@ class GenerateModel:
             self.par.update({'n_'+p:hillCoefficient for p in parameterInputsDict.keys()})
 
     def addInteractionStrengths(self, hillThreshold):
-        ## Check 2:
-        ## If interaction strengths are specified.
-        ## Create a new parameter specifying the strength
-        ## of a given interaction. For all other equations in
-        ## which "regulator" appears in, its hillThreshold value
-        ## will remain the default value.
-        ## TODO Add appropriate parameters if heaviside                    
+        """Check if interaction strengths are specified.
+        Create a new parameter specifying the strength
+        of a given interaction. For all other equations in
+        which "regulator" appears in, its hillThreshold value
+        will remain the default value.
+
+        .. todo::
+            Add appropriate parameters if heaviside
+        """
         for i,row in self.interactionStrengthDF.iterrows():
             regulator = row['Gene2']
             target = row['Gene1']
@@ -323,6 +346,9 @@ class GenerateModel:
     def assignDefaultParameterValues(self,
                                      parameterNamePrefixAndDefaultsAll,
                                      parameterNamePrefixAndDefaultsGenes):
+        """
+        Set each kinetic parameter to its default value.
+        """
         print("Fixing rate parameters to defaults")
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsAll.items():
             for node in self.withRules:
@@ -337,14 +363,15 @@ class GenerateModel:
                                      parameterNamePrefixAndDefaultsAll,
                                      parameterNamePrefixAndDefaultsGenes):
         """ 
-        Sample kinetic parameters from a normal distribution, but in a range +- 10% of 
-        the default value.
+        Sample kinetic parameters from a truncated normal distribution with mean=default
+        parameter value, and standard deviation = sample_std, in a range +- 10% of 
+        the default value. 
         """
         print("Sampling parameter values")
         print("Using std=" + str(self.settings['sample_std']))
         lomult = 0.9
         himult = 1.1
-        # Sample hillthreshold and hillcoeff
+
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsAll.items():
             sampledParameterValues = utils.getSaneNval(len(self.withRules),\
                                                  lo=lomult*parDefault,\
@@ -356,8 +383,6 @@ class GenerateModel:
                 if node in self.genelist:
                     self.par[parPrefix + node] = sparval
                     
-        transcriptionRate = 0.0 # Explain
-        mRNADegradationRate = 0.0 # Explain
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsGenes.items():
             sampledParameterValues = utils.getSaneNval(len(self.withRules),\
                                                  lo=lomult*parDefault,\
@@ -365,26 +390,33 @@ class GenerateModel:
                                                  mu=parDefault,\
                                                  sig=self.settings['sample_std']*parDefault,\
                                                  identicalPars=self.settings['identical_pars'])
-            # # This is very unclear! Why are we doing this?
-            # if identicalPars:
-            #     if parPrefix == 'm_':
-            #         transcriptionRate = sampledParameterValues[0]
-            #     if parPrefix == 'l_x_':
-            #         mRNADegradationRate = sampledParameterValues[0]
-            # else:
-            #     if parPrefix == 'm_':
-            #         transcriptionRate = parDefault
-            #     if parPrefix == 'l_x_':
-            #         mRNADegradationRate = parDefault
             
             for node, sparval in zip(self.withRules, sampledParameterValues):
                 if node in self.genelist:
                     self.par[parPrefix + node] = sparval
 
     def createRegulatoryTerms(self, currgene, combinationOfRegulators,
-                              strengthSpecified,
-                              regulatorsWithStrength,
                               regSpecies):
+        """Creates the terms in the activation function which governs
+        the transcriptional state of the gene. 
+        If modeltype is 'hill', each term is composed of products of Hill functions, ranging over
+        all possible combinations of regulators. 
+        Similarly, if modeltype is 'heaviside', each term is simply a
+        product of the activities of the combinations of regulators, for all combinations.
+        Here, the form of a single term is generated for a single combination of regulators.
+        
+        :param currgene: Name of the current gene
+        :type currgene: str
+        :param combinationOfRegulators: a list of all combinations of regulators of currgene
+        :type combinationOfRegulators: list
+        """
+        strengthSpecified = False
+        if not self.interactionStrengthDF.empty:
+            if currgene in self.interactionStrengthDF['Gene1'].values:
+                strengthSpecified = True
+                regulatorsWithStrength = set(self.interactionStrengthDF[\
+                                                                        self.interactionStrengthDF['Gene1']\
+                                                                        == currgene]['Gene2'].values)            
         if self.settings['modeltype'] == 'hill':
             # Create the hill function terms for each regulator
             hills = []
@@ -399,7 +431,6 @@ class GenerateModel:
                 else:
                     # Note: Only proteins can be regulators
                     hills.append('('+ reg +'/'+hillThresholdName+')^n_'+ reg)
-
             mult = '*'.join(hills)
             return mult
         elif self.settings['modeltype'] == 'heaviside':
@@ -413,33 +444,16 @@ class GenerateModel:
         """
         Take a DataFrame object with Boolean rules,
         construct ODE equations for each variable.
-        Takes optional parameter inputs and interaction
-        strengths
-    
-        :param DF: Table of values with two columns, 'Gene' specifies target, 'Rule' specifies Boolean function
-        :type DF: pandas DataFrame
-        :param identicalPars: Passed to utils.getSaneNval to set identical parameters
-        :type identicalPars: bool
-        :param samplePars: Sample kinetic parameters using a Gaussian distribution  centered around the default parameters
-        :type samplePars: bool
-        :param sampleStd: Sample from a distribution of mean=par, sigma=sampleStd*par
-        :type sampleStd: float
-        :param speciesTypeDF: Table defining type of each species. Takes values  'gene' or 'protein'
-        :type speciesTypeDF: pandas DataFrame
-        :param parameterInputsDF: Optional table that specifies parameter input values. Useful to specify experimental conditions.
-        :type parameterInputsDF: pandas DataFrame
-        :param parameterSetDF: Optional table that specifies a predefined parameter set.
-        :type parameterSetDF: pandas DataFrame
-        :param interactionStrengthDF: Optional table that specifies interaction strengths. When not specified, default strength is set to 1.
-        :type interactionStrengthDF: pandas DataFrame
-        :param modeltype: Specify type of modeling framework. ['hill', 'heaviside']
-        :type modeltype: str
-        :returns:
-            ModelSpec : dict
-                Dictionary of dictionaries. 
-                'varspecs' {variable:ODE equation}
-                'ics' {variable:initial condition}
-                'pars' {parameter:parameter value}
+        This is the core function in BoolODE.
+        In a nutshell, a temporary namespace called boolodespace
+        is created. In this namespace, the nodes  in the Boolean network
+        are first initialized to 0, or OFF. Then, for each gene/node,
+        its corresponding rule is evaluated by setting its regulators to
+        all combinations binary states. The outcome of each of these Boolean
+        rule evaluations is used to decide the value of the activation strength
+        parameter 'a' in Hill functions, or the interaction parameter 'w' in 
+        the Heaviside functions. 
+        Each step of this conversion is documented in the code directly.
         """
                     
         ##########################################################
@@ -482,38 +496,24 @@ class GenerateModel:
                                                                       self.inputs)
 
             # Basal expression term
-            currSp = row['Gene']
+            currgene = row['Gene']
             if self.settings['modeltype'] == 'hill':
-                num = '( alpha_' + currSp
+                num = '( alpha_' + currgene
                 den = '( 1'
             elif self.settings['modeltype'] == 'heaviside':
-               exponent = '- sigmaH_' + currSp +'*( omega_' + currSp
-    
-            strengthSpecified = False
-            regulatorsWithStrength = set()
-            if not self.interactionStrengthDF.empty:
-                if currSp in self.interactionStrengthDF['Gene1'].values:
-                    strengthSpecified = True
-                    # Get the list of regulators of currSp
-                    # whose interaction strengths have been specified
-                    regulatorsWithStrength = set(self.interactionStrengthDF[\
-                                                                       self.interactionStrengthDF['Gene1']\
-                                                                       == currSp]['Gene2'].values)
-                    print(regulatorsWithStrength)
-                    
+               exponent = '- sigmaH_' + currgene +'*( omega_' + currgene
+
             # Loop over combinations of regulators        
             for i in range(1,len(allreg) + 1):
                 for combinationOfRegulators in combinations(allreg,i):
-                    regulatorExpression = self.createRegulatoryTerms(currSp, combinationOfRegulators,
-                                                                      strengthSpecified,
-                                                                      regulatorsWithStrength,
+                    regulatorExpression = self.createRegulatoryTerms(currgene, combinationOfRegulators,
                                                                       regSpecies)
                     if self.settings['modeltype'] == 'hill':
                         # Create Numerator and Denominator
                         den += ' +' +  regulatorExpression
-                        num += ' + a_' + currSp +'_'  + '_'.join(list(combinationOfRegulators)) + '*' + regulatorExpression
+                        num += ' + a_' + currgene +'_'  + '_'.join(list(combinationOfRegulators)) + '*' + regulatorExpression
                     elif self.settings['modeltype'] == 'heaviside':
-                        exponent += ' + w_' + currSp + '_' + '_'.join(list(combinationOfRegulators)) +'*' + regulatorExpression
+                        exponent += ' + w_' + currgene + '_' + '_'.join(list(combinationOfRegulators)) +'*' + regulatorExpression
     
                     # evaluate rule to assign values to parameters
                     ##################################################
@@ -528,10 +528,10 @@ class GenerateModel:
                     ##################################################
     
                     if self.settings['modeltype'] == 'hill':
-                        self.par['a_' + currSp +'_'  + '_'.join(list(combinationOfRegulators))] = \
+                        self.par['a_' + currgene +'_'  + '_'.join(list(combinationOfRegulators))] = \
                             int(boolodespace['boolval'])
                     elif self.settings['modeltype'] == 'heaviside':
-                        self.par['w_' + currSp +'_'  + '_'.join(list(combinationOfRegulators))] = \
+                        self.par['w_' + currgene +'_'  + '_'.join(list(combinationOfRegulators))] = \
                             self.kineticParameterDefaults['heavisideOmega']*utils.heavisideThreshold(boolodespace['boolval'])                    
 
             # Close expressions
@@ -547,19 +547,19 @@ class GenerateModel:
                 maxexp = '10.' # '100'
                 f = '(1./(1. + np.exp(np.sign('+exponent+')*min(' +maxexp +',abs(' + exponent+ ')))))'
             
-            if currSp in self.proteinlist:
+            if currgene in self.proteinlist:
                 Production =  f
-                Degradation = 'p_' + currSp
-                self.varspecs['p_' + currSp] = 'signalingtimescale*(y_max*' + Production \
+                Degradation = 'p_' + currgene
+                self.varspecs['p_' + currgene] = 'signalingtimescale*(y_max*' + Production \
                                            + '-' + Degradation + ')'
             else:
                 
-                Production = 'm_'+ currSp + '*' + f
-                Degradation = 'l_x_'  + currSp + '*x_' + currSp
-                self.varspecs['x_' + currSp] =  Production \
+                Production = 'm_'+ currgene + '*' + f
+                Degradation = 'l_x_'  + currgene + '*x_' + currgene
+                self.varspecs['x_' + currgene] =  Production \
                                            + '-' + Degradation
                 # Create the corresponding translated protein equation
-                self.varspecs['p_' + currSp] = 'r_'+currSp+'*'+'x_' +currSp + '- l_p_'+currSp+'*'+'p_' + currSp
+                self.varspecs['p_' + currgene] = 'r_'+currgene+'*'+'x_' +currgene + '- l_p_'+currgene+'*'+'p_' + currgene
                 
         ##########################################################                                       
             
@@ -583,18 +583,18 @@ class GenerateModel:
 
     def writeModelToFile(self):
         """
-        Writes model to file as a python function, which is then imported.
+        Writes model to file as a python function.
+        The ODE model generated using generateModelDict() is defined as 
+        a python ODE function called Model(). Model() takes 3 arguments:
 
-        :param ModelSpec: ODE equations stored in a dictionary
-        :type ModelSpec: dict
-        :param prefix: Optional argument that specifies prefix to model filename
-        :type prefix: str
-        :returns:
-            - dir_path : path to output directory
-        :rtype: str
+        1. The current model state vector Y
+        2. The current time t
+        3. A list of parameters pars
 
+        The function returns a vector of time derivatives computed from the ODEs.
+        Model() is written model.py in the directory of the current job
         """
-        self.path_to_ode_model = self.settings['outprefix'] / 'model.py'#os.path.dirname(os.path.realpath(__file__))    
+        self.path_to_ode_model = self.settings['outprefix'] / 'model.py'
 
         with open(self.path_to_ode_model,'w') as out:
             out.write('#####################################################\n')
@@ -622,14 +622,7 @@ class GenerateModel:
     
     def writeParametersToFile(self):
         """
-        Writes dictionary of parameters to file
-
-        :param ModelSpec: Model definition dictionary containing the keys 'ics', 'pars', and 'varspec' 
-        :type ModelSpec: dict 
-        :param outPrefix: Prefix to output folder name
-        :type outPrefix: str
-        :param outname: User defined name for parameters file. Default is parameters.txt
-        :type outname: str (Optional)
+        Writes dictionary of parameters to file. 
         """
         with open(str(self.settings['outprefix']) + '/parameters.txt','w') as out:
             out.write('# Automatically generated by BoolODE\n')
