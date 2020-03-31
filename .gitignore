@@ -1,5 +1,5 @@
 # Byte-compiled / optimized / DLL files
-__pycache__/
+*/__pycache__/
 *.py[cod]
 *$py.class
 
@@ -114,3 +114,5 @@ model.py*
 /start-scripts.py
 /simulatedmodels.sh
 /.Rhistory
+*/ExpressionsData.csv
+*.csv
