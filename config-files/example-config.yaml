@@ -71,6 +71,13 @@ jobs:
     ## Default=0.1
     sample_std: 0.5
 
+    ## If sampling parameters, we recommend setting all parameters
+    ## to one sampled value.
+    ## While ideally, we would like to sample random kinetic parameters,
+    ## in practice, this might lead to numerical issues. 
+    ## Default=False
+    identical_pars: True
+
     ## Path to previously generated parameter set
     ## Useful for reproducibility if parameters are sampled
     ## If this is selected, then parameters are not sampled
@@ -102,6 +109,17 @@ jobs:
     interaction_strengths: "dyn-linear_strengths.txt"
     
 post_processing:
+  ## Once the simulations have been performed, individual trajectories are
+  ## stored in the /simulations folder. Each trajectory represents the
+  ## stochastic developemental path of a single cell.
+  ## The following setting generates 5 datasets, sampling 400 cells each
+  ## from the simulated trajectories.
+  ## Even if GenSamples is not specified, at least one dataset is produced
+  ## by calling genSamples() for every other following post processing option.
+  GenSamples:
+    - sample_size: 400
+      nDatasets: 5
+      
   ## BoolODE can carry out post processing of simulation files
   ## Note that these functions will fail if the required input
   ## files are not present. Make sure the simulations are run
@@ -137,12 +155,10 @@ post_processing:
       sample_size: 100
       
     - dropout: True
-      sample_size: 400
       drop_cutoff: 0.5
       drop_prob: 0.5
 
     - dropout: True
-      sample_size: 800 # This will end up sampling 500 cells
       drop_cutoff: 0.7
       drop_prob: 0.7
 
