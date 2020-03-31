@@ -27,7 +27,7 @@ def Experiment(mg, Model,
                tspan,
                settings,
                icsDF,
-               burnin=False,writeProtein=False,
+               writeProtein=False,
                normalizeTrajectory=False):
     """
     Carry out an `in-silico` experiment. This function takes as input 
@@ -40,43 +40,21 @@ def Experiment(mg, Model,
     `nClusters`; BoolODE will then cluster the entire simulation, such that each
     simulated trajectory possesess a cluster ID.
 
+    :param mg: Model details obtained by instantiating an object of GenerateModel
+    :type mg: BoolODE.GenerateModel
     :param Model: Function defining ODE model
     :type Model: function
-    :param ModelSpec: Dictionary defining ODE model. See readBooleanRules()
-    :type ModelSpec: dict
     :param tspan: Array of time points
     :type tspan: ndarray
-    :param num_cells: Number of simulations to perform
-    :type num_cells: int
-    :param sampleCells: Bool that specifies if a random sample of size num_cells should be generated from the simulated output, where one cell is picked per simulation without replacement
-    :type sampleCells: bool
-    :param varmapper: 
-    :type varmapper: dict
-    :param parmapper: 
-    :type parmapper: dict
-    :param genelist: List of all gene names
-    :type genelist:  list
-    :param proteinlist: List of all protein names
-    :type proteinlist: list
-    :param outPrefix: Name of output folder. 
-    :type outPrefix: str
+    :param settings: The job settings dictionary
+    :type settings: dict
     :param icsDF: Dataframe specifying initial condition for simulation
     :type icsDF: pandas DataFrame
-    :param nClusters: Number of expected trajectories. Used to perform k-means clustering
-    :type nClusters: int
-    :param x_max: max value of gene. By default 2.0, will vary if parameters are sampled
-    :type x_max: float
-    :param doParallel: Bool specifying starting simulations in parallel
-    :type doParallel: bool
-    :param burnin: Bool specifying that initial fraction of simulation should be discarded. Obsolete
-    :type burnin: bool
     :param writeProtein: Bool specifying if the protein values should be written to file. Default = False
     :type writeProtein: bool
     :param normalizeTrajectory: Bool specifying if the gene expression values should be scaled between 0 and 1.
     :type normalizeTrajectory: bool 
     """
-    # if not sampleCells:
-    #     print("Note: Simulated trajectories will be clustered. nClusters = %d" % nClusters)
     ####################    
     allParameters = dict(mg.ModelSpec['pars'])
     parNames = sorted(list(allParameters.keys()))
@@ -143,7 +121,7 @@ def Experiment(mg, Model,
     argdict['proteinlist'] = mg.proteinlist
     argdict['writeProtein'] = writeProtein
     argdict['outPrefix'] = outPrefix
-    argdict['sampleCells'] = settings['sample_cells']
+    argdict['sampleCells'] = settings['sample_cells'] # TODO consider removing this option
     argdict['pars'] = pars
     argdict['ss'] = ss
     argdict['ModelSpec'] = mg.ModelSpec
@@ -219,7 +197,7 @@ def Experiment(mg, Model,
         print('Clustering simulations...')
         start = time.time()            
         # Find clusters in the experiments
-        clusterLabels= KMeans(n_clusters=settings['nCluster'],
+        clusterLabels= KMeans(n_clusters=settings['nClusters'],
                               n_jobs=8).fit(groupedDF.T.values).labels_
         print('Clustering took %0.3fs' % (time.time() - start))
         clusterDF = pd.DataFrame(data=clusterLabels, index =\
@@ -289,11 +267,13 @@ def startRun(settings):
                              settings['num_cells'],
                              outPrefix=settings['outprefix'])
     print('Input file generation took %0.2f s' % (time.time() - start))
-    ##########################<--- End
-    
     print("BoolODE.py took %0.2fs"% (time.time() - startfull))
 
 def simulateAndSample(argdict):
+    """
+    Handles parallelization of ODE simulations.
+    Calls the simulator with simulation settings.
+    """
     mg = argdict['mg']
     allParameters = argdict['allParameters']
     parNames = argdict['parNames']

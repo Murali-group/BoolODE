@@ -25,7 +25,7 @@ class GlobalSettings(object):
 
 class JobSettings(object):
     '''
-    TODO document
+    Store user defined job settings
     '''
     def __init__(self, jobs) -> None:
         self.jobs = jobs
@@ -34,11 +34,13 @@ class PostProcSettings(object):
     def __init__(self,
                  dropout_jobs,
                  dimred_jobs,
-                 slingshot_jobs) -> None:
+                 slingshot_jobs,
+                 gensample_jobs) -> None:
         
         self.dropout_jobs = dropout_jobs
         self.dimred_jobs = dimred_jobs
         self.slingshot_jobs = slingshot_jobs
+        self.gensample_jobs = gensample_jobs
 
 
 class BoolODE(object):
@@ -83,12 +85,12 @@ class BoolODE(object):
             # Optional Settings
             data['parameter_inputs_path'] = Path(self.global_settings.model_dir,\
                                                  job.get('parameter_inputs_path',''))
-            data['parameter_set_path'] = Path(self.global_settings.model_dir,\
-                                              job.get('parameter_set_path',''))
-            data['interaction_strength_path'] = Path(self.global_settings.model_dir,\
-                                                     job.get('interaction_strength_path',''))
-            data['species_type_path'] = Path(self.global_settings.model_dir,\
-                                             job.get('species_type_path',''))            
+            data['parameter_set'] = Path(self.global_settings.model_dir,\
+                                              job.get('parameter_set',''))
+            data['interaction_strengths'] = Path(self.global_settings.model_dir,\
+                                                     job.get('interaction_strengths',''))
+            data['species_type'] = Path(self.global_settings.model_dir,\
+                                             job.get('species_type',''))            
             # Simulator settings
             data['burnin'] = job.get('burn_in',False)
             data['writeProtein'] = job.get('write_protein',False)
@@ -107,15 +109,10 @@ class BoolODE(object):
         1. If `do_simulation == TRUE`, perform SDE simulations of model specified as Boolean rules. 
         2. If `do_post_processing == TRUE` perform the list of post processing operations specified.
 
-        Note:
-        -----
-        We recommend 
-        
-        Warning:
-        -------
-        This function automatically creates folders for each job name 
-        as specified in the config file, if the folder doesn't already exist.
-        Contents of existing folders will be rewritten!
+        .. warning::
+            This function automatically creates folders for each job name 
+            as specified in the config file, if the folder doesn't already exist.
+            Contents of existing folders will be rewritten!
         '''
         base_output_dir = self.global_settings.output_dir
 
@@ -136,99 +133,127 @@ class BoolODE(object):
 
     def do_post_processing(self):
         """
-        Call runSlingShot, and generateDropouts, if specified by the user.
+        Call genSamples() first. Then run DimRed runSlingShot,  
+        generateDropouts, if specified by the user.
         """
         alljobs =  self.jobs.keys()
         filetypedict = {'expr':'ExpressionData.csv',
                         'pseudo':'PseudoTime.csv',
-                        'refNet':'refNetwork.csv'}        
+                        'refNet':'refNetwork.csv'}
+
+        ## Always do genSamples() once if even a single other analysis is requested!
+        if self.post_settings.dropout_jobs\
+           or self.post_settings.dimred_jobs\
+           or self.post_settings.slingshot_jobs:
+            doOtherAnalysis = True
+            
+        if self.post_settings.gensample_jobs is not None\
+           or doOtherAnalysis:
+            print("Generating Samples...")
+            if self.post_settings.gensample_jobs is None:
+                gsamp['sample_size'] = self.jobs[jobid]['num_cells']
+                gsamp['nDatasets'] = 1
+                gensample_jobs = [gsamp]
+            else:
+                gensample_jobs = self.post_settings.gensample_jobs
+            for gsamp in gensample_jobs:
+                for jobid in alljobs:
+                    settings = {}
+                    settings['num_cells'] = self.jobs[jobid]['num_cells']
+                    settings['sample_size'] = gsamp.get('sample_size', 100)
+                    settings['outPrefix'] = str(self.jobs[jobid]['outprefix'])
+                    settings['nDatasets'] = gsamp.get('nDatasets', 1)
+                    settings['name'] = self.jobs[jobid]['name']
+                    settings['nClusters'] = self.jobs[jobid]['nClusters']
+                    generatedPaths = po.genSamples(settings)
+        
         if self.post_settings.dropout_jobs is not None:
             print('Starting genDropouts...')
             for drop in self.post_settings.dropout_jobs:
                 num_invalid = 0
                 for jobid in alljobs:
-                    settings = {}
-                    invalid = False
-                    settings['outPrefix'] = self.global_settings.output_dir +\
-                        '/' + self.jobs[jobid]['name'] +\
-                        '/' + self.jobs[jobid]['name']
-                    settings['expr'] = Path(self.jobs[jobid]['outprefix']\
-                                            ,'ExpressionData.csv')
-                    settings['pseudo'] = Path(self.jobs[jobid]['outprefix']\
-                                              ,'PseudoTime.csv')
-                    settings['refNet'] = Path(self.jobs[jobid]['outprefix']\
-                                              ,'refNetwork.csv')
-                    settings['dropout'] = drop.get('dropout', True)                
-                    settings['nCells'] = drop.get('nCells', 100)
-                    settings['drop_cutoff'] = drop.get('drop_cutoff', 0.0)
-                    settings['drop_prob'] = drop.get('drop_prob', 0.0)
-                    
-                    for filetype in ['expr', 'pseudo', 'refNet']:
-                        if not settings[filetype].is_file():
-                            print(self.jobs[jobid]['name'], ': ',filetypedict[filetype], "not found. Retry with `do_simulations: True` in global_settings.")                            
-                            invalid = True
-                            num_invalid += 1
-                            break
-                    if not invalid:
-                        po.genDropouts(settings)
-                if num_invalid == len(alljobs):
-                    break
+                    for gsampPath in generatedPaths:
+                        settings = {}
+                        invalid = False
+                        settings['outPrefix'] = gsampPath 
+                        settings['expr'] = Path(gsampPath,\
+                                                'ExpressionData.csv')
+                        settings['pseudo'] = Path(gsampPath,\
+                                                  'PseudoTime.csv')
+                        settings['refNet'] = Path(gsampPath,\
+                                                  'refNetwork.csv')                        
+                        settings['dropout'] = drop.get('dropout', True)                
+                        settings['sample_size'] = drop.get('sample_size', 100)
+                        settings['num_cells'] = self.jobs[jobid]['num_cells']
+                        settings['drop_cutoff'] = drop.get('drop_cutoff', 0.0)
+                        settings['drop_prob'] = drop.get('drop_prob', 0.0)
+
+                        for filetype in ['expr', 'pseudo', 'refNet']:
+                            if not settings[filetype].is_file():
+                                print(self.jobs[jobid]['name'], ': ',filetypedict[filetype], "not found. Retry with `do_simulations: True` in global_settings.")                            
+                                invalid = True
+                                num_invalid += 1
+                                break
+                        if not invalid:
+                            po.genDropouts(settings)
+                    if num_invalid == len(alljobs):
+                        break
                     
         if self.post_settings.dimred_jobs is not None:
             print("Starting dimesionality reduction using tSNE")
             for dimred_jobs in self.post_settings.dimred_jobs:
                 num_invalid = 0
                 for jobid in alljobs:
-                    settings = {}
-                    invalid = False                    
-                    settings['expr'] = Path(self.jobs[jobid]['outprefix'],\
-                                            'ExpressionData.csv')
-                    settings['pseudo'] = Path(self.jobs[jobid]['outprefix'],\
-                                            'PseudoTime.csv')
-                    settings['perplexity'] = dimred_jobs['perplexity']
-                    for filetype in ['expr', 'pseudo']:
-                        if not settings[filetype].is_file():
-                            print(self.jobs[jobid]['name'], ':',filetypedict[filetype], "not found. Retry with `do_simulations: True` in global_settings.")                            
-                            invalid = True
-                            num_invalid += 1
-                            break
-                    if not invalid:
-                        po.doDimRed(settings)
-                        all_invalid = False
-                if num_invalid == len(alljobs):
-                    break
-                        
+                    for gsampPath in generatedPaths:
+                        settings = {}
+                        invalid = False                    
+                        settings['expr'] = Path(gsampPath,\
+                                                'ExpressionData.csv')
+                        settings['pseudo'] = Path(gsampPath,\
+                                                'PseudoTime.csv')
+                        settings['perplexity'] = dimred_jobs['perplexity']
+                        for filetype in ['expr', 'pseudo']:
+                            if not settings[filetype].is_file():
+                                print(self.jobs[jobid]['name'], ':',filetypedict[filetype], "not found. Retry with `do_simulations: True` in global_settings.")                            
+                                invalid = True
+                                num_invalid += 1
+                                break
+                        if not invalid:
+                            po.doDimRed(settings)
+                            all_invalid = False
+                    if num_invalid == len(alljobs):
+                        break
+            
         if self.post_settings.slingshot_jobs is not None:
-            if self.post_settings.dimred_jobs is not None:
+            if self.post_settings.dimred_jobs is None:
                 print("Using default perplexity=300. (Specify `perplexity` under DimRed.)")
             print('Starting SlingShot...')
             for sshot in self.post_settings.slingshot_jobs:
                 for jobid in alljobs:
-                    settings = {}
-                    invalid = False
-                    settings['outPrefix'] = self.global_settings.output_dir +\
-                        '/' + self.jobs[jobid]['name'] +\
-                        '/' + self.jobs[jobid]['name'] + '-ss' 
-                    settings['expr'] = Path(self.jobs[jobid]['outprefix']\
-                                            ,'ExpressionData.csv')
-                    settings['pseudo'] = Path(self.jobs[jobid]['outprefix']\
-                                              ,'PseudoTime.csv')
-                    settings['refNet'] = Path(self.jobs[jobid]['outprefix']\
-                                              ,'refNetwork.csv')
-                    if self.jobs[jobid]['nClusters'] == 1:
-                        settings['nClusters'] = 1
-                    else:
-                        settings['nClusters'] = self.jobs[jobid]['nClusters'] + 1
-                    settings['noEnd'] = sshot.get('noEnd', False)
-                    settings['perplexity'] = sshot.get('perplexity', 300)
+                    for gsampPath in generatedPaths:
+                        settings = {}
+                        invalid = False
+                        settings['outPrefix'] = gsamp + '-ss'
+                        settings['expr'] = Path(gsampPath\
+                                                ,'ExpressionData.csv')
+                        settings['pseudo'] = Path(gsampPath\
+                                                  ,'PseudoTime.csv')
+                        settings['refNet'] = Path(gsampPath\
+                                                  ,'refNetwork.csv')
+                        if self.jobs[jobid]['nClusters'] == 1:
+                            settings['nClusters'] = 1
+                        else:
+                            settings['nClusters'] = self.jobs[jobid]['nClusters'] + 1
+                        settings['noEnd'] = sshot.get('noEnd', False)
+                        settings['perplexity'] = sshot.get('perplexity', 300)
 
-                    for filetype in ['expr', 'pseudo', 'refNet']:
-                        if not settings[filetype].is_file():
-                            print(self.jobs[jobid]['name'], ': ',filetypedict[filetype], "not found. Retry with `do_simulations: True` in global_settings.")
-                            invalid = True
-                            break
-                    if not invalid:
-                        po.computeSSPT(settings)                    
+                        for filetype in ['expr', 'pseudo', 'refNet']:
+                            if not settings[filetype].is_file():
+                                print(self.jobs[jobid]['name'], ': ',filetypedict[filetype], "not found. Retry with `do_simulations: True` in global_settings.")
+                                invalid = True
+                                break
+                        if not invalid:
+                            po.computeSSPT(settings)
             
 class ConfigParser(object):
     '''
@@ -289,4 +314,5 @@ class ConfigParser(object):
         dropout_jobs = input_settings_map.get('Dropouts', None)
         slingshot_jobs = input_settings_map.get('Slingshot', None)
         dimred_jobs = input_settings_map.get('DimRed', None)
-        return PostProcSettings(dropout_jobs, dimred_jobs, slingshot_jobs)        
+        gensample_jobs = input_settings_map.get('genSamples', None)
+        return PostProcSettings(dropout_jobs, dimred_jobs, slingshot_jobs, gensample_jobs)
