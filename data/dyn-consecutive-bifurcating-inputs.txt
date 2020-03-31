@@ -1,2 +1,2 @@
-Inputs	Values
-['g1']	[1]
+Input	Value
+g1	1

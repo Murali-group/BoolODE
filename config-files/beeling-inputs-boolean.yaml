@@ -1,0 +1,62 @@
+# Config file used to generate inputs for Beeline using Boolean models
+global_settings:
+  model_dir: "data"
+  output_dir: "Curated"
+  do_simulations: True
+  do_post_processing: True
+  modeltype: 'hill'
+
+jobs:
+  - name: "mCAD"
+    model_definition: "mCAD.txt"
+    model_initial_conditions: "mCAD_ics.txt"
+    simulation_time: 5
+    num_cells: 1000
+    do_parallel: True
+    nClusters: 2
+
+  - name: "VSC"
+    model_definition: "VSC.txt"
+    simulation_time: 5
+    num_cells: 1000
+    do_parallel: True
+    nClusters: 5
+
+  - name: "HSC"
+    model_definition: "HSC.txt"
+    model_initial_conditions: "HSC_ics.txt"
+    simulation_time: 8
+    num_cells: 1000
+    do_parallel: True
+    nClusters: 4
+
+  - name: "GSD"
+    model_definition: "GSD.txt"
+    model_initial_conditions: "GSD_ics.txt"
+    simulation_time: 8
+    num_cells: 1000
+    do_parallel: True
+    nClusters: 2
+
+post_processing:
+  GenSamples:
+    - sample_size: 500
+      nDatasets: 10
+
+  DimRed:
+    - perplexity: 100
+
+  Dropouts:
+    - dropout: True
+      drop_cutoff: 0.5
+      drop_prob: 0.5
+
+    - dropout: True
+      drop_cutoff: 0.7
+      drop_prob: 0.7
+      
+  Slingshot:
+    - perplexity: 100
+
+  
+
