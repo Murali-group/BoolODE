@@ -1,0 +1,7 @@
+Gene	Rule
+a	a and (not b)
+b	b and (not a)
+c	a and (not d)
+d	a and (not c)
+e	b and (not f)
+f	b and (not e)

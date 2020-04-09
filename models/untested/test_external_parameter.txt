@@ -1,0 +1,5 @@
+Gene	Rule
+a	inp
+b	not (a)
+c	a
+

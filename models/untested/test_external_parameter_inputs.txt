@@ -1,0 +1,3 @@
+Inputs	Values
+['inp']	[1]
+['inp']	[0]

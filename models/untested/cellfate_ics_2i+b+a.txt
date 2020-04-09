@@ -1,0 +1,2 @@
+Genes	Values
+['SignalLIF','iGSK3b','iWnt','Bmp4','iBMP','bFGF','iERK','iAct']	[0, 2, 0, 2, 0, 0,2, 2]

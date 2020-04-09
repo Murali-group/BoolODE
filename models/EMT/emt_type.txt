@@ -1,0 +1,62 @@
+Variable	Type
+AKT	protein
+Dest_compl	protein
+AXIN2	protein
+bcatenin_memb	protein
+bcatenin_nuc	protein
+bTrCP	
+CD44	
+CDC42	
+cfos	
+cMet	
+Csl	
+Csn	
+DELTA	
+DSH	
+Ecadherin	
+EGFR	
+EGR1	
+EMT	
+ERK	
+FGFR	
+FOXC2	gene
+Frizzled	
+FUS	
+GLI	
+GSK3b	
+HEY1	gene
+HIF1a	
+IGF1R	
+IKKa	
+ILK	
+Jagged	
+LIV1	
+LOXL23	
+MEK	
+miR200	
+NFkB	
+NOTCH	
+NOTCH_ic	
+PAK1	
+Patched	
+PDGFR	
+PI3K	
+RAF	
+RAS	
+RKIP	
+SHH	
+SNAI2	gene
+SMAD	
+SMO	
+SNAI1	gene
+SOS_GRB2	
+SRC	
+STAT	
+SUFU	
+TCF_LEF	
+TGFb	
+TGFbR	
+TWIST1	gene
+Wnt	
+ZEB1	gene
+ZEB2	gene

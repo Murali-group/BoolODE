@@ -1,0 +1,8 @@
+Node	Type
+g1	protein
+g2	protein
+g3	protein
+g4	protein
+g5	protein
+g6	protein
+g7	protein

@@ -1,0 +1,6 @@
+Gene	Rule
+inp	inp and not (c or d)
+a	(inp or a) and not (b)
+b	(inp or b) and not (a)
+c	a
+d	b

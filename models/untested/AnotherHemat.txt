@@ -1,0 +1,31 @@
+Gene	Rule
+Mac1_gene	Spi1:2
+Id2	Cebpa & Cebpb & Spi1 & !Ebf1 & !Gfi1
+Egr1	(Spi1:1 & !Gfi1) | (Spi1:2) | (Pax5_prot_active)C
+ebpb	Spi1:2 & (Cebpa | Cebpb)
+Cebpa_gene	Spi1 & Runx1 & !Foxo1
+Cebpa	Cebpa_gene | Cebpa_ER
+Csf1r	Spi1 & !Pax5_prot_active
+Csf1r_act	Csf1r & Csf1
+Spi1:1	(Spi1 & Runx1 & !(((Cebpa | Cebpb) & Csf1r_act) | (Foxo1 & !Ikzf1) | !Gfi1)) | (Foxo1 & Ebf1 & Ikzf1 & !(Spi1 | Runx1))
+Spi1:2	(Runx1 & Spi1 & (Cebpa | Cebpb) & Csf1r_act) | (Runx1 & Spi1 & !(Gfi1 | (Foxo1 & Ikzf1)))
+Runx1	Spi1
+Gfi1	((Ikzf1 | Cebpa) & !Egr1) | (Pax5_prot_active)
+Ikzf1	Mef2c | Pax5_prot_active
+Flt3	Ikzf1 & Spi1 & !Pax5_prot_active
+Mef2c	Spi1 & !(Cebpa | Cebpb)
+Ets1	E2a_prot_Active
+Il7r	(Spi1 & Mef2c & !(Cebpa | Cebpb)) | (Ebf1 & Foxo1 & !(Cebpa | Cebpb))
+Il7r_act	Il7r & Il7
+E2a_gene	Ikzf1 & (Spi1 | (Ebf1 & Pax5_prot_active))
+E2a	E2a_gene
+E2a_prot_Active	E2a & !Id2
+Foxo1_gene	E2a_prot_Active & !(Cebpa | Cebpb)
+Foxo1	Foxo1_gene
+Ebf1	Ebf1_gene
+Ebf1_gene	(E2a_prot_Active & Foxo1 & Ets1 & Runx1 & Spi1 & Il7r_act & !(Cebpa | Cebpb)) | (E2a_prot_Active & Foxo1 & Ets1 & Pax5_prot_active & Ebf1 & !(Cebpa | Cebpb))
+Pax5_gene	Ebf1 & !(Cebpa | Cebpb)
+Pax5	Pax5_gene
+Pax5_prot_active	Pax5 & !Id2
+Cd19_gene	Pax5_prot_active & !Cebpa
+Cd19	Cd19_gene

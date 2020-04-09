@@ -1,0 +1,4 @@
+Inputs	Values
+['SignalLIF','SignalBMP','SignalWNT','SignalERK','SignalACT','SignalPI3K']	[2,2,2,2,2,2]
+['SignalLIF','SignalBMP','SignalWNT','SignalERK','SignalACT','SignalPI3K']	[2,0,0,2,0,2]
+['SignalLIF','SignalBMP','SignalWNT','SignalERK','SignalACT','SignalPI3K']	[2,0,0,0,0,0]

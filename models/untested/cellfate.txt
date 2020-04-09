@@ -1,0 +1,28 @@
+Gene	Rule
+Activin	(SignalACT or Oct4) and (not Sox2) and (not Lefty1) and (not Gbx2)
+BMP4	SignalBMP or Gbx2 or Tbx3 or Myc
+Dnmt3b	(Mycn or Tcf3 or EpiTFs) and not (Cdx2 or Klf4)
+EpiTFs	(SignalBMP or Pitx2 or Dusp6) and (not Cdx2) and not (Klf4 and Sox2)
+Esrrb	(Klf4 or Klf2 or Nanog or (SignalWNT and (not Tcf3))) and (not EpiTFs)
+Fgfr2	((SignalFGF) or Gcnf or Cdx2) and (not Nanog) and (not Oct4)
+Gata6	(Gata6 or SignalERK) and (not Klf2) and (not Nanog) and (not Fgf4)
+Gbx2	((SignalWNT and (not Tcf3)) or SignalLIF) and ((Esrrb or Jarid2) and not (Tbx3))
+Gcnf	(Gata6 or Cdx2) and (not EpiTFs)
+Jarid2	Klf4 or Oct4
+Klf4	(SignalLIF or ((Klf2 or Klf4) and Nanog and Esrrb and (Oct4 and Sox2))) and (not EpiTFs)
+Nanog	(Nanog or SignalACT or (Oct4 and Sox2) or Tbx3 or Lrh1 or Klf4) and not (Tcf3 or Gata6)
+Oct4	(((Oct4 and Sox2) or Nanog or Klf2 or Klf4) and not (Cdx2 and Oct4) and (not Dnmt3b or Klf2)) or (((Oct4 and Sox2) or Nanog or Lrh1 or Klf2 or Klf4) and (not Gcnf) and (Dnmt3b and (not Klf2)))
+Smad6	(SignalBMP or Gata6) and (not Oct4)
+Smad7	(Oct4 or Nanog or Esrrb or Klf4 or Tbx3) and (not Gbx2) and (not Jarid2)
+Sox2	Nanog or (Oct4 and Sox2)
+Tcf3	(Nanog or Oct4) and (not SignalWNT)
+Cdx2	(SignalBMP or Cdx2) and not (Cdx2 and Oct4)
+Dusp6	SignalERK
+Fgf4	Esrrb or Nanog or (SignalWNT and (not Tcf3))
+Klf2	((Sox2 and Klf4) or Mycn) and (not Pitx2) and (not Dusp6)
+Lefty1	(SignalACT or (SignalWNT and (not Tcf3))) or Mycn or (Oct4 and Sox2) and (not Jarid2) and (not Fgf4)
+Lrh1	(Tbx3 or Klf4 or (Oct4 and Sox2)) and (not Tcf3)
+Mycn	(Oct4 and Sox2) and (not Nanog)
+Pitx2	(SignalACT or (SignalWNT and (not Tcf3))) and (not Sox2) and (not Jarid2)
+Tbx3	(SignalPI3K or Tbx3) and (Esrrb or Nanog or Klf4) and (not SignalERK) and (not Tcf3)
+Myc	((SignalERK or (SignalWNT and (not Tcf3))) or SignalLIF or Gbx2) and (not Nanog)

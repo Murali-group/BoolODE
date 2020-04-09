@@ -1,0 +1,88 @@
+Gene	Rule
+GF	GF or GFHigh
+RTK	not CAD and (GFHigh or GF)
+Grb2	RTK and GFHigh
+Ras	Grb2 and SOS
+RAF	not Casp3 and Ras
+mTORC2	PIP3 or not S6K
+PI3K	Ras or RTK
+PIP3	PI3KH or PI3K
+PDK1	PI3K and PIP3
+AKTB	not Casp3 and PIP3 and (PDK1 or mTORC2)
+p110H	(FoxO3 and not NeddL4) or (p110H and (FoxO3 or not NeddL4) )
+PI3KH	p110H and RTK and PI3K and Ras
+AKTH	AKTB and p110H and PI3KH and Ras and PIP3 and PDK1 and mTORC2
+FoxO3	not (AKTB or AKTH or ERK) or ( not (AKTH and (Plk1 or Plk1H or AKTB or ERK) ) and not (Plk1 and Plk1H and ERK) )
+PLCgamma	RTK and Grb2 and p110H and PI3KH and PIP3
+NeddL4	Ca2 and IP3
+FoxO1	not Plk1 and not AKTH
+p21mRNA	(FoxO1 and FoxO3) or (not Myc and (FoxO1 or FoxO3) )
+TSC2	not AKTH or not (AKTB or ERK)
+PRAS40	not AKTH and (not mTORC1 or not AKTB)
+Rheb	not TSC2 and DAG
+mTORC1	not Casp3 and ( (Rheb and not PRAS40) or E2F1 or (CyclinB and Cdk1 and GSK3) )
+S6K	not Casp3 and mTORC1
+eIF4E	not Casp3 and mTORC1
+GSK3	 not AKTH and not (S6K and ERK)
+p21	p21mRNA and not Casp3 and not CyclinE
+pRB	not Casp3 and not CyclinD1 and not CyclinA and (p27Kip1 or not CyclinE)
+p27Kip1	not Casp3 and not CyclinD1 and not (Cdk1 and CyclinB) and ( (not CyclinE and (FoxO3 and FoxO1) ) or (not CyclinA and (FoxO3 or FoxO1) ) or (not CyclinE and not CyclinA) )
+Myc	(ERK and (eIF4E or not GSK3) ) or ( E2F1 and not pRB and (eIF4E or ERK or not GSK3) )
+CyclinD1	not CHK1 and ( ( not p21 and ( (not GSK3 and (Myc or E2F1) ) or (Myc and CyclinD1) or (Myc and E2F1) or (E2F1 and CyclinD1) ) ) or ( not pRB and E2F1 and ( (Myc and CyclinD1) or (Myc and not GSK3) or (CyclinD1 and not GSK3) ) ) )
+E2F1	not (CAD or CyclinA or pRB) and (E2F1 or Myc)
+CyclinE	E2F1 and Cdc6 and PreRC and not (pRB or p27Kip1 or CHK1 or Casp3)
+ORC	E2F1 or (PreRC and Cdt1 and Cdc6)
+Cdc6	not Casp3 and not (f4NDNA and CyclinA) and ( (E2F1 and ORC and not Plk1) or (PreRC and ORC and Cdc6 and Cdt1) )
+Cdt1	not geminin and ORC and Cdc6 and not (CyclinE and CyclinA and Cdc25A) and ( (PreRC and (E2F1 or Myc) ) or (E2F1 and (Myc or not pRB) ) )
+PreRC	ORC and Cdc6 and Cdt1 and not (Replication and f4NDNA)
+geminin	E2F1 and not Cdh1 and not (pAPC and Cdc20)
+CyclinAmRNA	not CAD and ( (E2F1 and not pRB) or FoxM1 )
+Emi1	(E2F1 or not pRB or not p21) and not (Plk1 and CyclinB and Cdk1 and (UKinetochores or AKinetochores) )
+FoxM1	(Myc and CyclinE) or (CyclinA and Cdc25A and Cdc25B) or (Plk1 and CyclinB and Cdk1)
+Cdc25A	( (FoxM1 and E2F1 and not pRB) or (not Cdh1 and (FoxM1 or (E2F1 and not pRB) ) ) ) and (not (GSK3 or CHK1) or CyclinE or CyclinA or (CyclinB and Cdk1) )                   
+CyclinA	CyclinAmRNA and not pAPC and ( (Cdc25A and (not Cdh1 or Emi1) ) or (CyclinA and ( (not Cdh1 and (Emi1 or not UbcH10) ) or (Emi1 and not UbcH10) ) ) )
+Wee1	not Casp3 and not (Cdk1 and CyclinB) and (Replication or CHK1) and (CHK1 or not (Cdk1 and CyclinA and Plk1) )
+UbcH10	not Cdh1 or (UbcH10 and (Cdc20 or CyclinA or CyclinB) )
+CyclinB	(FoxM1 or (FoxO3 and CyclinB) ) and not (Cdh1 or (pAPC and Cdc20) )
+Cdc25B	FoxM1 and f4NDNA
+Plk1	not Cdh1 and (FoxM1 or Plk1H) and ( (CyclinB and Cdk1) or (CyclinA and not Wee1 and Cdc25A) )
+Cdc25C	f4NDNA and Plk1 and ( (Cdc25B and not CHK1) or (CyclinB and Cdk1) )
+Cdk1	CyclinB and Cdc25C and ( not CHK1 or (not Wee1 and Cdk1) )
+pAPC	(CyclinB and Cdk1 and Plk1) or (CyclinB and Cdk1 and pAPC) or (pAPC and Cdc20)
+Cdc20	pAPC and not Emi1 and not Cdh1 and ( not Mad2 or ( not CyclinA and not (CyclinB and Cdk1) ) )
+Cdh1	not (CyclinB and Cdk1) and not ( CyclinA and (Emi1 or Cdc25A) )
+Replication	not CAD and PreRC and ( (E2F1 and CyclinE and Cdc25A) or (Replication and CyclinA and Cdc25A and (E2F1 or not f4NDNA) ) )
+f4NDNA	not CAD and ( (Replication and ( (PreRC and CyclinA) or f4NDNA) ) or (f4NDNA and not Ect2) )
+UKinetochores	f4NDNA and not Cdh1 and not AKinetochores and ( (CyclinB and Cdk1) or UKinetochores )
+Mad2	UKinetochores and not AKinetochores
+AKinetochores	f4NDNA and not Cdh1 and not (pAPC and Cdc20) and ( AKinetochores or (UKinetochores and Plk1 and CyclinB and Cdk1) )
+Plk1H	Plk1 and FoxM1 and (Plk1H or FoxO3 or FoxO1)
+Ect2	f4NDNA and Plk1H and Cdh1 and not UKinetochores and not AKinetochores
+Casp8	DR45 or Casp3
+Casp2	Casp3 or (UKinetochores and Mad2 and not (CyclinB and Cdk1) )
+MCL1	not Casp3 and not Casp2 and (not GSK3 or (AKTB and (ERK or not E2F1) ) ) and (not (Cdk1 and CyclinB and UKinetochores) )
+BCLXL	not Casp3 and (BCL2 or not BAD) and ( not UKinetochores or ( Plk1 and ( not (CyclinB and Cdk1) or (BCL2 and MCL1) ) ) or  ( (BCL2 and MCL1) and not (CyclinB and Cdk1) ) )
+BCL2	not (Casp3 or BAD or BIM or BIK) and  ( not UKinetochores or (MCL1 and BCLXL) or (Plk1 and (BCLXL or MCL1 or not (Cdk1 and CyclinB) ) ) )
+BAD	Casp3 or not (AKTH or AKTB or ERK or S6K) or ( Casp8 and (not (AKTB and ERK and S6K) and not (AKTH and (AKTB or ERK) ) ) )
+BIK	not (MCL1 or BCLXL or BCL2)
+BIM	FoxO3 and GSK3 and not (ERK or MCL1 or BCLXL or BCL2)
+BID	Casp8 or ( Casp2 and not (BCL2 or BCLXL or MCL1) )
+BAK	(BID and (BIM or BIK or not (BCL2 and BCLXL and MCL1) ) ) or ( (BIM or BIK) and not (BCLXL or MCL1) )
+BAX	(BIM and ( (BID or BIK) or not (BCL2 and BCLXL and MCL1) ) ) or ( (BID or BIK) and not (BCL2 or BCLXL) )
+CytoC	BAX or BAK
+SMAC	BAX or BAK
+IAPs	not SMAC or AKTH
+Casp9	Casp3 or (not IAPs and CytoC)
+Casp3	(Casp9 and Casp8) or ( Casp3 and (Casp9 or Casp8) ) or ( not IAPs and (Casp9 or Casp8 or Casp3) )
+CAD	Casp3 and Casp9
+ATR	Replication
+CHK1	ATR
+Ca2	IP3
+DAG	PLCgamma
+DR45	Trail
+ERK	MEK and not BIK
+GFHigh	GFHigh
+IP3	PLCgamma
+MEK	RAF
+SOS	Grb2
+Trail	Trail

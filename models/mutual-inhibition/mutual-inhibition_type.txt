@@ -1,0 +1,7 @@
+Species	Type
+a	protein
+b	protein
+c	protein
+d	protein
+e	protein
+f	protein
