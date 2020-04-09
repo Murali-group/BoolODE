@@ -1,4 +1,4 @@
-*NOTE: The BoolODE is being refactored, and is currently being tested. Please use the V0.1 release for the version of the code used in the BEELINE publication*
+*NOTE: The BoolODE code is being refactored, and is currently being tested. Please use the V0.1 release for the version of the code used in the BEELINE publication*
 
 
 # BoolODE
