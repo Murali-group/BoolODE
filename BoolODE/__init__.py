@@ -151,7 +151,7 @@ class BoolODE(object):
            or doOtherAnalysis:
             print("Generating Samples...")
             if self.post_settings.gensample_jobs is None:
-                gsamp['sample_size'] = self.jobs[jobid]['num_cells']
+                gsamp['sample_size'] = self.jobs[alljobs[0]]['num_cells']
                 gsamp['nDatasets'] = 1
                 gensample_jobs = [gsamp]
             else:
