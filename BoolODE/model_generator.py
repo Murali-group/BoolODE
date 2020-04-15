@@ -440,6 +440,35 @@ class GenerateModel:
             mult = '*'.join(terms)
             return mult        
                     
+    def shsparse(self, regulators, rule):
+        """
+        Document
+        """
+        shsexp = str(rule)
+        variables = regulators
+        shsexp = shsexp.replace('and', '*')
+        shsexp = shsexp.replace('or', '+')
+        shsexp = shsexp.replace('not', ' 1 -')
+
+        # evaluate basal parameter
+        boolodespace = dict()
+        for v in variables:
+            s = v + ' = 0'
+            exec(s, boolodespace)
+        boolout = 'x = ' + rule
+        exec(boolout, boolodespace)
+        basal = ''
+        if boolodespace['x'] > 0 :
+            basal = '0.5 + '
+        else:
+            basal = '-0.5 + '
+        ymax = self.kineticParameterDefaults['y_max']
+        for v in variables:
+            shsexp = shsexp.replace(v, \
+                                    '(p_' + v + '/' + str(ymax) + ')')
+        shsexp = basal + shsexp 
+        shsexp = '(1.0/(1 + np.exp(-10*(' + shsexp +'))))'
+        return shsexp
     def generateModelDict(self):
         """
         Take a DataFrame object with Boolean rules,
