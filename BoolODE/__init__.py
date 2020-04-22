@@ -143,7 +143,7 @@ class BoolODE(object):
                         'refNet':'refNetwork.csv'}
 
         ## Always do genSamples() once if even a single other analysis is requested!
-        doOtherAnalysis = False        
+        doOtherAnalysis = False
         if self.post_settings.dropout_jobs\
            or self.post_settings.dimred_jobs\
            or self.post_settings.geneexpression_jobs\
@@ -233,15 +233,15 @@ class BoolODE(object):
 
         if self.post_settings.geneexpression_jobs is not None:
             if self.post_settings.dimred_jobs is None:
-                print("Using default perplexity=300 (Specify `perplexity` under DimRed)")
-                perplexity = 300
+                print("Using default perplexity=50 (Specify `perplexity` under DimRed)")
+                perplexity = 50
             else:
-                perplexity = 300
                 if len(self.post_settings.dimred_jobs) > 1:
                     perplexity = min([j['perplexity'] for j in self.post_settings.dimred_jobs])
+                else:
+                    perplexity = self.post_settings.dimred_jobs[0]['perplexity']
                     
             print("Plotting gene expression levels in tSNE projection")
-            #for ge_job in self.post_settings.geneexpression_jobs:
             for jobid in alljobs:
                 for gsampPath in generatedPaths[jobid]:
                     print(gsampPath)                        
@@ -341,8 +341,8 @@ class ConfigParser(object):
         dropout_jobs = input_settings_map.get('Dropouts', None)
         slingshot_jobs = input_settings_map.get('Slingshot', None)
         dimred_jobs = input_settings_map.get('DimRed', None)
-        gensample_jobs = input_settings_map.get('genSamples', None)
-        geneexpression_jobs = input_settings_map.get('geneExpression', None)        
+        gensample_jobs = input_settings_map.get('GenSamples', None)
+        geneexpression_jobs = input_settings_map.get('GeneExpression', None)        
         return PostProcSettings(dropout_jobs, dimred_jobs,
                                 slingshot_jobs, gensample_jobs,
                                 geneexpression_jobs)
