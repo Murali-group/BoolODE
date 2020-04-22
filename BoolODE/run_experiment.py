@@ -328,9 +328,18 @@ def simulateAndSample(argdict):
         P = P.T
         retry = False
         ## Extract Time points
-        subset = P[gid,:][:,tps]
+        ind = []
+        if writeProtein:
+            # Write gene and protein time points
+            subset = P[:,:][:,tps]
+            for g in genelist:
+                ind.append('x_' + g)
+                ind.append('p_' + g)                
+        else:
+            subset = P[gid,:][:,tps]
+            ind = genelist
         df = pd.DataFrame(subset,
-                          index=pd.Index(genelist),
+                          index=pd.Index(ind),
                           columns = ['E' + str(cellid) +'_' +str(i)\
                                      for i in tps])
         df.to_csv(outPrefix + 'E' + str(cellid) + '.csv')        
