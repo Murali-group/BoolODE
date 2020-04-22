@@ -225,8 +225,10 @@ class GenerateModel:
             'n_':self.kineticParameterDefaults['hillCoefficient'],
             # Thresholds
             'k_':hillThreshold,
-            # Soft-Heaviside function steepness
-            'sigmaH_':self.kineticParameterDefaults['heavisideSigma']
+            # Soft-Heaviside function steepness,
+            # This is to allow for flexibility in the future.
+            # not currently used
+            # 'sigmaH_':self.kineticParameterDefaults['heavisideSigma']
         }     
         parameterNamePrefixAndDefaultsGenes = {
             # mRNA transcription rates
@@ -306,7 +308,6 @@ class GenerateModel:
             if inputParam not in self.withoutRules:
                 print(inputParam, "not found nodes without rules. Skipping")
             else:
-
                 ## This can take values between 0 and 1
                 if row['Value'] > 1.0:
                     inputValue = 1.0
@@ -339,9 +340,6 @@ class GenerateModel:
             interactionStrength = row['Strength']
             if self.settings['modeltype'] == 'hill':
                 self.par.update({'k_' + regulator + '_' + target: hillThreshold/interactionStrength})
-            elif self.settings['modeltype'] == 'heaviside':
-                self.par.update({'w_' + regulator + '_' + target: hillThreshold/interactionStrength})
-        
 
     def assignDefaultParameterValues(self,
                                      parameterNamePrefixAndDefaultsAll,
@@ -350,9 +348,10 @@ class GenerateModel:
         Set each kinetic parameter to its default value.
         """
         print("Fixing rate parameters to defaults")
-        for parPrefix, parDefault in parameterNamePrefixAndDefaultsAll.items():
-            for node in self.withRules:
-                self.par[parPrefix + node] = parDefault
+        if self.settings['modeltype'] == 'hill':
+            for parPrefix, parDefault in parameterNamePrefixAndDefaultsAll.items():
+                for node in self.withRules:
+                    self.par[parPrefix + node] = parDefault
                 
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsGenes.items():
             for node in self.withRules:
@@ -371,17 +370,17 @@ class GenerateModel:
         print("Using std=" + str(self.settings['sample_std']))
         lomult = 0.9
         himult = 1.1
-
-        for parPrefix, parDefault in parameterNamePrefixAndDefaultsAll.items():
-            sampledParameterValues = utils.getSaneNval(len(self.withRules),\
-                                                 lo=lomult*parDefault,\
-                                                 hi=himult*parDefault,\
-                                                 mu=parDefault,\
-                                                 sig=self.settings['sample_std']*parDefault,\
-                                                 identicalPars=self.settings['identical_pars'])
-            for node, sparval in zip(self.withRules, sampledParameterValues):
-                if node in self.genelist:
-                    self.par[parPrefix + node] = sparval
+        if self.settings['modeltype'] == 'hill':
+            for parPrefix, parDefault in parameterNamePrefixAndDefaultsAll.items():
+                sampledParameterValues = utils.getSaneNval(len(self.withRules),\
+                                                     lo=lomult*parDefault,\
+                                                     hi=himult*parDefault,\
+                                                     mu=parDefault,\
+                                                     sig=self.settings['sample_std']*parDefault,\
+                                                     identicalPars=self.settings['identical_pars'])
+                for node, sparval in zip(self.withRules, sampledParameterValues):
+                    if node in self.genelist:
+                        self.par[parPrefix + node] = sparval
                     
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsGenes.items():
             sampledParameterValues = utils.getSaneNval(len(self.withRules),\
@@ -433,42 +432,26 @@ class GenerateModel:
                     hills.append('('+ reg +'/'+hillThresholdName+')^n_'+ reg)
             mult = '*'.join(hills)
             return mult
-        elif self.settings['modeltype'] == 'heaviside':
-            terms = []
-            for reg in combinationOfRegulators:
-                terms.append('p_' + reg)
-            mult = '*'.join(terms)
-            return mult        
-                    
-    def shsparse(self, regulators, rule):
-        """
-        Document
-        """
-        shsexp = str(rule)
-        variables = regulators
-        shsexp = shsexp.replace('and', '*')
-        shsexp = shsexp.replace('or', '+')
-        shsexp = shsexp.replace('not', ' 1 -')
 
-        # evaluate basal parameter
-        boolodespace = dict()
-        for v in variables:
-            s = v + ' = 0'
-            exec(s, boolodespace)
-        boolout = 'x = ' + rule
-        exec(boolout, boolodespace)
-        basal = ''
-        if boolodespace['x'] > 0 :
-            basal = '0.5 + '
-        else:
-            basal = '-0.5 + '
+    def shsparse(self, regulators, rule):
+        parser = BoolParser(str(rule))
+        shsexp = parser.constructPolynomial(parser.createBoolTree())
+        basal = '-0.3 + ' # This works, but I don't know which threshold will approximate the Hill function behavior better
+        # sigma = 10        
+        # basal = '-0.5 + '
+        sigma = 10
         ymax = self.kineticParameterDefaults['y_max']
-        for v in variables:
+        # NOTE: Another possibility here is to raise each term to an exponent
+        # When I tried this out, most simulations "failed" by producing close-to-zero expression for all genes
+        # This might yet work in some regime of (sigma, exponent, noise strength) which I have not yet come across
+        for v in regulators:
             shsexp = shsexp.replace(v, \
-                                    '(p_' + v + '/' + str(ymax) + ')')
-        shsexp = basal + shsexp 
-        shsexp = '(1.0/(1 + np.exp(-10*(' + shsexp +'))))'
+                                    '(p_' + v + '/' + str(ymax) + ')') #'((p_' + v + '/' + str(ymax) + ')**3.0)')
+        shsexp = basal + shsexp
+        shsexp = '(1.0/(1 + np.exp(-'+str(sigma)+'*(' + shsexp +'))))'
         return shsexp
+    
+        
     def generateModelDict(self):
         """
         Take a DataFrame object with Boolean rules,
@@ -480,8 +463,9 @@ class GenerateModel:
         its corresponding rule is evaluated by setting its regulators to
         all combinations binary states. The outcome of each of these Boolean
         rule evaluations is used to decide the value of the activation strength
-        parameter 'a' in Hill functions, or the interaction parameter 'w' in 
-        the Heaviside functions. 
+        parameter 'a' in Hill functions. For the Heaviside functions, the boolean rule
+        does not need to be evaluated. Rather, the rule is expressed directly
+        into a polynomial, by the BoolParser() class.
         Each step of this conversion is documented in the code directly.
         """
                     
@@ -513,8 +497,6 @@ class GenerateModel:
             exec('booleval = ' + row['Rule'], boolodespace)         
             if self.settings['modeltype'] == 'hill':
                 self.par['alpha_'+row['Gene']] = int(boolodespace['booleval'])
-            elif self.settings['modeltype'] == 'heaviside':
-                self.par['omega_' + row['Gene']] = utils.heavisideThreshold(boolodespace['booleval'])
         # End initialization
 
         # Assign values to logic parameters, and construct expressions
@@ -529,52 +511,34 @@ class GenerateModel:
             if self.settings['modeltype'] == 'hill':
                 num = '( alpha_' + currgene
                 den = '( 1'
-            elif self.settings['modeltype'] == 'heaviside':
-               exponent = '- sigmaH_' + currgene +'*( omega_' + currgene
-
-            # Loop over combinations of regulators        
-            for i in range(1,len(allreg) + 1):
-                for combinationOfRegulators in combinations(allreg,i):
-                    regulatorExpression = self.createRegulatoryTerms(currgene, combinationOfRegulators,
-                                                                      regSpecies)
-                    if self.settings['modeltype'] == 'hill':
+                # Loop over combinations of regulators        
+                for i in range(1,len(allreg) + 1):
+                    for combinationOfRegulators in combinations(allreg,i):
+                        regulatorExpression = self.createRegulatoryTerms(currgene, combinationOfRegulators,
+                                                                          regSpecies)
                         # Create Numerator and Denominator
                         den += ' +' +  regulatorExpression
                         num += ' + a_' + currgene +'_'  + '_'.join(list(combinationOfRegulators)) + '*' + regulatorExpression
-                    elif self.settings['modeltype'] == 'heaviside':
-                        exponent += ' + w_' + currgene + '_' + '_'.join(list(combinationOfRegulators)) +'*' + regulatorExpression
-    
-                    # evaluate rule to assign values to parameters
-                    ##################################################
-                    for node in self.withRules:                 #
-                        exec(node + ' = 0', boolodespace)  #                        
-                    # Set each regulator to ON, evaluate rule. we are looping
-                    # over all such combinations of regulators
-                    for geneInList in combinationOfRegulators:     #
-                        exec(geneInList + ' = 1', boolodespace)    #
-                                                                   #
-                    exec('boolval = ' + row['Rule'], boolodespace) #
-                    ##################################################
-    
-                    if self.settings['modeltype'] == 'hill':
+                        # evaluate rule to assign values to parameters
+                        ##################################################
+                        for node in self.withRules:                 #
+                            exec(node + ' = 0', boolodespace)  #                        
+                        # Set each regulator to ON, evaluate rule. we are looping
+                        # over all such combinations of regulators
+                        for geneInList in combinationOfRegulators:     #
+                            exec(geneInList + ' = 1', boolodespace)    #
+                                                                       #
+                        exec('boolval = ' + row['Rule'], boolodespace) #
+                        ##################################################
                         self.par['a_' + currgene +'_'  + '_'.join(list(combinationOfRegulators))] = \
                             int(boolodespace['boolval'])
-                    elif self.settings['modeltype'] == 'heaviside':
-                        self.par['w_' + currgene +'_'  + '_'.join(list(combinationOfRegulators))] = \
-                            self.kineticParameterDefaults['heavisideOmega']*utils.heavisideThreshold(boolodespace['boolval'])                    
-
-            # Close expressions
-            if self.settings['modeltype'] == 'hill':
+                # Close expressions
                 num += ' )'
                 den += ' )'
                 f = '(' + num + '/' + den + ')'
+                
             elif self.settings['modeltype'] == 'heaviside':
-                # In the case of heaviside expressions, to prevent
-                # numerical blowup, we trucate the magnitude of the
-                # regulatory terms
-                exponent += ')'
-                maxexp = '10.' # '100'
-                f = '(1./(1. + np.exp(np.sign('+exponent+')*min(' +maxexp +',abs(' + exponent+ ')))))'
+                f = self.shsparse(allreg, row['Rule'])
             
             if currgene in self.proteinlist:
                 Production =  f
@@ -582,7 +546,6 @@ class GenerateModel:
                 self.varspecs['p_' + currgene] = 'signalingtimescale*(y_max*' + Production \
                                            + '-' + Degradation + ')'
             else:
-                
                 Production = 'm_'+ currgene + '*' + f
                 Degradation = 'l_x_'  + currgene + '*x_' + currgene
                 self.varspecs['x_' + currgene] =  Production \
@@ -609,7 +572,7 @@ class GenerateModel:
         
         self.varmapper = {i:var for i,var in enumerate(self.ModelSpec['varspecs'].keys())}
         self.parmapper = {i:par for i,par in enumerate(self.ModelSpec['pars'].keys())}
-
+        
     def writeModelToFile(self):
         """
         Writes model to file as a python function.
@@ -657,3 +620,145 @@ class GenerateModel:
             out.write('# Automatically generated by BoolODE\n')
             for k, v in self.ModelSpec['pars'].items():
                 out.write(k+'\t'+str(v) + '\n')    
+class Node():
+    def __init__(self, left, op, right, leftstr='', rightstr=''):
+        self.left = left
+        self.right = right
+        self.op = op
+        self.rightstr = rightstr
+        self.leftstr = leftstr
+
+class BoolParser():
+    def __init__(self, expr):
+        self.expr = expr
+        self.operators = ['and', 'or', 'not']
+        self.tokenlist = self.preprocessExpression()
+
+    def preprocessExpression(self):
+        s = self.expr
+        s = s.replace('(', ' ( ')
+        s = s.replace(')', ' ) ')
+        # remove trailing whitespace
+        s = s.strip()
+        tokenlist = [t for t in s.split(' ') if t != '']
+        return tokenlist
+
+    def createBoolTree(self, tokenlist=None):
+        if tokenlist is None:
+            tokenlist = self.tokenlist
+        tokenlist = self.removeDelimiters(tokenlist)
+        delimiters = self.getDelimiterPositions(tokenlist)
+        tokenind = 0
+        while tokenind < len(tokenlist):
+            # print(tokenlist, tokenind)
+            if len(delimiters) > 0:
+                for o, c in delimiters:
+                    if o == 0:
+                        break
+                if o == 0:
+                    tokenind = c + 1
+            if tokenlist[tokenind] in self.operators:
+                break
+            else:
+                tokenind += 1
+        if tokenind == len(tokenlist):
+            return Node('', tokenlist[-1], '')
+        t = tokenlist[tokenind]
+        if t == 'not':
+            left = ''
+            right = tokenlist[tokenind+1:]
+        else:
+            left = tokenlist[:tokenind]
+            right = tokenlist[tokenind+1:]
+        
+        argumentdict = {}
+        for k, v in zip(['left','right'],[left,right]):
+            if type(v) is str:
+                argumentdict[k] = v
+                argumentdict[k+'str'] = ''
+            elif type(v) is list and len(v) == 1:
+                argumentdict[k] = v[0]
+                argumentdict[k+'str'] = ''        
+            else:
+                argumentdict[k+'str'] =  '(' + ' '.join(v) + ')'
+                argumentdict[k] = self.createBoolTree(v)
+        return Node(argumentdict['left'], t, argumentdict['right'],
+                    leftstr=argumentdict['leftstr'],
+                    rightstr=argumentdict['rightstr'])
+
+    def getParenCount(self, tokenlist):
+        parencount = 0
+        for t in tokenlist:
+            if t == '(':
+                parencount += 1
+            if t == ')':
+                parencount -= 1
+        return parencount
+
+    def removeDelimiters(self, tokenlist):
+        delimiters = self.getDelimiterPositions(tokenlist)
+        if len(delimiters) > 0:
+            for o, c in delimiters:
+                if o == 0:
+                    break
+            if o == 0 and len(tokenlist) == c + 1 + o:
+                tokenlist = list(tokenlist[1:-1])
+                delimiters = self.getDelimiterPositions(tokenlist)
+                # Call itself again
+                tokenlist = self.removeDelimiters(list(tokenlist))
+        return(tokenlist)
+
+    def printBoolTree(self, currnode):
+        l = currnode.left
+        r = currnode.right
+
+        if type(currnode.left) is not str:
+            l = currnode.leftstr
+            self.printBoolTree(currnode.left)
+
+        if type(currnode.right) is not str:
+            r = currnode.rightstr
+            self.printBoolTree(currnode.right)
+        print(l, currnode.op, r)
+
+    def constructPolynomial(self, currnode):
+        l = currnode.left
+        r = currnode.right
+
+        if type(currnode.left) is not str:
+            l = self.constructPolynomial(currnode.left)
+
+        if type(currnode.right) is not str:
+            r= self.constructPolynomial(currnode.right)
+        expr = ''
+        if currnode.op == 'or':
+            expr = '(1. - (1. - ' +l + ')*(1. - ' + r + '))'
+        elif currnode.op == 'and':
+            expr = '(' + l +'*' + r + ')'
+        elif currnode.op == 'not':
+            expr = '(1. - ' + r + ')'
+        else:
+            expr = currnode.op
+        return expr
+
+    def getDelimiterPositions(self, tokenlist):
+        separatordict = {'open':[],'close':[]}
+        for i, t in enumerate(tokenlist):
+            if t == '(':
+                separatordict['open'].append(i)
+            elif t == ')':
+                separatordict['close'].append(i)
+        if len(separatordict['open']) != len(separatordict['close']):
+            print(separatordict, tokenlist)
+            print('Imbalanced expession!')
+            sys.exit()
+        explocations = []
+        separatordict['close'].reverse()
+        while len(separatordict['open']) > 0:
+            c = separatordict['close'].pop()
+            o = max([l for l in separatordict['open'] if l < c])
+            separatordict['open'].remove(o)
+            explocations.append((o,c))
+        
+        return explocations
+
