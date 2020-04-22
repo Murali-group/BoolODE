@@ -1,6 +1,6 @@
 # Config file used to generate inputs for Beeline using Synthetic networks
 global_settings:
-  model_dir: "data"
+  model_dir: "models/"
   output_dir: "Synthetic"
   do_simulations: True
   do_post_processing: True
@@ -8,45 +8,45 @@ global_settings:
 
 jobs:
   - name: "dyn-LI"
-    model_definition: "dyn-linear.txt"
-    model_initial_conditions: "dyn-linear_ics.txt"
+    model_definition: "linear/dyn-linear.txt"
+    model_initial_conditions: "linear/dyn-linear_ics.txt"
     simulation_time: 5
     num_cells: 1000
     do_parallel: True
 
   - name: "dyn-LL"
-    model_definition: "dyn-linear-long.txt"
-    model_initial_conditions: "dyn-linear-long_ics.txt"
+    model_definition: "linear-long/dyn-linear-long.txt"
+    model_initial_conditions: "linear-long/dyn-linear-long_ics.txt"
     simulation_time: 15
     num_cells: 1000
     do_parallel: True
     
   - name: "dyn-CY"
-    model_definition: "dyn-cycle.txt"
-    model_initial_conditions: "dyn-cycle_ics.txt"
+    model_definition: "cycle/dyn-cycle.txt"
+    model_initial_conditions: "cycle/dyn-cycle_ics.txt"
     simulation_time: 8
     num_cells: 1000
     do_parallel: True    
 
   - name: "dyn-BF"
-    model_definition: "dyn-bifurcating.txt"
-    model_initial_conditions: "dyn-bifurcating_ics.txt"
+    model_definition: "bifurcating/dyn-bifurcating.txt"
+    model_initial_conditions: "bifurcating/dyn-bifurcating_ics.txt"
     simulation_time: 8
     num_cells: 1000
     do_parallel: True
     nClusters: 2    
 
   - name: "dyn-BFC"
-    model_definition: "dyn-bifurcating-converging.txt"
-    model_initial_conditions: "dyn-bifurcating-converging_ics.txt"
+    model_definition: "bifurcating-converging/dyn-bifurcating-converging.txt"
+    model_initial_conditions: "bifurcating-converging/dyn-bifurcating-converging_ics.txt"
     simulation_time: 8
     num_cells: 1000
     do_parallel: True
     nClusters: 2    
 
   - name: "dyn-TF"
-    model_definition: "dyn-trifurcating.txt"
-    model_initial_conditions: "dyn-trifurcating_ics.txt"
+    model_definition: "trifurcating/dyn-trifurcating.txt"
+    model_initial_conditions: "trifurcating/dyn-trifurcating_ics.txt"
     simulation_time: 8
     num_cells: 1000
     do_parallel: True
@@ -60,3 +60,5 @@ post_processing:
 
   DimRed:
     - perplexity: 100
+
+  geneExpression: True

@@ -1,6 +1,6 @@
 # Config file used to generate inputs for Beeline using Boolean models
 global_settings:
-  model_dir: "data"
+  model_dir: "models/"
   output_dir: "Curated"
   do_simulations: True
   do_post_processing: True
@@ -8,31 +8,31 @@ global_settings:
 
 jobs:
   - name: "mCAD"
-    model_definition: "mCAD.txt"
-    model_initial_conditions: "mCAD_ics.txt"
+    model_definition: "mCAD/mCAD.txt"
+    model_initial_conditions: "mCAD/mCAD_ics.txt"
     simulation_time: 5
     num_cells: 1000
     do_parallel: True
     nClusters: 2
 
   - name: "VSC"
-    model_definition: "VSC.txt"
+    model_definition: "VSC/VSC.txt"
     simulation_time: 5
     num_cells: 1000
     do_parallel: True
     nClusters: 5
 
   - name: "HSC"
-    model_definition: "HSC.txt"
-    model_initial_conditions: "HSC_ics.txt"
+    model_definition: "HSC/HSC.txt"
+    model_initial_conditions: "HSC/HSC_ics.txt"
     simulation_time: 8
     num_cells: 1000
     do_parallel: True
     nClusters: 4
 
   - name: "GSD"
-    model_definition: "GSD.txt"
-    model_initial_conditions: "GSD_ics.txt"
+    model_definition: "GSD/GSD.txt"
+    model_initial_conditions: "GSD/GSD_ics.txt"
     simulation_time: 8
     num_cells: 1000
     do_parallel: True
@@ -54,9 +54,11 @@ post_processing:
     - dropout: True
       drop_cutoff: 0.7
       drop_prob: 0.7
-      
+
+  geneExpression: True
+  
   Slingshot:
     - perplexity: 100
 
-  
+
 
