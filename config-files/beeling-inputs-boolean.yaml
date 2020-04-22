@@ -42,8 +42,9 @@ post_processing:
   GenSamples:
     - sample_size: 500
       nDatasets: 10
-
+      
   DimRed:
+    - perplexity: 50    
     - perplexity: 100
 
   Dropouts:
@@ -55,7 +56,7 @@ post_processing:
       drop_cutoff: 0.7
       drop_prob: 0.7
 
-  geneExpression: True
+  GeneExpression: True
   
   Slingshot:
     - perplexity: 100
