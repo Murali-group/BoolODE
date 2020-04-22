@@ -1,4 +1,5 @@
 import os
+import sys
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
@@ -6,15 +7,16 @@ from pathlib import Path
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 def genSamples(opts):
     """
     Generate samples of cells from a given set of simulations. This sample
     will then be used for other post processing steps. 
     """
+    force_resample = False
     numclusters = opts['nClusters']
     num_simulations = opts['num_cells']
-    
     if numclusters > 1:
         clusterdf = pd.read_csv(opts['outPrefix'] + '/ClusterIds.csv', index_col=0)
 
@@ -32,41 +34,40 @@ def genSamples(opts):
         # Beeline/inputs/DYN-LI-500-1/...
         outfpath = opts['outPrefix'] + '/' + opts['name'] + '-' + str(sample_size) + '-' + str(did)
         generatedPaths.append(outfpath)
-        
-        if not os.path.exists(outfpath):
+        if not os.path.exists(outfpath) or force_resample:
             print(outfpath, "does not exist, creating it...")
             os.makedirs(outfpath)
-        # Create cell ids
-        simids = np.random.choice(range(num_simulations), size=sample_size, replace=False)
-        fids = ['E'+ str(sid) + '.csv' for sid in simids]            
-        timepoints = np.random.choice(range(1,maxtime), size=sample_size)
-        min_t = min(timepoints)
-        max_t = max(timepoints)
-        pts = [(t - min_t)/(max_t - min_t) for t in timepoints]
-        cellids = ['E' + str(sid) + '_' + str(t) for sid, t in zip(simids, timepoints)] 
-        # Read simulations from input dataset #psetid
-        # to build a sample
-        sample = []
-        for fid, cid in tqdm(zip(fids, cellids)):
-            df = pd.read_csv( opts['outPrefix'] + '/simulations/' + fid, index_col=0)
-            df.sort_index(inplace=True)
-            sample.append(df[cid].to_frame())
-        sampledf = pd.concat(sample,axis=1)
-        sampledf.to_csv(outfpath + '/ExpressionData.csv')
-        ## Read refNetwork.csv
-        refdf = pd.read_csv(opts['outPrefix'] + '/refNetwork.csv')
-        refdf.to_csv(outfpath + '/refNetwork.csv',index=False)
-        if numclusters == 1:
-            ptdf = pd.DataFrame(np.array(pts),
-                            index=pd.Index(cellids),columns = ['PseudoTime'])
-        else:
-            subsetcluster = clusterdf.loc[[cid.split('_')[0] for cid in cellids]]
-            ptdf = pd.DataFrame(index=pd.Index(cellids),
-                                columns = ['PseudoTime' + str(1+i) for i in range(numclusters)])
-            for (cid, row), pt in zip(ptdf.iterrows(), pts):
-                ptdf.loc[cid]['PseudoTime' +\
-                              str(int(subsetcluster.loc[cid.split('_')[0]]['cl']) + 1)] = round(pt,5)
-        ptdf.to_csv(outfpath + '/PseudoTime.csv',na_rep='NA')
+            # Create cell ids
+            simids = np.random.choice(range(num_simulations), size=sample_size, replace=False)
+            fids = ['E'+ str(sid) + '.csv' for sid in simids]            
+            timepoints = np.random.choice(range(1,maxtime), size=sample_size)
+            min_t = min(timepoints)
+            max_t = max(timepoints)
+            pts = [(t - min_t)/(max_t - min_t) for t in timepoints]
+            cellids = ['E' + str(sid) + '_' + str(t) for sid, t in zip(simids, timepoints)] 
+            # Read simulations from input dataset #psetid
+            # to build a sample
+            sample = []
+            for fid, cid in tqdm(zip(fids, cellids)):
+                df = pd.read_csv( opts['outPrefix'] + '/simulations/' + fid, index_col=0)
+                df.sort_index(inplace=True)
+                sample.append(df[cid].to_frame())
+            sampledf = pd.concat(sample,axis=1)
+            sampledf.to_csv(outfpath + '/ExpressionData.csv')
+            ## Read refNetwork.csv
+            refdf = pd.read_csv(opts['outPrefix'] + '/refNetwork.csv')
+            refdf.to_csv(outfpath + '/refNetwork.csv',index=False)
+            if numclusters == 1:
+                ptdf = pd.DataFrame(np.array(pts),
+                                index=pd.Index(cellids),columns = ['PseudoTime'])
+            else:
+                subsetcluster = clusterdf.loc[[cid.split('_')[0] for cid in cellids]]
+                ptdf = pd.DataFrame(index=pd.Index(cellids),
+                                    columns = ['PseudoTime' + str(1+i) for i in range(numclusters)])
+                for (cid, row), pt in zip(ptdf.iterrows(), pts):
+                    ptdf.loc[cid]['PseudoTime' +\
+                                  str(int(subsetcluster.loc[cid.split('_')[0]]['cl']) + 1)] = round(pt,5)
+            ptdf.to_csv(outfpath + '/PseudoTime.csv',na_rep='NA')
     return generatedPaths
         
 
@@ -120,19 +121,56 @@ def doDimRed(opts):
     """
     ExpDF = pd.read_csv(opts['expr'],index_col=0, header = 0)
     ptDF = pd.read_csv(opts['pseudo'],index_col=0, header = 0)
-    perplexity = opts['perplexity']
-    print(perplexity)
-    print("Computing TSNE...")
-    DimRedRes = TSNE(n_components = 2, perplexity = perplexity).fit_transform(ExpDF.T)
+    perplexity = opts['perplexity']    
+    if opts['default']:
+        outname = 'tsne'
+    else:
+        outname = 'tsne' + str(perplexity)
+    if not os.path.exists(str(opts['expr'].parent / outname ) + '.tsv'):
+        print("Computing TSNE...")
+        DimRedRes = TSNE(n_components = 2, perplexity = perplexity).fit_transform(ExpDF.T)
+
+        DimRedDF = pd.DataFrame(DimRedRes,columns=['dim1','dim2'],
+                                index=pd.Index(list(ExpDF.columns)))
+        DimRedDF.loc[:,'pt'] = ptDF.min(axis='columns')    
+        DimRedDF.to_csv(str(opts['expr'].parent) + '/' + outname +'.tsv', sep='\t')
+        plt.figure()
+        plt.scatter(DimRedDF.dim1, DimRedDF.dim2, c=DimRedDF.pt)
+        plt.savefig(str(opts['expr'].parent)+'/' + outname + '.png')
+        plt.close()
+
+def plotGeneExpression(opts):
+    """
+    Make gene expression plots
+    """
+
+    ExpDF = pd.read_csv(opts['expr'], index_col=0)
+    ExpDF = ExpDF.T
+
+    genenames = list(ExpDF.columns)
+    numgenes = len(genenames)
     
-    DimRedDF = pd.DataFrame(DimRedRes,columns=['dim1','dim2'],
-                            index=pd.Index(list(ExpDF.columns)))
-    DimRedDF.loc[:,'pt'] = ptDF.min(axis='columns')    
-    DimRedDF.to_csv(str(opts['expr'].parent) + '/tsne' + str(perplexity)+'.tsv', sep='\t')
-    plt.figure()
-    plt.scatter(DimRedDF.dim1, DimRedDF.dim2, c=DimRedDF.pt)
-    plt.savefig(str(opts['expr'].parent)+'/tsne' + str(perplexity) + '.png')
-    plt.close()
+    if not Path(opts['expr'].parent / 'tsne.tsv').is_file():
+        # First compute tSNE if this hasn't been done
+        opts['default'] = True            
+        doDimRed(opts)
+    DimRedDF = pd.read_csv(opts['expr'].parent / 'tsne.tsv', sep='\t', index_col=0)
+    griddim = 1
+    while griddim**2 < numgenes:
+        griddim += 1
+    f = plt.figure(figsize=(griddim*3, griddim*3))
+
+    for gid, gene in enumerate(genenames):
+        ax = f.add_subplot(griddim, griddim, gid + 1)
+        DimRedDF[gene] = ExpDF[gene]
+        cmap = sns.cubehelix_palette(dark=.3, light=.8, as_cmap=True)        
+        sns.scatterplot(x='dim1', y='dim2',hue=gene,data=DimRedDF,
+                            palette=cmap, ax=ax)
+        ax.legend_.remove()
+        ax.set_title(gene)        
+    plt.tight_layout()
+    plt.savefig(str(opts['expr'].parent / 'geneExpression.png'))
+        
     
 def computeSSPT(opts):
     '''
@@ -147,15 +185,19 @@ def computeSSPT(opts):
     E.g., Trifurcating: k=4 (1 initial and 3 terminal)
     '''
     ExpDF = pd.read_csv(opts['expr'],index_col=0, header = 0)
-    ptDF = pd.read_csv(opts['pseudo'],index_col=0, header = 0)
+    detPT = pd.read_csv(opts['pseudo'],index_col=0, header = 0)
     nClust = opts['nClusters']
     outPath = opts['outPrefix']
+
+    if not os.path.exists(outPath):
+        print(outPath, "does not exist, creating it...")
+        os.makedirs(outPath)        
     perplexity = opts['perplexity']
     noEnd = opts['noEnd']
     
     if nClust == 1:
         # Return simulation time as PseduoTime
-        ptDF.loc[ExpDF.columns].to_csv(outPath+"/PseudoTime.csv", columns =['Time'])
+        detPT.loc[ExpDF.columns].to_csv(outPath+"/PseudoTime.csv")#, columns =['Time'])
  
     else:
         ### Compute PseudoTime ordering using slingshot
@@ -165,10 +207,11 @@ def computeSSPT(opts):
         # TODO: Add PCA
 
         # Step-2: Read TSNE results to a dataframe
-        if not Path(settings['expr'].parent / 'tsne.tsv').is_file():
+        if not Path(opts['expr'].parent / 'tsne.tsv').is_file():
             # First compute tSNE if this hasn't been done
+            opts['default'] = True            
             doDimRed(opts)
-        DimRedDF = pd.read_csv(settings['expr'].parent / 'tsne.tsv',sep='\t')
+        DimRedDF = pd.read_csv(opts['expr'].parent / 'tsne.tsv',sep='\t')
         
         # Step-3: Compute kMeans clustering
         DimRedDF.loc[:,'cl'] = KMeans(n_clusters = nClust).fit(ExpDF.T).labels_
@@ -219,41 +262,12 @@ def computeSSPT(opts):
 
         tn['cl'] = cl.values
         tn.columns = ['CellID','dim1','dim2','kMeans']
+        tn.CellID = detPT.index
         tn.index = tn.CellID
 
         f, axes = plt.subplots(2, 2, figsize=(7.5, 7.5))
-
-        # Plot slingshot pseudotime 
-        # and original clusters
-        detPT = pd.read_csv(outPath+"/SlingshotPT.csv",
-             header = 0, index_col = 0)
-        print()
-        colNames = detPT.columns
-        for colName in colNames:
-            # Select cells belonging to each pseudotime trajectory
-            index = detPT[colName].index[detPT[colName].notnull()]
-            tn.loc[index,colName] = detPT.loc[index,colName]
-
-
-            sns.scatterplot(x='dim1',y='dim2', 
-                            data = tn.loc[index],  hue = colName,
-                            palette = "viridis", 
-                            ax = axes[1][0])
-            plt.legend([])
-
-        for line in range(0, lneCnt, 2):
-            sns.lineplot(x= curveLst[line+1],y=curveLst[line],
-                            color = "k", ax = axes[1][0])
-
-        sns.scatterplot(x='dim1',y='dim2', 
-                        data = tn,  hue = 'kMeans',
-                        palette = "Set1", 
-                        ax = axes[1][1])
-
         # Plot deterministic pseduotime 
         # and original clusters
-        detPT = pd.read_csv(outPath+"/PseudoTime.csv",
-             header = 0, index_col = 0)
         colNames = detPT.columns
         for idx in range(len(colNames)):
             # Select cells belonging to each pseudotime trajectory
@@ -269,12 +283,40 @@ def computeSSPT(opts):
                         ax = axes[0][0])
 
         sns.scatterplot(x='dim1',y='dim2', 
-        data = tn,  hue = 'Original',
-        palette = "Set1", 
-        ax = axes[0][1])
+                        data = tn,  hue = 'Original',
+                        palette = "Set1", 
+                        ax = axes[0][1])
+        
+        # Plot slingshot pseudotime 
+        # and original clusters
+        ptDF = pd.read_csv(outPath+"/SlingshotPT.csv",
+             header = 0, index_col = 0)
+        ptDF.index = detPT.index
+        colNames = ptDF.columns
+        for colName in colNames:
+            # Select cells belonging to each pseudotime trajectory
+            index = ptDF[colName].index[ptDF[colName].notnull()]
+            tn.loc[index,colName] = ptDF.loc[index,colName]
+            sns.scatterplot(x='dim1',y='dim2', 
+                            data = tn.loc[index],  hue = colName,
+                            palette = "viridis", 
+                            ax = axes[1][0])
+            plt.legend([])
+
+        for line in range(0, lneCnt, 2):
+            sns.lineplot(x=curveLst[line+1],
+                         y=curveLst[line],
+                         color="k", ax=axes[1][0])
+            
+        # K-means clustering
+        sns.scatterplot(x='dim1',y='dim2', 
+                        data = tn,  hue = 'kMeans',
+                        palette = "Set1", 
+                        ax = axes[1][1])
 
         axes[0][0].get_legend().remove()
         axes[0][0].title.set_text('Experiment Time')
+        
         axes[0][1].get_legend().remove()
         axes[0][1].title.set_text('Original Trajectories')
 
