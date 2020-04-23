@@ -436,10 +436,8 @@ class GenerateModel:
     def shsparse(self, regulators, rule):
         parser = BoolParser(str(rule))
         shsexp = parser.constructPolynomial(parser.createBoolTree())
-        #basal = '-0.3 + ' # This works, but I don't know which threshold will approximate the Hill function behavior better
-        # sigma = 10        
+        sigma = 20 #10, 20 matches steepness of the Hill version
         basal = '-0.5 + '
-        sigma = 10
         ymax = self.kineticParameterDefaults['y_max']
         # NOTE: Another possibility here is to raise each term to an exponent
         # When I tried this out, most simulations "failed" by producing close-to-zero expression for all genes

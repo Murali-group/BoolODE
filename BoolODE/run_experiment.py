@@ -27,7 +27,6 @@ def Experiment(mg, Model,
                tspan,
                settings,
                icsDF,
-               writeProtein=False,
                normalizeTrajectory=False):
     """
     Carry out an `in-silico` experiment. This function takes as input 
@@ -61,6 +60,7 @@ def Experiment(mg, Model,
     ## Use default parameters 
     pars = [mg.ModelSpec['pars'][k] for k in parNames]
     ####################
+          
     rnaIndex = [i for i in range(len(mg.varmapper.keys())) if 'x_' in mg.varmapper[i]]
     revvarmapper = {v:k for k,v in mg.varmapper.items()}
     proteinIndex = [i for i in range(len(mg.varmapper.keys())) if 'p_' in mg.varmapper[i]]
@@ -119,7 +119,7 @@ def Experiment(mg, Model,
     argdict['timeIndex'] = timeIndex
     argdict['genelist'] = mg.genelist
     argdict['proteinlist'] = mg.proteinlist
-    argdict['writeProtein'] = writeProtein
+    argdict['writeProtein'] = settings['writeProtein']
     argdict['outPrefix'] = outPrefix
     argdict['sampleCells'] = settings['sample_cells'] # TODO consider removing this option
     argdict['pars'] = pars
@@ -254,7 +254,6 @@ def startRun(settings):
                           tspan,
                           settings,
                           icsDF,
-                          writeProtein=settings['writeProtein'],
                           normalizeTrajectory=settings['normalizeTrajectory'])
     
     # Write simulation output. Creates ground truth files.
