@@ -93,7 +93,7 @@ def simulateModel(Model, y0, parameters,isStochastic, tspan,seed):
 def getInitialCondition(ss, ModelSpec, rnaIndex,
                         proteinIndex,
                         genelist, proteinlist,
-                        varmapper,revvarmapper):
+                        varmapper,revvarmapper, seed=0):
     """
     Calculate the initial values of all state variables. 
     Takes into consideration user defined initial conditions, and computes the steady 
@@ -137,8 +137,12 @@ def getInitialCondition(ss, ModelSpec, rnaIndex,
             new_ics[ind] = 0            
     # Calculate the Protein ics based on mRNA levels
     for genename in genelist:
-        pss = ((ModelSpec['pars']['r_' + genename])/\
-                                      (ModelSpec['pars']['l_p_' + genename]))\
-                                      *new_ics[revvarmapper['x_' + genename]]
+        ymult = (ModelSpec['pars']['r_' + genename])/(ModelSpec['pars']['l_p_' + genename])
+        pss = ymult*new_ics[revvarmapper['x_' + genename]]
+        ymax = 20
+        #new_ics[revvarmapper['p_' + genename.replace('_','')]] = pss
+        seed += 1000
+        np.random.seed(seed)
+        pss = pss + 0.5*np.random.random()*(ymax-pss) # add a random kick, 50% more than calculated threshold
         new_ics[revvarmapper['p_' + genename.replace('_','')]] = pss
     return(new_ics)

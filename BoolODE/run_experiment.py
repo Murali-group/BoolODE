@@ -317,11 +317,12 @@ def simulateAndSample(argdict):
     ## gene ids
     gid = [i for i,n in varmapper.items() if 'x_' in n]
     outPrefix = outPrefix + '/simulations/'
+
     while retry:
         seed += 1000
         y0_exp = simulator.getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
                                      genelist, proteinlist,
-                                     varmapper,revvarmapper)
+                                               varmapper,revvarmapper, seed=seed)
         
         P = simulator.simulateModel(Model, y0_exp, pars, isStochastic, tspan, seed)
         P = P.T
