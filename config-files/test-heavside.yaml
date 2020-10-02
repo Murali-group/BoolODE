@@ -1,68 +1,104 @@
 global_settings:
   model_dir: "models"
-  output_dir: "test-heaviside"
+  output_dir: "test-debug-hill"
   do_simulations: True
   do_post_processing: True
   modeltype: 'heaviside'
+  # modeltype: 'heaviside'  
 
 jobs:
-  - name: "dyn-LI"
-    model_definition: "linear/dyn-linear.txt"
-    model_initial_conditions: "linear/dyn-linear_ics.txt"
-    simulation_time: 5
-    num_cells: 300
-    do_parallel: True
+  # - name: "dyn-LI-small"
+  #   model_definition: "linear/dyn-linear.txt"
+  #   model_initial_conditions: "linear/dyn-linear_ics.txt"
+  #   simulation_time: 5
+  #   num_cells: 300
+  #   do_parallel: True
 
-  - name: "dyn-BF"
-    model_definition: "bifurcating/dyn-bifurcating.txt"
-    model_initial_conditions: "bifurcating/dyn-bifurcating_ics.txt"
-    simulation_time: 5
-    num_cells: 300
-    do_parallel: True
-    nClusters: 2
-
-  - name: "dyn-CY"
-    model_definition: "cycle/dyn-cycle.txt"
-    model_initial_conditions: "cycle/dyn-cycle_ics.txt"
-    simulation_time: 8
-    num_cells: 300
-    do_parallel: True        
-
-  - name: "dyn-CO"
-    model_definition: "converging/dyn-converging.txt"
-    model_initial_conditions: "converging/dyn-converging_ics.txt"
-    simulation_time: 8
-    num_cells: 300
-    do_parallel: True
-    nClusters: 2    
+  # - name: "dyn-BF"
+  #   model_definition: "bifurcating/dyn-bifurcating.txt"
+  #   model_initial_conditions: "bifurcating/dyn-bifurcating_ics.txt"
+  #   simulation_time: 7
+  #   num_cells: 400
+  #   do_parallel: True
+  #   nClusters: 2
+  
+  # - name: "mCAD-h"
+  #   model_definition: "mCAD/mCAD.txt"
+  #   model_initial_conditions: "mCAD/mCAD_ics.txt"
+  #   simulation_time: 8
+  #   num_cells: 400
+  #   do_parallel: True
+  #   nClusters: 2
     
-  - name: "dyn-BFC"
-    model_definition: "bifurcating-converging/dyn-bifurcating-converging.txt"
-    model_initial_conditions: "bifurcating-converging/dyn-bifurcating-converging_ics.txt"
-    simulation_time: 8
-    num_cells: 300
-    do_parallel: True
-    nClusters: 2    
-
-  - name: "dyn-TF"
-    model_definition: "trifurcating/dyn-trifurcating.txt"
-    model_initial_conditions: "trifurcating/dyn-trifurcating_ics.txt"
-    simulation_time: 8
-    num_cells: 300
-    do_parallel: True
-    nClusters: 3
+  # - name: "VSC-h"
+  #   model_definition: "VSC/VSC.txt"
+  #   simulation_time: 8
+  #   num_cells: 400
+  #   do_parallel: True
+  #   nClusters: 5
     
-  - name: "dyn-LL"
-    model_definition: "linear-long/dyn-linear-long.txt"
-    model_initial_conditions: "linear-long/dyn-linear-long_ics.txt"
-    simulation_time: 9
-    num_cells: 300
+  # - name: "HSC-exponent-lowsigma-1"
+  #   model_definition: "HSC/HSC.txt"
+  #   model_initial_conditions: "HSC/HSC_ics.txt"
+  #   simulation_time: 7
+  #   num_cells: 400
+  #   do_parallel: True
+  #   nClusters: 4
+    
+  - name: "HSC"
+    model_definition: "HSC/HSC.txt"
+    model_initial_conditions: "HSC/HSC_ics.txt"
+    simulation_time: 8
+    num_cells: 400
     do_parallel: True
+    nClusters: 4
+    write_protein: False
+    
+  # - name: "dyn-CY"
+  #   model_definition: "cycle/dyn-cycle.txt"
+  #   model_initial_conditions: "cycle/dyn-cycle_ics.txt"
+  #   simulation_time: 8
+  #   num_cells: 300
+  #   do_parallel: True
+
+  # - name: "dyn-CO"
+  #   model_definition: "converging/dyn-converging.txt"
+  #   model_initial_conditions: "converging/dyn-converging_ics.txt"
+  #   simulation_time: 8
+  #   num_cells: 400
+  #   do_parallel: True
+  #   nClusters: 2
+    
+  # - name: "dyn-BFC"
+  #   model_definition: "bifurcating-converging/dyn-bifurcating-converging.txt"
+  #   model_initial_conditions: "bifurcating-converging/dyn-bifurcating-converging_ics.txt"
+  #   simulation_time: 8
+  #   num_cells: 500
+  #   do_parallel: True
+  #   nClusters: 2    
+
+  # - name: "dyn-TF"
+  #   model_definition: "trifurcating/dyn-trifurcating.txt"
+  #   model_initial_conditions: "trifurcating/dyn-trifurcating_ics.txt"
+  #   simulation_time: 8
+  #   num_cells: 500
+  #   do_parallel: True
+  #   nClusters: 3
+    
+  # - name: "dyn-LL"
+  #   model_definition: "linear-long/dyn-linear-long.txt"
+  #   model_initial_conditions: "linear-long/dyn-linear-long_ics.txt"
+  #   simulation_time: 9
+  #   num_cells: 500
+  #   do_parallel: True
 
 post_processing:
   GenSamples:
-    - sample_size: 300
+    - sample_size: 1000
       nDatasets: 1
       
   DimRed:
+    - perplexity: 30
     - perplexity: 100
+
+  GeneExpression: True      
