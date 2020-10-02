@@ -35,13 +35,14 @@ class PostProcSettings(object):
                  dropout_jobs,
                  dimred_jobs,
                  slingshot_jobs,
-                 gensample_jobs) -> None:
+                 gensample_jobs,
+                 geneexpression_jobs) -> None:
         
         self.dropout_jobs = dropout_jobs
         self.dimred_jobs = dimred_jobs
         self.slingshot_jobs = slingshot_jobs
         self.gensample_jobs = gensample_jobs
-
+        self.geneexpression_jobs = geneexpression_jobs        
 
 class BoolODE(object):
     '''
@@ -136,21 +137,25 @@ class BoolODE(object):
         Call genSamples() first. Then run DimRed runSlingShot,  
         generateDropouts, if specified by the user.
         """
-        alljobs =  self.jobs.keys()
+        alljobs =  list(self.jobs.keys())
         filetypedict = {'expr':'ExpressionData.csv',
                         'pseudo':'PseudoTime.csv',
                         'refNet':'refNetwork.csv'}
 
         ## Always do genSamples() once if even a single other analysis is requested!
+        doOtherAnalysis = False
         if self.post_settings.dropout_jobs\
            or self.post_settings.dimred_jobs\
+           or self.post_settings.geneexpression_jobs\
            or self.post_settings.slingshot_jobs:
             doOtherAnalysis = True
+        generatedPaths = {}
             
         if self.post_settings.gensample_jobs is not None\
            or doOtherAnalysis:
             print("Generating Samples...")
             if self.post_settings.gensample_jobs is None:
+                gsamp = {}
                 gsamp['sample_size'] = self.jobs[alljobs[0]]['num_cells']
                 gsamp['nDatasets'] = 1
                 gensample_jobs = [gsamp]
@@ -165,14 +170,14 @@ class BoolODE(object):
                     settings['nDatasets'] = gsamp.get('nDatasets', 1)
                     settings['name'] = self.jobs[jobid]['name']
                     settings['nClusters'] = self.jobs[jobid]['nClusters']
-                    generatedPaths = po.genSamples(settings)
+                    generatedPaths[jobid] = po.genSamples(settings)
         
         if self.post_settings.dropout_jobs is not None:
             print('Starting genDropouts...')
             for drop in self.post_settings.dropout_jobs:
                 num_invalid = 0
                 for jobid in alljobs:
-                    for gsampPath in generatedPaths:
+                    for gsampPath in generatedPaths[jobid]:
                         settings = {}
                         invalid = False
                         settings['outPrefix'] = gsampPath 
@@ -204,17 +209,19 @@ class BoolODE(object):
             for dimred_jobs in self.post_settings.dimred_jobs:
                 num_invalid = 0
                 for jobid in alljobs:
-                    for gsampPath in generatedPaths:
+                    for gsampPath in generatedPaths[jobid]:
+                        print(f"perplexity=",dimred_jobs['perplexity'])
                         settings = {}
                         invalid = False                    
                         settings['expr'] = Path(gsampPath,\
                                                 'ExpressionData.csv')
                         settings['pseudo'] = Path(gsampPath,\
                                                 'PseudoTime.csv')
-                        settings['perplexity'] = dimred_jobs['perplexity']
+                        settings['perplexity'] = dimred_jobs['perplexity'] 
+                        settings['default'] = False                       
                         for filetype in ['expr', 'pseudo']:
                             if not settings[filetype].is_file():
-                                print(self.jobs[jobid]['name'], ':',filetypedict[filetype], "not found. Retry with `do_simulations: True` in global_settings.")                            
+                                print(self.jobs[jobid]['name'], ':',filetypedict[filetype], "not found. Retry with `do_simulations: True` in global_settings.")
                                 invalid = True
                                 num_invalid += 1
                                 break
@@ -223,6 +230,30 @@ class BoolODE(object):
                             all_invalid = False
                     if num_invalid == len(alljobs):
                         break
+
+        if self.post_settings.geneexpression_jobs is not None:
+            if self.post_settings.dimred_jobs is None:
+                print("Using default perplexity=50 (Specify `perplexity` under DimRed)")
+                perplexity = 50
+            else:
+                if len(self.post_settings.dimred_jobs) > 1:
+                    perplexity = min([j['perplexity'] for j in self.post_settings.dimred_jobs])
+                else:
+                    perplexity = self.post_settings.dimred_jobs[0]['perplexity']
+                    
+            print("Plotting gene expression levels in tSNE projection")
+            for jobid in alljobs:
+                for gsampPath in generatedPaths[jobid]:
+                    print(gsampPath)                        
+                    settings = {}
+                    invalid = False                    
+                    settings['expr'] = Path(gsampPath,\
+                                            'ExpressionData.csv')
+                    settings['pseudo'] = Path(gsampPath,\
+                                              'PseudoTime.csv')                    
+                    settings['perplexity'] = perplexity
+                    settings['default'] = False                       
+                    po.plotGeneExpression(settings)
             
         if self.post_settings.slingshot_jobs is not None:
             if self.post_settings.dimred_jobs is None:
@@ -230,10 +261,10 @@ class BoolODE(object):
             print('Starting SlingShot...')
             for sshot in self.post_settings.slingshot_jobs:
                 for jobid in alljobs:
-                    for gsampPath in generatedPaths:
+                    for gsampPath in generatedPaths[jobid]:
                         settings = {}
                         invalid = False
-                        settings['outPrefix'] = gsamp + '-ss'
+                        settings['outPrefix'] = gsampPath + '/' + gsampPath.split('/')[-1] + '-ss'
                         settings['expr'] = Path(gsampPath\
                                                 ,'ExpressionData.csv')
                         settings['pseudo'] = Path(gsampPath\
@@ -300,10 +331,6 @@ class ConfigParser(object):
         do_simulations = input_settings_map['do_simulations']
         do_post_processing = input_settings_map['do_post_processing']
         modeltype = input_settings_map['modeltype']
-
-
-
-        
         return GlobalSettings(model_dir,
                               output_dir,
                               do_simulations,
@@ -314,5 +341,8 @@ class ConfigParser(object):
         dropout_jobs = input_settings_map.get('Dropouts', None)
         slingshot_jobs = input_settings_map.get('Slingshot', None)
         dimred_jobs = input_settings_map.get('DimRed', None)
-        gensample_jobs = input_settings_map.get('genSamples', None)
-        return PostProcSettings(dropout_jobs, dimred_jobs, slingshot_jobs, gensample_jobs)
+        gensample_jobs = input_settings_map.get('GenSamples', None)
+        geneexpression_jobs = input_settings_map.get('GeneExpression', None)        
+        return PostProcSettings(dropout_jobs, dimred_jobs,
+                                slingshot_jobs, gensample_jobs,
+                                geneexpression_jobs)
