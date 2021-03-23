@@ -32,6 +32,3 @@ for n_clusters in range_n_clusters:
           "The average silhouette_score is :", silhouette_avg)
 
     silhouette_avg_n_clusters.append(silhouette_avg)
-    # Compute the silhouette scores for each sample
-    sample_silhouette_values = silhouette_samples(X, cluster_labels)
-    
