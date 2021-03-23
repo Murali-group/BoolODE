@@ -11,8 +11,8 @@ import numpy as np
 import matplotlib.style as style
 
 #Read ExpressionData.csv file
-data = pd.read_csv (r'--FilePathtoExpressionData.csv--')
-X = data.drop(data.columns[0], axis=1).transpose()
+data = pd.read_csv (r'/Users/cbuck016/Desktop/BoolODE-0.1/VSC_5000/ExpressionData.csv', index_col=0)
+X = data.transpose()
 print(X)
 
 range_n_clusters = [2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -37,3 +37,4 @@ best_avg_silhouette_value = max(silhouette_avg_n_clusters)
 best_num_cluster = silhouette_avg_n_clusters.index(best_avg_silhouette_value)
 
 print("The best average silhouette score is: ", best_avg_silhouette_value)
+
