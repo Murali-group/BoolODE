@@ -6,7 +6,7 @@ maxtime = "8"
 numcells = "1000"
 numdatasets = "10"
 
-output_dir="CuratedData/"
+output_dir = "CuratedData/"
 
 
 # Boolean model 1: mCAD
