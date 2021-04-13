@@ -18,11 +18,11 @@ for i in list_of_mCAD_sims:
 
 echo "Simulating "$model_name
 python3 $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name".txt" \
-										--ics $path_to_boolode/data/$model_name"_ics.txt" \
-										--max-time $maxtime --num-cells $numcells \
-										--do-parallel \
-										--outPrefix $output_dir$output_name"/" \
-										--sample-cells 
+					--ics $path_to_boolode/data/$model_name"_ics.txt" \
+					--max-time $maxtime --num-cells $numcells \
+					--do-parallel \
+					--outPrefix $output_dir$output_name"/" \
+					--sample-cells 
 
 
 # Boolean model 2: VSC
@@ -34,10 +34,10 @@ for i in list_of_VSC_sims:
 
 echo "Simulating "$model_name
 python3 $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name".txt" \
-										--max-time $maxtime --num-cells $numcells \
-										--do-parallel \
-										--outPrefix $output_dir$output_name"/" \
-										--sample-cells 
+					--max-time $maxtime --num-cells $numcells \
+					--do-parallel \
+					--outPrefix $output_dir$output_name"/" \
+					--sample-cells 
 
 
 # Boolean model 3: HSC
@@ -49,11 +49,11 @@ for i in list_of_HSC_sims:
 
 echo "Simulating "$model_name
 python3 $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name".txt" \
-										--ics $path_to_boolode/data/$model_name"_ics.txt" \
-										--max-time $maxtime --num-cells $numcells \
-										--do-parallel \
-										--outPrefix $output_dir$output_name"/" \
-										--sample-cells 
+					--ics $path_to_boolode/data/$model_name"_ics.txt" \
+					--max-time $maxtime --num-cells $numcells \
+					--do-parallel \
+					--outPrefix $output_dir$output_name"/" \
+					--sample-cells 
 
 
 # Boolean model 4: GSD
@@ -65,11 +65,11 @@ for i in list_of_GSD_sims:
 
 echo "Simulating "$model_name
 python3 $path_to_boolode/src/BoolODE.py --path $path_to_boolode/data/$model_name".txt" \
-										--ics $path_to_boolode/data/$model_name"_ics.txt" \
-										--max-time $maxtime --num-cells $numcells \
-										--do-parallel \
-										--outPrefix $output_dir$output_name"/" \
-										--sample-cells 
+					--ics $path_to_boolode/data/$model_name"_ics.txt" \
+					--max-time $maxtime --num-cells $numcells \
+					--do-parallel \
+					--outPrefix $output_dir$output_name"/" \
+					--sample-cells 
 
 
 
