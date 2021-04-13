@@ -21,7 +21,7 @@ for mCAD_sim in list_of_mCAD_sims:
 						--do-parallel \
 						--outPrefix $output_dir$output_name"/" \
 						--sample-cells 
-	
+
 
 # Boolean model 2: VSC
 model_name = "VSC"
