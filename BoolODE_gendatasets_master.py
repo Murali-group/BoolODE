@@ -16,7 +16,7 @@ if __name__ == "__main__":
     if os.path.exists(parsed_args.inputdir):
       print("File exists")
 
-num_simulations = 10
+num_simulations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 num_cells = [250, 500, 1000, 2000, 5000]
 num_timesteps = [100, 200, 400, 800, 1600]
 model_name = 'mCAD'
