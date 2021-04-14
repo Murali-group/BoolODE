@@ -26,7 +26,6 @@ for cells in num_cells:
         for i in num_simulations:
             experiment_name = model_name + '-ts-' + str(num_timesteps) + '-cells-' + str(num_cells) + '-sim-' + str(num_simulations)
             input_file_prefix = inputdir + '/data/' + model_name 
-            # you may have to create the directory corresponding to experiment_name since it may not exist.
             command = 'python3 BoolODE.py --path ' + input_file_prefix + '.txt' 
             + '--ics ' + input_file_prefix + '_ics.txt'
             + '--max-time ' + str(num_timesteps) + ' --num-cells ' + str(num_cells) 
