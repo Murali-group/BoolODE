@@ -4,17 +4,20 @@ import argparse
 import sys
 import os
 
-def create_arg_parser():
-    parser = argparse.ArgumentParser(description='input pathway and output directory')
-    parser.add_argument('pathtoBoolODE', help='Path to BoolODE')
-    parser.add_argument('--output-dir', help='Path to output files')
-    return parser
+pathtoBoolODE = '/home/cbuck016/BoolODE-0.1/'
+outputdir = '/home/cbuck016/BoolODE-0.1/Test1/'
 
-if __name__ == "__main__":
-    arg_parser = create_arg_parser()
-    parsed_args = arg_parser.parse_args(sys.argv[1:])
-    if os.path.exists(parsed_args.pathtoBoolODE):
-      print("File exists")
+#def create_arg_parser():
+#    parser = argparse.ArgumentParser(description='input pathway and output directory')
+#    parser.add_argument('pathtoBoolODE', help='Path to BoolODE')
+#    parser.add_argument('--output-dir', help='Path to output files')
+#    return parser
+
+#if __name__ == "__main__":
+#    arg_parser = create_arg_parser()
+#    parsed_args = arg_parser.parse_args(sys.argv[1:])
+#    if os.path.exists(parsed_args.pathtoBoolODE):
+#      print("File exists")
 
 num_simulations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 num_cells = [250, 500, 1000, 2000, 5000]
@@ -30,7 +33,7 @@ for cells in num_cells:
             + '--ics ' + input_file_prefix + '_ics.txt'
             + '--max-time ' + str(num_timesteps) + ' --num-cells ' + str(num_cells) 
             + ' --do-parallel '
-            + ' --outPrefix ' + experiment_name + "/sim-" + str(num_simulations) + ".out"
+            + ' --outPrefix ' + outputdir + experiment_name + "/sim-" + str(num_simulations) + ".out"
             + ' --sample-cells'
             print(command)
             os.system(command)
