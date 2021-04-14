@@ -13,7 +13,7 @@ def create_arg_parser():
 if __name__ == "__main__":
     arg_parser = create_arg_parser()
     parsed_args = arg_parser.parse_args(sys.argv[1:])
-    if os.path.exists(parsed_args.inputdir):
+    if os.path.exists(parsed_args.path-to-BoolODE):
       print("File exists")
 
 num_simulations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
