@@ -31,9 +31,9 @@ for cells in num_cells:
             input_file_prefix = pathtoBoolODE + 'data/' + model_name 
             command = 'python3 ' + pathtoBoolODE + 'BoolODE.py --path ' + input_file_prefix + '.txt' \
             + '--ics ' + input_file_prefix + '_ics.txt' \
-            + '--max-time ' + str(num_timesteps) + ' --num-cells ' + str(num_cells) \
+            + '--max-time ' + str(ts) + ' --num-cells ' + str(cells) \
             + ' --do-parallel ' \
-            + ' --outPrefix ' + outputdir + experiment_name + "/sim-" + str(num_simulations) + ".out" \
+            + ' --outPrefix ' + outputdir + experiment_name + "/sim-" + str(i) + ".out" \
             + ' --sample-cells'
             print(command)
             os.system(command)
