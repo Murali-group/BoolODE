@@ -33,8 +33,8 @@ for cells in num_cells:
             experiment_name = model_name + '-ts-' + str(ts) + '-cells-' + str(cells) + '-sim-' + str(i)
             input_file_prefix = pathtoBoolODE + 'data/' + model_name 
             command = 'python3 ' + pathtoBoolODE + 'src/BoolODE.py --path ' + input_file_prefix + '.txt ' \
-            + '--ics ' + input_file_prefix + '_ics.txt ' \
-            + '--max-time ' + str(ts) + ' --num-cells ' + str(cells) \
+            + ' --ics ' + input_file_prefix + '_ics.txt ' \
+            + ' --max-time ' + str(ts) + ' --num-cells ' + str(cells) \
             + ' --do-parallel ' \
             + ' --outPrefix ' + outputdir + experiment_name + "/sim-" + str(i) + ".out" \
             + ' --sample-cells'
