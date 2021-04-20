@@ -29,7 +29,7 @@ for cells in num_cells:
         for i in num_simulations:
             experiment_name = model_name + '-ts-' + str(num_timesteps) + '-cells-' + str(num_cells) + '-sim-' + str(num_simulations)
             input_file_prefix = pathtoBoolODE + '/data/' + model_name 
-            command = 'python3 BoolODE.py --path ' + input_file_prefix + '.txt' \
+            command = 'python3 ' + pathtoBoolODE + '/BoolODE.py --path ' + input_file_prefix + '.txt' \
             + '--ics ' + input_file_prefix + '_ics.txt' \
             + '--max-time ' + str(num_timesteps) + ' --num-cells ' + str(num_cells) \
             + ' --do-parallel ' \
