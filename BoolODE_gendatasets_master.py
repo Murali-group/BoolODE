@@ -36,7 +36,7 @@ for cells in num_cells:
             + ' --ics ' + input_file_prefix + '_ics.txt ' \
             + ' --max-time ' + str(ts) + ' --num-cells ' + str(cells) \
             + ' --do-parallel ' \
-            + ' --outPrefix ' + outputdir + experiment_name + "/sim-" + str(i) + ".out" \
+            + ' --outPrefix ' + outputdir + experiment_name + "/sim-" + str(i) + "-" \
             + ' --sample-cells'
             print(command)
             os.system(command)
