@@ -4,7 +4,7 @@ import argparse
 import sys
 import os
 
-pathtoBoolODE = PYTHONPATH
+pathtoBoolODE = '/home/cbuck016/BoolODE-0.1/src/'
 outputdir = '/home/cbuck016/BoolODE-0.1/Test1/'
 
 #def create_arg_parser():
