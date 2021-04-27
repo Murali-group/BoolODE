@@ -27,7 +27,7 @@ model_name = 'mCAD'
 for cells in num_cells:
     for ts in num_timesteps:
         for i in num_simulations:
-            experiment_name = model_name + '-ts-' + str(ts) + '-cells-' + str(cells) + '-sim-' + str(i)
+            experiment_name = model_name + '-ts-' + str(ts) + '00' + '-cells-' + str(cells) + '-sim-' + str(i)
             input_file_prefix = pathtoBoolODE + 'data/' + model_name 
             command = 'python3 ' + pathtoBoolODE + 'src/BoolODE.py --path ' + input_file_prefix + '.txt ' \
             + ' --ics ' + input_file_prefix + '_ics.txt ' \
