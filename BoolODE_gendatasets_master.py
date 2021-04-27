@@ -5,7 +5,7 @@ import sys
 import os
 
 pathtoBoolODE = '/home/cbuck016/BoolODE-0.1/'
-outputdir = '/home/cbuck016/BoolODE-0.1/Test1/'
+outputdir = '/home/cbuck016/BoolODE-0.1/mCAD-sims/'
 
 #def create_arg_parser():
 #    parser = argparse.ArgumentParser(description='input pathway and output directory')
@@ -19,13 +19,9 @@ outputdir = '/home/cbuck016/BoolODE-0.1/Test1/'
 #    if os.path.exists(parsed_args.pathtoBoolODE):
 #      print("File exists")
 
-num_simulations = [1]
-num_cells = [250]
-num_timesteps = [1]
-
-#num_simulations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-#num_cells = [250, 500, 1000, 2000, 5000]
-#num_timesteps = [1, 2, 4, 8, 16]
+num_simulations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+num_cells = [250, 500, 1000, 2000, 5000]
+num_timesteps = [1, 2, 4, 8, 16]
 model_name = 'mCAD'
 
 for cells in num_cells:
