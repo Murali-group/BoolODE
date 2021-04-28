@@ -5,7 +5,7 @@ import sys
 import os
 
 pathtoBoolODE = '/home/cbuck016/BoolODE-0.1/'
-outputdir = '/home/cbuck016/BoolODE-0.1/HSC-sims/'
+outputdir = '/home/cbuck016/BoolODE-0.1/GSD-sims/'
 
 #def create_arg_parser():
 #    parser = argparse.ArgumentParser(description='input pathway and output directory')
@@ -22,7 +22,7 @@ outputdir = '/home/cbuck016/BoolODE-0.1/HSC-sims/'
 num_simulations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 num_cells = [250, 500, 1000, 2000, 5000]
 num_timesteps = [1, 2, 4, 8, 16]
-model_name = 'HSC'
+model_name = 'GSD'
 
 for cells in num_cells:
     for ts in num_timesteps:
