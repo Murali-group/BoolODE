@@ -1,21 +1,19 @@
 #Silhouette Method for use with output results from BoolODE datasets -- IN PROGRESS
 
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_samples, silhouette_score
-
 import os
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import numpy as np
-import matplotlib.style as style
 
-pathtoBoolFiles = '/home/cbuck016/BoolODE-0.1/mCAD-sims/'
+pathtoBoolOutFile = '/home/cbuck016/BoolODE-0.1/mCAD-sims/'
+
+num_simulations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+num_cells = [250, 500, 1000, 2000, 5000]
+num_timesteps = [1, 2, 4, 8, 16]
 model_name = 'mCAD'
-experiment_name = model_name + '-ts-' + str(ts)
-pathtoExpressionDataFile = pathtoBoolFiles + '
 
-filenames = ['sim-1-ExpressionData.csv', 'sim-2-ExpressionData.csv'...]
-dataframes = []
-for f in filenames:
-  dataframes.append(pd.read_csv(f))
+for cells in num_cells:
+  for ts in num_timesteps:
+    for i in num_simulations:
+        experiment_name = model_name + '-ts-' + str(ts) + '00' + '-cells-' + str(cells) + '-sim-' + str(i)
+        command = 'python3 ' + 'autonumclusters.py --expression-file ' + pathtoBoolOutFile + experiment_name \
+        + '/' + 'sim-' + str(i) + '-ExpressionData.csv ' 
+        print(command)
+        os.system(command)
