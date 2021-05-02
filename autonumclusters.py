@@ -11,6 +11,7 @@ import matplotlib.cm as cm
 import numpy as np
 import matplotlib.style as style
 from optparse import OptionParser
+from pandas import DataFrame
 
 def parseArgs(args):
     parser = OptionParser()
@@ -51,12 +52,14 @@ def main(args):
             
             silhouette_avg_n_clusters.append(silhouette_avg)
             
-        best_avg_silhouette_value = max(silhouette_avg_n_clusters)
-        best_num_cluster = silhouette_avg_n_clusters.index(best_avg_silhouette_value)
+        #best_avg_silhouette_value = max(silhouette_avg_n_clusters)
+        #best_num_cluster = silhouette_avg_n_clusters.index(best_avg_silhouette_value)
         
-        print("The best average silhouette score is: ", best_avg_silhouette_value)
-        silhouette_avg_n_clusters.to_csv(outPrefix + 'silhouettescores.csv')
+        #print("The best average silhouette score is: ", best_avg_silhouette_value)
         
+        df = DataFrame(silhouette_avg_n_clusters)
+        print(df)
+        df.to_csv(outPrefix + 'silhouettescores.csv')
 
 #Read ExpressionData.csv file
 #data = pd.read_csv (r'/Users/cbuck016/Desktop/BoolODE-0.1/VSC_5000/ExpressionData.csv', index_col=0)
