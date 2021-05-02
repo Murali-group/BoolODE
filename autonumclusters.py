@@ -15,7 +15,7 @@ from optparse import OptionParser
 def parseArgs(args):
     parser = OptionParser()
     parser.add_option('', '--expressionfile', type='str', help='Path to ExpressionData.csv file')
-    parser.add_option('', '--outPrefix', type='str', default='', help='Prefix for output files.')
+    parser.add_option('', '--outPrefix', type='str', default='', help='Prefix for output files')
     
     (opts, args) = parser.parse_args(args)
     return opts, args
