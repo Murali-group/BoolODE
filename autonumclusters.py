@@ -59,7 +59,7 @@ def main(args):
         
         df = pd.DataFrame(silhouette_avg_n_clusters)
         print(df)
-        df.to_csv(outPrefix + 'silhouettescores.csv')
+        df.to_csv(outPrefix + '/silhouettescores.csv')
 
 #Read ExpressionData.csv file
 #data = pd.read_csv (r'/Users/cbuck016/Desktop/BoolODE-0.1/VSC_5000/ExpressionData.csv', index_col=0)
