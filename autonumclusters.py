@@ -56,7 +56,7 @@ def main(args):
         
         print("The best average silhouette score is: ", best_avg_silhouette_value)
         silhouette_avg_n_clusters.to_csv(outPrefix + 'silhouettescores.csv')
-        print(silhouette_avg_n_clusters)
+        
 
 #Read ExpressionData.csv file
 #data = pd.read_csv (r'/Users/cbuck016/Desktop/BoolODE-0.1/VSC_5000/ExpressionData.csv', index_col=0)
