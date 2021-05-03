@@ -4,7 +4,7 @@ import os
 
 pathtoBoolOutFile = '/home/cbuck016/BoolODE-0.1/mCAD-sims/'
 
-num_simulations = [1]
+num_simulations = [1, 2]
 num_cells = [250]
 num_timesteps = [1]
 #num_simulations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
