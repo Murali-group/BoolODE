@@ -52,13 +52,15 @@ def main(args):
             
             silhouette_avg_n_clusters.append(silhouette_avg)
             
+            df = pd.DataFrame(silhouette_avg_n_clusters)
+            
         best_avg_silhouette_value = max(silhouette_avg_n_clusters)
         best_num_cluster = silhouette_avg_n_clusters.index(best_avg_silhouette_value)
         
         print("The best average silhouette score is: ", best_avg_silhouette_value)
         
-        df = pd.DataFrame(silhouette_avg_n_clusters)
-        print(df)
+        #df = pd.DataFrame(silhouette_avg_n_clusters)
+        #print(df)
         df.to_csv(outPrefix + 'silhouettescores.csv')
         
         
