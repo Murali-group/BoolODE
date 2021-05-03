@@ -60,6 +60,7 @@ def main(args):
         #df = pd.DataFrame(silhouette_avg_n_clusters)
         #print(df)
         #df.to_csv(outPrefix + 'silhouettescores.csv')
+        
         silhouette_avg_n_clusters.to_csv(outPrefix + 'silhouettescores.csv')
         
 if __name__ == "__main__":
