@@ -61,7 +61,8 @@ def main(args):
         print(df)
         df.to_csv(outPrefix + 'silhouettescores.csv')
         
-
+if __name__ == "__main__":
+    main(sys.argv)
 #Read ExpressionData.csv file
 #data = pd.read_csv (r'/Users/cbuck016/Desktop/BoolODE-0.1/VSC_5000/ExpressionData.csv', index_col=0)
 #X = data.transpose()
