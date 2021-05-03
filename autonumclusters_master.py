@@ -16,7 +16,7 @@ for cells in num_cells:
   for ts in num_timesteps:
     for i in num_simulations:
         experiment_name = model_name + '-ts-' + str(ts) + '00' + '-cells-' + str(cells) + '-sim-' + str(i)
-        command = 'python3 ' + 'autonumclusters.py --expression-file ' + pathtoBoolOutFile + experiment_name \
+        command = 'python3 ' + 'autonumclusters.py --expressionfile ' + pathtoBoolOutFile + experiment_name \
         + '/' + 'sim-' + str(i) + '-ExpressionData.csv ' + '--outPrefix ' + pathtoBoolOutFile + experiment_name + "/" 
         print(command)
         os.system(command)
