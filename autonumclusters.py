@@ -30,7 +30,7 @@ def main(args):
         print("Please specify path to ExpressionData.csv file")
         sys.exit
     if len(expressionfile) > 0:
-        expfileDF = pd.read_csv(expressionfile, sep='\t', engine='python3', index_col=0)
+        expfileDF = pd.read_csv(expressionfile, sep='\t', engine='python', index_col=0)
         data = expfileDF.transpose()
         print(data)
     if len(outPrefix) > 0:
