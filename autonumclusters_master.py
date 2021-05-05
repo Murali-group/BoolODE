@@ -1,4 +1,4 @@
-#Silhouette Method for use with output results from BoolODE datasets -- IN PROGRESS
+#Silhouette Method for use with output results from BoolODE datasets
 
 import os
 
