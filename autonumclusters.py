@@ -30,9 +30,10 @@ def main(args):
         print("Please specify path to ExpressionData.csv file")
         sys.exit
     if len(expressionfile) > 0:
-        expfileDF = pd.read_csv(expressionfile, sep='\t', engine='python', index_col=0)
+        expfileDF = pd.read_csv(expressionfile, index_col=0)
         data = expfileDF.transpose()
-        print(data)
+        print(expfileDF.shape)
+        print(data.shape)
     if len(outPrefix) > 0:
         if '/' in outPrefix:
             outDir = '/'.join(outPrefix.split('/')[:-1])
@@ -58,38 +59,11 @@ def main(args):
         
         print("The best average silhouette score is: ", best_avg_silhouette_value)
         
-        df = pd.DataFrame(silhouette_avg_n_clusters)
+        df = pd.DataFrame({'Average Silhouette Method':[expressionfile, best_num_cluster, best_avg_silhouette_value]}, index=['file name', 'predicted number of clusters', 'average silhouette score'])
         print(df)
         df.to_csv(outPrefix + 'silhouettescores.csv')
         
-        
-        
+   
 if __name__ == "__main__":
     main(sys.argv)
-#Read ExpressionData.csv file
-#data = pd.read_csv (r'/Users/cbuck016/Desktop/BoolODE-0.1/VSC_5000/ExpressionData.csv', index_col=0)
-#X = data.transpose()
-#print(X)
 
-#range_n_clusters = [2, 3, 4, 5, 6, 7, 8, 9, 10]
-#silhouette_avg_n_clusters = []
-
-#for n_clusters in range_n_clusters:
-    # Initialize the clusterer with n_clusters value and a random generator
-    # seed of 10 for reproducibility.
-    #clusterer = KMeans(n_clusters=n_clusters, random_state=42)
-    #cluster_labels = clusterer.fit_predict(data)
-
-    # The silhouette_score gives the average value for all the samples.
-    # This gives a perspective into the density and separation of the formed
-    # clusters
-    #silhouette_avg = silhouette_score(data, cluster_labels)
-    #print("For n_clusters =", n_clusters,
-          #"The average silhouette_score is :", silhouette_avg)
-
-    #silhouette_avg_n_clusters.append(silhouette_avg)
-    
-#best_avg_silhouette_value = max(silhouette_avg_n_clusters)
-#best_num_cluster = silhouette_avg_n_clusters.index(best_avg_silhouette_value)
-
-#print("The best average silhouette score is: ", best_avg_silhouette_value)
