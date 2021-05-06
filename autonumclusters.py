@@ -53,9 +53,29 @@ def main(args):
             
             silhouette_avg_n_clusters.append(silhouette_avg)
             
-            
         best_avg_silhouette_value = max(silhouette_avg_n_clusters)
         best_num_cluster = silhouette_avg_n_clusters.index(best_avg_silhouette_value)
+        
+        if index_best_num_cluster == 0:
+           best_num_cluster = 2
+        elif index_best_num_cluster == 1:
+           best_num_cluster = 3
+        elif index_best_num_cluster == 2:
+           best_num_cluster = 4
+        elif index_best_num_cluster == 3:
+           best_num_cluster = 5
+        elif index_best_num_cluster == 4:
+           best_num_cluster = 6
+        elif index_best_num_cluster == 5:
+           best_num_cluster = 7
+        elif index_best_num_cluster == 6:
+           best_num_cluster = 8
+        elif index_best_num_cluster == 7:
+           best_num_cluster = 9
+        elif index_best_num_cluster == 8:
+           best_num_cluster = 10
+        else:
+           print("No best cluster number found")
         
         print("The best average silhouette score is: ", best_avg_silhouette_value)
         
