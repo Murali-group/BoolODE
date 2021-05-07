@@ -18,35 +18,35 @@ for cluster in my_reader:
     ctr_of_2 += 1
                         
   for cluster in my_reader:
-    if cluster[1] == '3':
+    elif cluster[1] == '3':
       ctr_of_3 += 1
       
     for cluster in my_reader:
-      if cluster[1] == '4':
+      elif cluster[1] == '4':
         ctr_of_4 += 1
                         
       for cluster in my_reader:
-        if cluster[1] == '5':
+        elif cluster[1] == '5':
           ctr_of_5 += 1
           
         for cluster in my_reader:
-          if cluster[1] == '6':
+          elif cluster[1] == '6':
             ctr_of_6 += 1
             
           for cluster in my_reader:
-            if cluster[1] == '7':
+            elif cluster[1] == '7':
               ctr_of_7 += 1
                    
             for cluster in my_reader:
-              if cluster[1] == '8':
+              elif cluster[1] == '8':
                 ctr_of_8 += 1
                 
               for cluster in my_reader:
-                if cluster[1] == '9':
+                elif cluster[1] == '9':
                   ctr_of_9 += 1
                   
                 for cluster in my_reader:
-                  if cluster[1] == '10':
+                  elif cluster[1] == '10':
                     ctr_of_10 += 1
                     
                  
