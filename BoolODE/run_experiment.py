@@ -137,12 +137,11 @@ def Experiment(mg, Model,
         header = ['E' + str(cellid) + '_' + str(time) \
                   for cellid, time in\
                   zip(range(settings['num_cells']), sampleAt)]
-        
         argdict['header'] = header
     else:
         # initialize dictionary to hold raveled values, used to cluster
         # This will be useful later.
-        groupedDict = {}         
+        groupedDict = {}
 
     simfilepath = Path(outPrefix, './simulations/')
     if not os.path.exists(simfilepath):
@@ -174,10 +173,10 @@ def Experiment(mg, Model,
 
     for cellid in tqdm(range(settings['num_cells'])):
         if settings['sample_cells']:
-            df = pd.read_csv(outPrefix + '/simulations/E'+str(cellid) + '-cell.csv',index_col=0)
+            df = pd.read_csv(outPrefix + '/simulations/E'+str(cellid) + '-cell.csv', index_col=0)
             df = df.sort_index()                
         else:
-            df = pd.read_csv(outPrefix + '/simulations/E'+str(cellid) + '.csv',index_col=0)
+            df = pd.read_csv(outPrefix + '/simulations/E'+str(cellid) + '.csv', index_col=0)
             df = df.sort_index()
             groupedDict['E' + str(cellid)] = df.values.ravel()
         frames.append(df.T)
