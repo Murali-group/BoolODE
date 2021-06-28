@@ -1,8 +1,8 @@
 Gene	Rule
-g1	not (g7)
-g2	( g1 )
+g_1	not (g_7)
+g2	( g_1 )
 g3	( g2 )
 g4	( g3 )
 g5	( g4 )
 g6	( g5 )
-g7	( g6 or g7)
+g_7	( g6 or g_7)

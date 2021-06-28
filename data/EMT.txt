@@ -1,19 +1,19 @@
 Gene	Rule
 AKT	ILK or PI3K
-Destcompl	(GSK3b and AXIN2 and bcateninnuc) or (GSK3b and Destcompl)
-AXIN2	AXIN2 or TCFLEF
-bcateninmemb	Ecadherin and not bcateninnuc
-bcateninnuc	not Destcompl and not bcateninmemb and (not SUFU or not Ecadherin)
+Dest_compl	(GSK3b and AXIN2 and bcatenin_nuc) or (GSK3b and Dest_compl)
+AXIN2	AXIN2 or TCF_LEF
+bcatenin_memb	Ecadherin and not bcatenin_nuc
+bcatenin_nuc	not Dest_compl and not bcatenin_memb and (not SUFU or not Ecadherin)
 bTrCP	not Csn
-CD44	TCFLEF
+CD44	TCF_LEF
 CDC42	TGFbR  or CHD1L
 cfos	ERK
 cMet	HGF or CD44
-Csl	NOTCHic
+Csl	NOTCH_ic
 Csn	NFkB
 DELTA	RAS
 DSH	Frizzled
-Ecadherin	bcateninmemb and (not SNAI1 or not HEY1 or not ZEB1 or not ZEB2 or not FOXC2 or not TWIST1 or not SNAI2)
+Ecadherin	bcatenin_memb and (not SNAI1 or not HEY1 or not ZEB1 or not ZEB2 or not FOXC2 or not TWIST1 or not SNAI2)
 EGFR	EGF
 EGR1	cfos
 EMT	not Ecadherin
@@ -22,41 +22,41 @@ FGFR	FGF
 FOXC2	Goosecoid or SNAI1 or TWIST1
 Frizzled	Wnt
 FUS	SMO
-GLI	TCFLEF or not SUFU
-GSK3b	not DSH and not AKT and (not Csn or not ERK or not Destcompl)
+GLI	TCF_LEF or not SUFU
+GSK3b	not DSH and not AKT and (not Csn or not ERK or not Dest_compl)
 HEY1	Csl or SMAD
 HIF1a	Hypoxia
 IGF1R	IGF1
 IKKa	AKT
 ILK	SMAD
-Jagged	TCFLEF or SMAD
+Jagged	TCF_LEF or SMAD
 LIV1	STAT
 LOXL23	HIF1a
 MEK	RAF or not RKIP
 miR200	not SNAI1 and not ZEB1 and not ZEB2
 NFkB	IKKa
 NOTCH	DELTA or Jagged
-NOTCHic	NOTCH
+NOTCH_ic	NOTCH
 PAK1	CDC42
 Patched	not SHH
 PDGFR	PDGF
 PI3K	RAS
 RAF	RAS
-RAS	SOSGRB2 or SRC or not GSK3b or TCFLEF
+RAS	SOS_GRB2 or SRC or not GSK3b or TCF_LEF
 RKIP	not ERK or not SNAI1
 SHH	SMAD or GLI
-SNAI2	ERK or bcateninnuc or SNAI2 or TWIST1
+SNAI2	ERK or bcatenin_nuc or SNAI2 or TWIST1
 SMAD	(ERK or TGFbR) and (ZEB1 or not ZEB2)
 SMO	not Patched
 SNAI1	GLI or LOXL23 or SMAD or LIV1 or PAK1 or Csl or EGR1 or Goosecoid or not bTrCP or not GSK3b
-SOSGRB2	(PDGFR or cMet or TGFbR or FGFR or IGF1R or EGFR) and not ERK
+SOS_GRB2	(PDGFR or cMet or TGFbR or FGFR or IGF1R or EGFR) and not ERK
 SRC	PDGFR or EGFR or FGFR or cMet or IGF1R
 STAT	SRC
 SUFU	not FUS
-TCFLEF	bcateninnuc
+TCF_LEF	bcatenin_nuc
 TGFb	Goosecoid or SNAI1 or TWIST1 or GLI
 TGFbR	TGFb
-TWIST1	NFkB or HIF1a or TCFLEF or Goosecoid or SNAI1
+TWIST1	NFkB or HIF1a or TCF_LEF or Goosecoid or SNAI1
 Wnt	GLI
 ZEB1	(HIF1a or SNAI1 or Goosecoid) and not miR200
 ZEB2	(HIF1a or SNAI1 or Goosecoid) and not miR200

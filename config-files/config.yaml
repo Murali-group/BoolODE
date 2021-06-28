@@ -1,53 +1,35 @@
 global_settings:
   model_dir: "data"
-  output_dir: "Synthetic-H"
+  output_dir: "outputs/misc"
   do_simulations: True
   do_post_processing: False
-  modeltype: 'heaviside'
-#  modeltype: 'hill'
+#  modeltype: 'heaviside'
+  modeltype: 'hill'
 
 jobs:
-  - name: "dyn-LL-1"
-    model_definition: "dyn-linear-long.txt"
-    model_initial_conditions: "dyn-linear-long_ics.txt"
-    simulation_time: 9
-    num_cells: 300
-    do_parallel: True
-    sample_cells: False
-  # - name: "dyn-LI-1"
-  #   model_definition: "dyn-linear.txt"
-  #   model_initial_conditions: "dyn-linear_ics.txt"
-  #   simulation_time: 7
-  #   num_cells: 200
-  #   do_parallel: True
-  #   sample_cells: False
+   - name: "dyn-LI-1"
+     model_definition: "dyn-linear.txt"
+#     model_initial_conditions: "dyn-linear_ics.txt"
+     simulation_time: 10
+     num_cells: 5000
+     do_parallel: False
+     sample_pars: True
+     sample_std: 0.5
+     identical_pars: True
+##     nClusters: 3
 
-  # - name: "dyn-BF-1"
-  #   model_definition: "dyn-bifurcating.txt"
-  #   model_initial_conditions: "dyn-bifurcating_ics.txt"
-  #   simulation_time: 5
-  #   num_cells: 500
-  #   do_parallel: True
-  #   sample_cells: False
-  #   nClusters: 2
+#   - name: "EMT"
+#     model_definition: "EMT.txt"
+##     model_initial_conditions: "dyn-linear_ics.txt"
+#     parameter_inputs_path: "EMT-inputs.txt"
+#     simulation_time: 5
+#     num_cells: 100
+#     do_parallel: True
+#     sample_pars: True
+#     sample_std: 0.5
+#     identical_pars: True
+##     nClusters: 3
 
-  # - name: "dyn-TF-1"
-  #   model_definition: "dyn-trifurcating.txt"
-  #   model_initial_conditions: "dyn-trifurcating_ics.txt"
-  #   simulation_time: 8
-  #   num_cells: 500
-  #   do_parallel: True
-  #   sample_cells: False
-  #   nClusters: 3
-
-  # - name: "dyn-CY-1"
-  #   model_definition: "dyn-cycle.txt"
-  #   model_initial_conditions: "dyn-cycle_ics.txt"
-  #   simulation_time: 8
-  #   num_cells: 500
-  #   do_parallel: True
-  #   sample_cells: False
-  #   nClusters: 1
 
 post_processing:
   Dropouts:
