@@ -116,3 +116,5 @@ model.py*
 /.Rhistory
 */ExpressionsData.csv
 *.csv
+/outputs/*
+config-files/config.yaml
