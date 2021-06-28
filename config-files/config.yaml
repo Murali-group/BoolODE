@@ -1,21 +1,21 @@
 global_settings:
   model_dir: "data"
-  output_dir: "outputs/toynetworks"
+  output_dir: "outputs/curatednetworks"
   do_simulations: True
   do_post_processing: False
 #  modeltype: 'heaviside'
   modeltype: 'hill'
 
 jobs:
-#  - name: "Dyn-CB-1"
-#    model_definition: "dyn-consecutive-bifurcating.txt"
-#    model_initial_conditions: "dyn-consecutive-bifurcating_ics.txt"
-#    parameter_inputs_path: "dyn-consecutive-bifurcating-inputs.txt"
+#  - name: "GSD"
+#    model_definition: "GSD.txt"
+#    model_initial_conditions: "GSD_ics.txt"
+##    parameter_inputs_path: "dyn-consecutive-bifurcating-inputs.txt"
 #    simulation_time: 8
-#    num_cells: 2000
-#    do_parallel: True
+#    num_cells: 3000
+#    do_parallel: False
 #    sample_pars: True
-#    sample_std: 0.5
+#    sample_std: 0.1
 #    identical_pars: True
 #    nClusters: 2
 
@@ -23,13 +23,13 @@ jobs:
     model_definition: "EMT.txt"
 #    model_initial_conditions: "EMT_ics.txt"
     parameter_inputs_path: "EMT-inputs.txt"
-    simulation_time: 8
-    num_cells: 2000
+    simulation_time: 10
+    num_cells: 5000
     do_parallel: False
     sample_pars: True
-    sample_std: 0.5
+    sample_std: 0.1
     identical_pars: True
-#    nClusters: 1
+    nClusters: 1
 
 post_processing:
   Dropouts:

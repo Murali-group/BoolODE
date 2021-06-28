@@ -137,7 +137,7 @@ def getInitialCondition(ss, ModelSpec, rnaIndex,
             new_ics[ind] = 0            
     # Calculate the Protein ics based on mRNA levels
     for genename in genelist:
-        pss = ((ModelSpec['pars']['r_' + genename]) /
+        pss = ((ModelSpec['pars']['r_' + genename]) /\
                                       (ModelSpec['pars']['l_p_' + genename]))\
                                       *new_ics[revvarmapper['x_' + genename]]
         new_ics[revvarmapper['p_' + genename.replace('_','')]] = pss
