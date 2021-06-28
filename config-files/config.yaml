@@ -21,7 +21,6 @@ jobs:
 
   - name: "EMT"
     model_definition: "EMT.txt"
-#    model_initial_conditions: "EMT_ics.txt"
     parameter_inputs_path: "EMT-inputs.txt"
     simulation_time: 10
     num_cells: 5000
