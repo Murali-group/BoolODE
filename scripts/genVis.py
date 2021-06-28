@@ -1,5 +1,4 @@
-# This is a modified version of genVis.py authored by Jon Mallen. Original genVis.py script authored by Murali et al.
-# found at https://github.com/Murali-group/BoolODE.
+__author__ = 'Jon Mallen'
 
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
@@ -83,24 +82,15 @@ if args.handleExternalClusterFile:
     cluster_colors = [y / color_scale for y in cluster_colors_raw]
 else:
     cluster_colors = list(itertools.repeat(.5, len(DF.columns)))
-# PCDF = pd.DataFrame(PC, columns=['PC1', 'PC2'], index=pd.Index(list(DF.columns)))
-# PCDF['tsne1'] = embed[:, 0]
-# PCDF['tsne2'] = embed[:, 1]
-# if tsne_dim == 3:
-#     PCDF['tsne3'] = embed[:, 2]
 
 # Write data to text file
 PCDF.to_csv(inFile + '_dimred.txt')
-
-# Graphing
-plot_title = ' '.join(args.plotTitle)
-
-# PCA graphing
 
 
 # Common method for plotting
 
 def make_subplot(axis1, axis1label, axis2, axis2label, axis3, axis3label, dim):
+    plot_title = ' '.join(args.plotTitle)
     f, ax = plt.subplots(1, 2, figsize=(10, 5))
     plt.rcParams['image.cmap'] = 'viridis'
     if dim == 3:
