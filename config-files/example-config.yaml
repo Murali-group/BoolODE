@@ -12,8 +12,8 @@ global_settings:
   ## Path to folder containing Boolean model definition files
   model_dir: "data"
   
-  ## Path to output folder. This folder is created if it doesn't exist
-  output_dir: "Debug"
+  ## Path to output folder. This folder is created if it doesn't exist.
+  output_dir: "outputs"
   
   ## Do BoolODE model generation and SDE simulations? 
   do_simulations: True
