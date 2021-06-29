@@ -11,7 +11,7 @@ jobs:
     model_definition: "dyn-linear-long.txt"
     model_initial_conditions: "dyn-linear-long_ics.txt"
     simulation_time: 9
-    num_cells: 400
+    num_cells: 300
     do_parallel: True
     sample_cells: False
   # - name: "dyn-LI-1"
