@@ -116,3 +116,5 @@ data/
 /.Rhistory
 */ExpressionsData.csv
 outputs/
+config-files
+!config-files/example-config.yaml
