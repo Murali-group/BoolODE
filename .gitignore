@@ -104,6 +104,8 @@ venv.bak/
 .mypy_cache/
 
 # Local files
+#   Be sure to change 'outputs/' to '<your output directory name>/'. If you have more than one output directory, add
+#   accordingly by the same format.
 *.png
 *.csv
 model.py*
