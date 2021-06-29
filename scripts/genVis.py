@@ -9,17 +9,17 @@ import argparse
 import itertools
 
 # Define arguments
-parser = argparse.ArgumentParser("Visualize the BoolODE simulation of cells")
-parser.add_argument('-f', '--pathToFiles', default='', type=str, help='Specify path to files')
-parser.add_argument('-p', '--pca', nargs='*', help='Call to visualize with PCA, specify dimension (2 or 3) as argument.'
+parser = argparse.ArgumentParser("Visualize the BoolODE simulation of cells.")
+parser.add_argument('-f', '--pathToFiles', default='', type=str, help='Specify path to files.')
+parser.add_argument('-p', '--pca', nargs='*', help='Call to visualize with PCA. Specify dimension (2 or 3) as argument.'
                                                    'Default is 2.')
-parser.add_argument('-t', '--tsne', nargs='*', help='Call to visualize with t-SNE, '
-                                                    'specify dimension (2 or 3) as argument. Default is 2.')
-parser.add_argument('-u', '--umap', nargs='*', help='Call to visualize with UMAP, '
-                                                    'specify dimension (2 or 3) as argument. Default is 2.')
+parser.add_argument('-t', '--tsne', nargs='*', help='Call to visualize with t-SNE. '
+                                                    'Specify dimension (2 or 3) as argument. Default is 2.')
+parser.add_argument('-u', '--umap', nargs='*', help='Call to visualize with UMAP. '
+                                                    'Specify dimension (2 or 3) as argument. Default is 2.')
 parser.add_argument('-c', '--handleExternalClusterFile', action='store_true', default=False,
-                    help='Call to handle an external cluster file')
-parser.add_argument('-n', '--plotTitle', default='', nargs='*', help='Write a plot title')
+                    help='Call to handle an external cluster file.')
+parser.add_argument('-n', '--plotTitle', default='', nargs='*', help='Write a plot title.')
 
 # Parse arguments
 args = parser.parse_args()
