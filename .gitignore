@@ -108,7 +108,8 @@ venv.bak/
 *.csv
 model.py*
 /*.txt
-config-files/
+*.yaml
+!example-config.yaml
 data/
 /src/final-plots.py
 /src/run-in-parallel.py
