@@ -115,7 +115,5 @@ data/
 /simulatedmodels.sh
 /.Rhistory
 */ExpressionsData.csv
-*.csv
 outputs/
-config.yaml
 config-files/config.yaml
