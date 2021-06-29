@@ -108,6 +108,7 @@ venv.bak/
 *.csv
 model.py*
 /*.txt
+config-files/
 data/
 /src/final-plots.py
 /src/run-in-parallel.py
@@ -117,4 +118,3 @@ data/
 /.Rhistory
 */ExpressionsData.csv
 outputs/
-config-files/
