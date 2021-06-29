@@ -103,6 +103,7 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+# Local files
 *.png
 *.csv
 model.py*
@@ -116,5 +117,5 @@ data/
 /.Rhistory
 */ExpressionsData.csv
 outputs/
-config-files
+config-files/
 !config-files/example-config.yaml
