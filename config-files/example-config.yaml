@@ -12,8 +12,10 @@ global_settings:
   ## Path to folder containing Boolean model definition files
   model_dir: "data"
   
-  ## Path to output folder. This folder is created if it doesn't exist
-  output_dir: "Debug"
+  ## Path to output folder. This folder is created if it doesn't exist. If you plan to submit changes to the
+  ## BoolODE code, please do not create this folder inside the BoolODE directory. Otherwise, a commit or PR may
+  ## contain the contents of this folder.
+  output_dir: "outputs"
   
   ## Do BoolODE model generation and SDE simulations? 
   do_simulations: True
@@ -92,7 +94,7 @@ jobs:
     ## has a fixed value, say constitutively ON or OFF. These are
     ## identified as the nodes with no corresponding Boolean rules.
     ## Please see "dyn-consecutive-bifurcating.txt" where there is no rule for g1
-    # parameter_inputs:
+    # parameter_inputs_path:
 
     ## Name of file specifying the species type of each node
     ## By default, each node in the Boolean model file is represented as
