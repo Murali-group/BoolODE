@@ -140,7 +140,7 @@ def subplot_format(f, ax, plot_index, method, dim, map_title, color_map):
 
 
 def make_subplot(method, dim):
-    plot_title = ' '.join(args.plotTitle)
+    plot_title = ' '.join(args.plotName)
     f, ax = plt.subplots(1, 2, figsize=(10, 5))
 
     # Plot each cell in the dimensional reduction and map by simulation time using a color map.
