@@ -28,7 +28,7 @@ parser.add_argument('-u', '--umap', nargs='*', help='Use UMAP for visualizing th
                                                     'Specify the number of dimensions (2 or 3) as argument. '
                                                     'Default is 2.')
 parser.add_argument('-c', '--clusterFile', action='store_true', default=False,
-                    help='Use the cluster file ClusterIds.csv to assign clusters if the user specified at least two '
+                    help='Use the cluster file ClusterIds.csv to assign clusters if the user specified at least 2 '
                          'clusters in the simulation.')
 parser.add_argument('-n', '--plotName', default='', nargs='*', help='Enter desired name of the plot.')
 
