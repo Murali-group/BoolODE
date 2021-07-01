@@ -13,8 +13,8 @@ global_settings:
   model_dir: "data"
   
   ## Path to output folder. This folder is created if it doesn't exist. If you plan to submit changes to the
-  ## BoolODE code, please do not create this folder inside the BoolODE directory. Otherwise, a commit or PR may
-  ## contain the contents of this folder.
+  ## BoolODE code, please do not create this folder inside the BoolODE directory. Otherwise, a commit or pull
+  ## request may contain the contents of this folder.
   output_dir: "outputs"
   
   ## Do BoolODE model generation and SDE simulations? 
