@@ -104,12 +104,10 @@ venv.bak/
 .mypy_cache/
 
 # Local files
-#   Be sure to change 'outputs/' to '<your output directory name>/'. If you have more than one output directory, add
-#   accordingly by the same format.
 *.png
 *.csv
-model.py*
-/*.txt
+model.py
+*.txt
 *.yaml
 !example-config.yaml
 data/
@@ -119,5 +117,7 @@ data/
 /start-scripts.py
 /simulatedmodels.sh
 /.Rhistory
-*/ExpressionsData.csv
+ExpressionData.csv
+#   Be sure to change 'outputs/' to '<your output directory name>/'. If you have more than one output directory, add
+#   accordingly by the same format.
 outputs/

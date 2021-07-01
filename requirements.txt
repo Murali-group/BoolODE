@@ -7,3 +7,4 @@ pandas>=0.24.2
 scikit-learn>=0.21.3
 freetype-py
 pypng
+umap-learn
