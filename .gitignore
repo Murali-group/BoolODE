@@ -121,8 +121,8 @@ ExpressionData.csv
 # If you are actively involved in the development of BoolODE:
 #   Be sure to change 'outputs/' to '<your output directory name>/'. If you have more than one output directory, add
 #   accordingly by the same format.
-#   For your config files, create a new directory called <your config directory name> and local copy of config.yaml to
-#   be placed in this directory. Be sure to change 'config/' to '<your config directory name>/'.
+#   For your config files, create a new directory called <your config directory name> and place all .yaml configuration
+#   files you make in this directory. Be sure to change 'config/' to '<your config directory name>/'.
 #   For any test scripts you make, create a new directory called <your test directory name> and place all test scripts
 #   in this directory. Be sure to change 'test/' to '<your test directory name>/'.
 outputs/
