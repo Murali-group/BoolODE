@@ -165,7 +165,6 @@ if pca_flag:
 
 # UMAP plotting
 if umap_flag:
-    # make_subplot('UMAP1', 'UMAP 1', 'UMAP2', 'UMAP 2', 'UMAP3', 'UMAP 3', umap_dim)
     make_subplot('UMAP', umap_dim)
     plt.savefig(inFile.split('.csv')[0] + '_UMAP_%sd.png' % umap_dim)
 
