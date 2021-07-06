@@ -110,7 +110,7 @@ if cluster_flag:
     cluster_colors = [y / cluster_color_scale for y in cluster_colors_raw]
 else:
     cluster_colors = list(itertools.repeat(.5, len(DF.columns)))
-DRDF['Clusters'] = cluster_colors
+DRDF['k-Means Clusters'] = cluster_colors
 
 # Write dimensionality reduction data to text file
 DRDF.to_csv(inFile + '_dimred.txt')
@@ -148,7 +148,7 @@ def make_subplot(method, dim):
     subplot_format(f, ax, 0, method, dim, 'Simulation Time', 'viridis')
 
     # Plot each cell in the dimensional reduction and map by cluster using a color map.
-    subplot_format(f, ax, 1, method, dim, 'Clusters', 'Spectral')
+    subplot_format(f, ax, 1, method, dim, 'k-Means Clusters', 'Spectral')
 
     plt.suptitle(plot_title, fontsize=20)
 
