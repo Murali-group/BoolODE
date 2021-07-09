@@ -31,7 +31,7 @@ parser.add_argument('-u', '--umap', nargs='*', help='Use UMAP for visualizing th
 parser.add_argument('-c', '--clusterFile', action='store_true', default=False,
                     help='Use the cluster file ClusterIds.csv to assign clusters if the user specified at least 2 '
                          'clusters in the simulation.')
-parser.add_argument('-n', '--dataName', default='', nargs='*', help='Enter name of regulatory network.')
+parser.add_argument('-n', '--dataName', default='Network', nargs='*', help='Enter name of the regulatory network.')
 
 # Parse arguments and exit if proper files are not present
 args = parser.parse_args()
