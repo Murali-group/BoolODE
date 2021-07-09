@@ -2,6 +2,7 @@ __author__ = 'Jon Mallen'
 
 import os
 import sys
+import shutil
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from umap import UMAP
@@ -30,7 +31,7 @@ parser.add_argument('-u', '--umap', nargs='*', help='Use UMAP for visualizing th
 parser.add_argument('-c', '--clusterFile', action='store_true', default=False,
                     help='Use the cluster file ClusterIds.csv to assign clusters if the user specified at least 2 '
                          'clusters in the simulation.')
-parser.add_argument('-n', '--plotName', default='', nargs='*', help='Enter desired name of the plot.')
+parser.add_argument('-n', '--dataName', default='', nargs='*', help='Enter name of regulatory network.')
 
 # Parse arguments and exit if proper files are not present
 args = parser.parse_args()
@@ -113,7 +114,10 @@ else:
 DRDF['k-Means Clusters'] = cluster_colors
 
 # Write dimensionality reduction data to text file
-DRDF.to_csv(inFile + '_dimred.txt')
+DRDF.to_csv('ExpressionData_dimred.csv', sep=",")
+if os.path.exists(path + '/ExpressionData_dimred.csv'):
+    os.remove(path + '/ExpressionData_dimred.csv')
+shutil.move(os.path.abspath('ExpressionData_dimred.csv'), path)
 
 
 def subplot_format(f, ax, plot_index, method, dim, map_title, color_map):
@@ -137,11 +141,16 @@ def subplot_format(f, ax, plot_index, method, dim, map_title, color_map):
     ax[plot_index].set_xlabel(labels_df.at[1, '1'])
     ax[plot_index].set_ylabel(labels_df.at[1, '2'])
     ax[plot_index].set_aspect('auto')
-    ax[plot_index].set_title(map_title)
+    ax[plot_index].set_title(map_title, fontsize=10)
 
 
 def make_subplot(method, dim):
-    plot_title = ' '.join(args.plotName)
+    if method == 'TSNE':
+        method_name = 't-SNE'
+    else:
+        method_name = method
+    plot_title = ' '.join(args.dataName) + ': Dimensional Reduction of Simulated Expression Data via %d-D %s' \
+                 % (dim, method_name)
     f, ax = plt.subplots(1, 2, figsize=(10, 5))
 
     # Plot each cell in the dimensional reduction and map by simulation time using a color map.
@@ -150,7 +159,7 @@ def make_subplot(method, dim):
     # Plot each cell in the dimensional reduction and map by cluster using a color map.
     subplot_format(f, ax, 1, method, dim, 'k-Means Clusters', 'Spectral')
 
-    plt.suptitle(plot_title, fontsize=20)
+    plt.suptitle(plot_title, fontsize=13)
 
 
 # t-SNE plotting
