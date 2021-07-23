@@ -141,7 +141,7 @@ def subplot_format(f, ax, plot_index, method, dim, map_title, color_map):
     ax[plot_index].set_xlabel(labels_df.at[1, '1'])
     ax[plot_index].set_ylabel(labels_df.at[1, '2'])
     ax[plot_index].set_aspect('auto')
-    ax[plot_index].set_title(map_title, fontsize=10)
+    ax[plot_index].set_title(map_title, fontsize=12)
 
 
 def make_subplot(method, dim):
@@ -160,6 +160,9 @@ def make_subplot(method, dim):
     subplot_format(f, ax, 1, method, dim, 'k-Means Clusters', 'Spectral')
 
     plt.suptitle(plot_title, fontsize=13)
+
+    for ax in ax.flat:
+        ax.label_outer()
 
 
 # t-SNE plotting
