@@ -4,7 +4,7 @@ numpy>=1.16.2
 tqdm>=4.31.1
 seaborn>=0.9.0
 pandas>=0.24.2
-scikit-learn>=0.21.3
+scikit-learn>=0.23
 PyYAML
 freetype-py
 pypng
