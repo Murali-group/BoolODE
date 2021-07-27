@@ -137,8 +137,8 @@ def subplot_format(f, ax, plot_index, method, dim, map_title, color_map):
         ax[plot_index].set_zlabel(labels_df.at[1, '3'])
     else:
         ax[plot_index].scatter(DRDF[labels_df.at[0, '1']], DRDF[labels_df.at[0, '2']], c=DRDF[map_title])
-    ax[plot_index].set_xlabel(labels_df.at[1, '1'])
-    ax[plot_index].set_ylabel(labels_df.at[1, '2'])
+    ax[plot_index].set_xlabel(labels_df.at[1, '1'], fontsize=14)
+    ax[plot_index].set_ylabel(labels_df.at[1, '2'], fontsize=14)
     ax[plot_index].set_aspect('auto')
     ax[plot_index].set_title(map_title, fontsize=12)
 
@@ -158,7 +158,7 @@ def make_subplot(method, dim):
     # Plot each cell in the dimensional reduction and map by cluster using a color map.
     subplot_format(f, ax, 1, method, dim, 'k-Means Clusters', 'Spectral')
 
-    plt.suptitle(plot_title, fontsize=13)
+    plt.suptitle(plot_title, fontsize=15)
 
     for ax in ax.flat:
         ax.label_outer()
