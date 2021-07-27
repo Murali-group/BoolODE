@@ -85,8 +85,6 @@ if tsne_flag:
 if umap_flag:
     umap_dim = dimensional_reduction('UMAP', args.umap)
 
-# Color preparation
-
 # Prepare time-dependent color scheme
 #   To prepare the time-dependent color scheme,  the pseudo-time file is read for its maximum value, i.e the simulation
 #   time. Then, the list of times corresponding to each cell is acquired as a list by splitting the title of each cell
