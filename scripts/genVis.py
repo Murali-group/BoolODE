@@ -50,12 +50,13 @@ pca_flag = args.pca is not None
 tsne_flag = args.tsne is not None
 umap_flag = args.umap is not None
 
-# Do PCA, tSNE, UMAP
+# Read the expression data
 DF = pd.read_csv(inFile, sep=',', index_col=0)
 Cells = DF.T.values
 DRDF = pd.DataFrame(index=pd.Index(list(DF.columns)))
 
 
+# Common method for dimensional reduction
 def dimensional_reduction(method, method_arg):
 
     # Check dimensions
