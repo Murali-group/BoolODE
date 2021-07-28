@@ -3,14 +3,11 @@ __author__ = 'Jon Mallen'
 import os
 import sys
 import shutil
-from sklearn.manifold import TSNE
-from sklearn.decomposition import PCA
-from umap import UMAP
 import matplotlib.pyplot as plt
 import pandas as pd
 import argparse
 import itertools
-from binarize_data import binarize_data
+from BoolODE.scripts.binarize_data import binarize_data
 
 # Define arguments
 parser = argparse.ArgumentParser("Visualize the simulated single-cell gene expression data output by BoolODE.")
@@ -153,8 +150,6 @@ if ss_flag:
     for i in range(len(cell_list)):
         for j in range(num_steady_states):
             if ss_list[j] == list(binDF[cell_list[i]]):
-                # print(ss_list[j])
-                # print(list(binDF[cell_list[i]]))
                 ss_colors.append(j / num_steady_states)
                 DRDF_ss_only.loc[len(DRDF_ss_only.index)] = DRDF.iloc[i]
     DRDF_ss_only["Steady State Groups"] = ss_colors

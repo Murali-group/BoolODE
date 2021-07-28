@@ -10,7 +10,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 import math
 import matplotlib.pyplot as plt
-from binarize_data import binarize_data
+from BoolODE.scripts.binarize_data import binarize_data
 
 # genSS.py assumes a BoolODE simulation in which the time is overrun, skewing each number of cells in discrete
 # steady state(s) to be a larger value than each number of cells in discrete, non-steady states. States with a
