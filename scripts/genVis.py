@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import argparse
 import itertools
+from binarize_data import binarize_data
 
 # Define arguments
 parser = argparse.ArgumentParser("Visualize the simulated single-cell gene expression data output by BoolODE.")
@@ -31,10 +32,15 @@ parser.add_argument('-u', '--umap', nargs='*', help='Use UMAP for visualizing th
 parser.add_argument('-c', '--clusterFile', action='store_true', default=False,
                     help='Use the cluster file ClusterIds.csv to assign clusters if the user specified at least 2 '
                          'clusters in the simulation.')
+parser.add_argument('-s', '--ssFile', nargs=1, type=str, help='Specify path to folder containing the steady_states.tsv'
+                                                              ' file to be used for labeling which cells in the '
+                                                              'expression data for this network are steady states '
+                                                              'called by genSS.py.')
 parser.add_argument('-n', '--dataName', default='Network', nargs='*', help='Enter name of the regulatory network.')
 
-# Parse arguments and exit if proper files are not present
 args = parser.parse_args()
+
+# Path to expression data, pseudo-time, and cluster file
 path = args.pathToFiles
 inFile = path + "/ExpressionData.csv"
 if not os.path.exists(inFile):
@@ -43,9 +49,20 @@ timeFile = path + "/PseudoTime.csv"
 if not os.path.exists(timeFile):
     sys.exit('Error: No PseudoTime.csv file is present in the specified path to files.')
 cluster_flag = args.clusterFile
-clusterFile = args.pathToFiles + "/ClusterIds.csv"
+clusterFile = path + "/ClusterIds.csv"
 if cluster_flag and not os.path.exists(clusterFile):
     sys.exit('Error: No ClusterIds.csv file is present in the specified path to files.')
+
+# Path to steady states file
+ss_flag = args.ssFile is not None
+if ss_flag:
+    ssFile = "".join(args.ssFile) + "/steady_states.tsv"
+else:
+    ssFile = ""
+if ss_flag and not os.path.exists(ssFile):
+    sys.exit('Error: No steady_states.tsv file is present in the specified path to files.')
+
+# User-specified dimensional reduction techniques
 pca_flag = args.pca is not None
 tsne_flag = args.tsne is not None
 umap_flag = args.umap is not None
@@ -53,13 +70,14 @@ umap_flag = args.umap is not None
 # Read the expression data
 DF = pd.read_csv(inFile, sep=',', index_col=0)
 Cells = DF.T.values
-DRDF = pd.DataFrame(index=pd.Index(list(DF.columns)))
+cell_list = list(DF.columns)
+DRDF = pd.DataFrame(index=pd.Index(cell_list))
+binDF = binarize_data(DF)
 
 
 # Common method for dimensional reduction
 def dimensional_reduction(method, method_arg):
 
-    # Check dimensions
     if len(method_arg) == 0:
         dim = 2
     elif len(method_arg) > 1:
@@ -69,8 +87,6 @@ def dimensional_reduction(method, method_arg):
         dim = int(method_arg[0])
     if dim != 2 and dim != 3:
         sys.exit('Error: Specified an invalid number of dimensions. Only 2 and 3 are valid dimensions.')
-
-    # Perform dimensional reduction
     embed = eval("%s(n_components=%s).fit_transform(Cells)" % (method, dim))
     for n in range(dim):
         DRDF['%s%d' % (method, n+1)] = embed[:, n]
@@ -103,13 +119,14 @@ DRDF['Simulation Time'] = time_colors
 #   assignments to values in [0,1], which can then be used to map each data point in the dimensional reduction by
 #   cluster using a color map.
 
+single_color = list(itertools.repeat(.5, len(DF.columns)))
 if cluster_flag:
     CF = pd.read_csv(clusterFile, sep=',', index_col=0)
     cluster_colors_raw = CF['cl'].tolist()
     cluster_color_scale = max(CF['cl'])
     cluster_colors = [y / cluster_color_scale for y in cluster_colors_raw]
 else:
-    cluster_colors = list(itertools.repeat(.5, len(DF.columns)))
+    cluster_colors = single_color
 DRDF['k-Means Clusters'] = cluster_colors
 
 # Write dimensionality reduction data to text file
@@ -118,8 +135,32 @@ if os.path.exists(path + '/ExpressionData_dimred.csv'):
     os.remove(path + '/ExpressionData_dimred.csv')
 shutil.move(os.path.abspath('ExpressionData_dimred.csv'), path)
 
+# Isolate steady states from DRDF
+#   Just like for the time-dependent color scheme and cluster color scheme, the cells corresponding to steady states
+#   are grouped to their respective steady state, and assigned to a list scaled by the number of steady states with
+#   values in [0,1]. This can then be used to map each data point in the dimensional reduction by steady state using a
+#   color map.
 
-def subplot_format(f, ax, plot_index, method, dim, map_title, color_map):
+if ss_flag:
+    ss_df = pd.read_csv(ssFile, sep="\t", index_col=0)
+    if list(ss_df.columns) != list(DF.index):
+        sys.exit('Error: The steady_states.tsv file does not contain the same gene names as the simulated expression'
+                 'data of the network. The file may correspond to a different network.')
+    ss_list = ss_df.values.tolist()
+    num_steady_states = len(ss_list)
+    DRDF_ss_only = pd.DataFrame(columns=DRDF.columns)
+    ss_colors = []
+    for i in range(len(cell_list)):
+        for j in range(num_steady_states):
+            if ss_list[j] == list(binDF[cell_list[i]]):
+                # print(ss_list[j])
+                # print(list(binDF[cell_list[i]]))
+                ss_colors.append(j / num_steady_states)
+                DRDF_ss_only.loc[len(DRDF_ss_only.index)] = DRDF.iloc[i]
+    DRDF_ss_only["Steady State Groups"] = ss_colors
+
+
+def subplot_format(f, ax, num_plots, plot_index, dataframe, method, dim, map_title, color_map, axis_limits):
     plt.rcParams['image.cmap'] = color_map
     labels_df = pd.DataFrame()
     for m in range(1, dim + 1):
@@ -131,16 +172,34 @@ def subplot_format(f, ax, plot_index, method, dim, map_title, color_map):
         labels_df[str(m)] = label_list
     if dim == 3:
         ax[plot_index].set_axis_off()
-        ax[plot_index] = f.add_subplot(1, 2, plot_index+1, projection="3d")
-        ax[plot_index].scatter3D(DRDF[labels_df.at[0, '1']], DRDF[labels_df.at[0, '2']], DRDF[labels_df.at[0, '2']],
-                                 c=DRDF[map_title])
+        ax[plot_index] = f.add_subplot(1, 3, plot_index+1, projection="3d")
+        ax[plot_index].scatter3D(dataframe[labels_df.at[0, '1']], dataframe[labels_df.at[0, '2']],
+                                 dataframe[labels_df.at[0, '2']], c=dataframe[map_title])
         ax[plot_index].set_zlabel(labels_df.at[1, '3'])
+        z_range = list(ax[plot_index].get_zlim())
     else:
-        ax[plot_index].scatter(DRDF[labels_df.at[0, '1']], DRDF[labels_df.at[0, '2']], c=DRDF[map_title])
+        ax[plot_index].scatter(dataframe[labels_df.at[0, '1']], dataframe[labels_df.at[0, '2']], c=dataframe[map_title])
     ax[plot_index].set_xlabel(labels_df.at[1, '1'], fontsize=14)
     ax[plot_index].set_ylabel(labels_df.at[1, '2'], fontsize=14)
     ax[plot_index].set_aspect('auto')
-    ax[plot_index].set_title(map_title, fontsize=12)
+    if plot_index == 2:
+        plot_title = 'Cells in Steady-States'
+    else:
+        plot_title = map_title
+    ax[plot_index].set_title(plot_title, fontsize=12)
+    x_range = list(ax[plot_index].get_xlim())
+    y_range = list(ax[plot_index].get_ylim())
+    if plot_index == 0:
+        if dim == 3:
+            plot_ranges = [x_range, y_range, z_range]
+        else:
+            plot_ranges = [x_range, y_range]
+        return plot_ranges
+    if plot_index == 2:
+        ax[plot_index].set_xlim(axis_limits[0])
+        ax[plot_index].set_ylim(axis_limits[1])
+        if dim == 3:
+            ax[plot_index].set_zlim(axis_limits[2])
 
 
 def make_subplot(method, dim):
@@ -150,13 +209,25 @@ def make_subplot(method, dim):
         method_name = method
     plot_title = ' '.join(args.dataName) + ': Dimensional Reduction of Simulated Expression Data via %d-D %s' \
                  % (dim, method_name)
-    f, ax = plt.subplots(1, 2, figsize=(10, 5))
+    if ss_flag:
+        num_plots = 3
+        fig_width = 15
+    else:
+        num_plots = 2
+        fig_width = 10
+    f, ax = plt.subplots(1, num_plots, figsize=(fig_width, 5))
+
+    plot_ranges = subplot_format(f, ax, num_plots, 0, DRDF, method, dim, 'Simulation Time', 'viridis', None)
 
     # Plot each cell in the dimensional reduction and map by simulation time using a color map.
-    subplot_format(f, ax, 0, method, dim, 'Simulation Time', 'viridis')
+    subplot_format(f, ax, num_plots, 0, DRDF, method, dim, 'Simulation Time', 'viridis', plot_ranges)
 
     # Plot each cell in the dimensional reduction and map by cluster using a color map.
-    subplot_format(f, ax, 1, method, dim, 'k-Means Clusters', 'Spectral')
+    subplot_format(f, ax, num_plots, 1, DRDF, method, dim, 'k-Means Clusters', 'Spectral', plot_ranges)
+
+    # Plot only the cells corresponding to steady-states using a color map.
+    if ss_flag:
+        subplot_format(f, ax, num_plots, 2, DRDF_ss_only, method, dim, 'Steady State Groups', 'jet', plot_ranges)
 
     plt.suptitle(plot_title, fontsize=15)
 
@@ -176,6 +247,7 @@ if pca_flag:
 
 # UMAP plotting
 if umap_flag:
+    # make_subplot('UMAP1', 'UMAP 1', 'UMAP2', 'UMAP 2', 'UMAP3', 'UMAP 3', umap_dim)
     make_subplot('UMAP', umap_dim)
     plt.savefig(inFile.split('.csv')[0] + '_UMAP_%sd.png' % umap_dim)
 
