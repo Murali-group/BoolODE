@@ -3,11 +3,14 @@ __author__ = 'Jon Mallen'
 import os
 import sys
 import shutil
+from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
+from umap import UMAP
 import matplotlib.pyplot as plt
 import pandas as pd
 import argparse
 import itertools
-from BoolODE.scripts.binarize_data import binarize_data
+from binarize_data import binarize_data
 
 # Define arguments
 parser = argparse.ArgumentParser("Visualize the simulated single-cell gene expression data output by BoolODE.")
