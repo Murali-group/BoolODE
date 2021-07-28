@@ -10,7 +10,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 import math
 import matplotlib.pyplot as plt
-from BoolODE.scripts.binarize_data import binarize_data
+from binarize_data import binarize_data
 
 # genSS.py assumes a BoolODE simulation in which the time is overrun, skewing each number of cells in discrete
 # steady state(s) to be a larger value than each number of cells in discrete, non-steady states. States with a
@@ -111,7 +111,7 @@ for a in range(len(lower_cluster)):
         predicted_steady_state_list.append(lower_cluster_indices[a])
 num_predicted_steady_states = len(predicted_steady_state_list)
 predicted_right_most_index = predicted_steady_state_list[num_predicted_steady_states - 1]
-print("The corrected k-means clustering algorithm predicts %d predominant states with a right-most index of %s."
+print("The Greedy k-Means clustering algorithm predicts %d predominant states with a right-most index of %s."
       % (num_predicted_steady_states, predicted_right_most_index))
 
 
@@ -150,7 +150,7 @@ steady_states_present = True
 cyclic_behavior = False
 while True:
     try:
-        steady_state_prediction = input("Do you agree with the result of the corrected k-means clustering algorithm? "
+        steady_state_prediction = input("Do you agree with the result of the Greedy k-Means clustering algorithm? "
                                         "(yes or no): ")
         if steady_state_prediction == 'yes' or steady_state_prediction == 'no':
             if steady_state_prediction == 'no':
@@ -224,56 +224,11 @@ else:
     cyclic_states_df = pd.DataFrame()
     num_cyclic_states = 0
 
-# Group cells based on called steady-states, and write groupings to a file if there is more than one steady-state
-steady_state_cell_list = []
-steady_state_list_values = steady_states_df.values.tolist()
-if num_steady_states > 1:
-    steady_state_groups_df = pd.DataFrame(columns=['Cell', 'Group'])
-    for q in range(num_cells):
-        group_value = 0
-        cell_values = list(binDF[cell_list[q]])
-        no_group_assigned = True
-        for r in range(num_steady_states):
-            if steady_state_list_values[r] == cell_values:
-                steady_state_cell_list.append(q)
-                group_value = r / (num_steady_states - 1)
-                no_group_assigned = False
-                break
-        if no_group_assigned:
-            group_scores = [0] * num_steady_states
-            for r in range(num_steady_states):
-                for o in range(num_nodes):
-                    if steady_state_list_values[r][o] == cell_values[o]:
-                        group_scores[r] += 1
-            largest_group_score = 0
-            ambiguous_states = True
-            for p in range(num_steady_states):
-                if group_scores[p] > largest_group_score:
-                    largest_group_score = group_scores[p]
-                    if largest_group_score >= math.floor(5 * num_nodes / 6):
-                        group_value = p / (num_steady_states - 1)
-                        ambiguous_states = False
-            if ambiguous_states:
-                group_value = random.randrange(num_steady_states) / (num_steady_states - 1)
-        group_point = [cell_list[q].split('_')[0], group_value]
-        steady_state_groups_df.loc[len(steady_state_groups_df.index)] = group_point
-    write_to_file("steady_state_groups_df", "csv", num_steady_states)
-    print("The steady-state groups have been written to the steady_state_groups.csv file.")
-else:
-    for q in range(num_cells):
-        cell_values = list(binDF[cell_list[q]])
-        for n in range(num_steady_states):
-            if steady_state_list_values[n] == cell_values:
-                steady_state_cell_list.append(q)
-
-# Write steady states and their locations to files, and dominating states of dominating cycle if necessary
-steady_state_cells_df = pd.DataFrame({'Cell': steady_state_cell_list}, index=None)
-write_to_file("steady_state_cells_df", "csv", num_steady_states)
+# Write steady states or predominating states of dominant cycle to file
 write_to_file("steady_states_df", "tsv", num_steady_states)
 print("Number of Called Steady States: " + str(num_steady_states))
 if steady_states_present:
     print("The steady-states have been written to the steady_states.tsv file.")
-    print("The indices of cells in steady-states have been written to the steady_state_cells.csv file.")
 write_to_file("cyclic_states_df", "tsv", num_cyclic_states)
 if cyclic_behavior:
     print("The predominant states of the dominating cycle have been written to the cyclic_states.tsv file.")
