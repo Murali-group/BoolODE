@@ -114,17 +114,17 @@ print("The Greedy k-Means clustering algorithm predicts %d predominant states wi
 
 
 # Common method for preparing output files
-def write_to_file(data_name, file_type, regulator):
+def write_to_file(data_name, file_type, file_path, regulator):
     name = data_name.split('_df')[0]
     if file_type == 'tsv':
         eval(data_name).to_csv(name + '.' + file_type, sep="\t")
     elif file_type == 'csv':
         eval(data_name).to_csv(name + '.' + file_type, sep=',')
-    if os.path.exists(path + '/' + name + '.' + file_type):
-        os.remove(path + '/' + name + '.' + file_type)
-    shutil.move(os.path.abspath(name + '.' + file_type), path)
+    if os.path.exists(file_path + '/' + name + '.' + file_type):
+        os.remove(file_path + '/' + name + '.' + file_type)
+    shutil.move(os.path.abspath(name + '.' + file_type), file_path)
     if regulator == 0:
-        os.remove(path + '/' + name + '.' + file_type)
+        os.remove(file_path + '/' + name + '.' + file_type)
 
 
 # Examine state multiplicities and judge number of positive outliers
@@ -140,7 +140,7 @@ plt.suptitle('Multiplicities of All States in Binarized Expression Data', fontsi
 ax.set_title('Please note the right-most index of all states with visibly larger multiplicities.', fontsize=12,
              fontweight='bold')
 plt.savefig('StateMultiplicities.png')
-write_to_file('StateMultiplicities', 'png', 1)
+write_to_file('StateMultiplicities', 'png', path, 1)
 plt.show()
 
 ask_for_state = False
@@ -223,30 +223,33 @@ else:
     num_cyclic_states = 0
 
 # Write steady states or predominating states of dominant cycle to file
-write_to_file("steady_states_df", "tsv", num_steady_states)
+write_to_file("steady_states_df", "tsv", path, num_steady_states)
 print("Number of Called Steady States: " + str(num_steady_states))
 if steady_states_present:
     print("The steady-states have been written to the steady_states.tsv file.")
-write_to_file("cyclic_states_df", "tsv", num_cyclic_states)
+write_to_file("cyclic_states_df", "tsv", path, num_cyclic_states)
 if cyclic_behavior:
     print("The predominant states of the dominating cycle have been written to the cyclic_states.tsv file.")
 
-# Re-perform k-Means clustering, if necessary:
-if steady_states_present:
-    do_k_means = False
-    while True:
-        try:
-            to_do_k_means = input("Would you like to re-perform k-means clustering of the expression data? "
-                                  "(yes or no): ")
-            if to_do_k_means == 'yes' or to_do_k_means == 'no':
-                if to_do_k_means == 'yes':
-                    do_k_means = True
-                break
-            else:
-                print("Error: Only 'yes' or 'no' is a valid answer.")
-        except ValueError:
-            continue
-    if do_k_means:
+# Re-perform k-Means clustering, if necessary
+
+do_k_means = False
+while True:
+    try:
+        to_do_k_means = input("Would you like to re-perform k-means clustering of the expression data? "
+                              "(yes or no): ")
+        if to_do_k_means == 'yes' or to_do_k_means == 'no':
+            if to_do_k_means == 'yes':
+                do_k_means = True
+            break
+        else:
+            print("Error: Only 'yes' or 'no' is a valid answer.")
+    except ValueError:
+        continue
+if do_k_means:
+    if cyclic_behavior:
+        num_clusters = 1
+    else:
         num_clusters = num_steady_states
         choose_new_num_clusters = False
         while True:
@@ -271,13 +274,58 @@ if steady_states_present:
                         break
                 except ValueError:
                     continue
-        if num_clusters == 1:
-            print("Requested 1 cluster...not performing k-means clustering for 1 cluster.")
-            clusters_path = path + '/ClusterIds.csv'
-            if os.path.exists(clusters_path):
-                os.remove(clusters_path)
-        else:
-            cluster_labels = KMeans(n_clusters=int(num_clusters), n_jobs=8).fit(DF.T.values).labels_
-            ClusterIds_df = pd.DataFrame(data=cluster_labels, index=DF.columns, columns=['cl'])
-            write_to_file('ClusterIds_df', 'csv', 1)
-            print("The new clusters have been written to the ClusterIds.csv file.")
+    if num_clusters == 1:
+        print("Requested 1 cluster...not performing k-means clustering for 1 cluster.")
+        clusterFile = path + '/ClusterIds.csv'
+        if os.path.exists(clusterFile):
+            print("Deleting the ClusterIds.csv file present.")
+            os.remove(clusterFile)
+    else:
+        cluster_labels = KMeans(n_clusters=int(num_clusters)).fit(DF.T.values).labels_
+        ClusterIds_df = pd.DataFrame(data=cluster_labels, index=DF.columns, columns=['cl'])
+        write_to_file('ClusterIds_df', 'csv', path, 1)
+        print("The new clusters have been written to the ClusterIds.csv file.")
+
+    do_k_means_for_complementary_data = False
+    while True:
+        try:
+            to_do_k_means_for_complementary_data = input("Would you like to re-perform clustering for the "
+                                                         "complementary expression data of lower simulation time? "
+                                                         "(yes or no): ")
+            if to_do_k_means_for_complementary_data == 'yes' or to_do_k_means_for_complementary_data == 'no':
+                if to_do_k_means_for_complementary_data == 'yes':
+                    do_k_means_for_complementary_data = True
+                break
+            else:
+                print("Error: Only 'yes' or 'no' is a valid answer.")
+        except ValueError:
+            continue
+    if do_k_means_for_complementary_data:
+        while True:
+            try:
+                lower_time_simulation_path = input("Please specify the path to the folder containing the "
+                                                   "ExpressionData.csv file for the complementary simulation. "
+                                                   "Or, type 'cancel' to exit: ")
+                lower_time_simulation_inFile = lower_time_simulation_path + "/ExpressionData.csv"
+                if lower_time_simulation_path == 'cancel':
+                    break
+                elif not os.path.exists(lower_time_simulation_inFile):
+                    print("Error: No ExpressionData.csv file is present in the specified path to files. Check "
+                          "the folder and try again.")
+                else:
+                    if num_clusters == 1:
+                        print("Requested 1 cluster...not performing k-means clustering for 1 cluster.")
+                        lower_time_simulation_clusterFile = lower_time_simulation_path + "/ClusterIds.csv"
+                        if os.path.exists(lower_time_simulation_clusterFile):
+                            print("Deleting the ClusterIds.csv file present.")
+                            os.remove(lower_time_simulation_clusterFile)
+                    else:
+                        complementaryDF = pd.read_csv(lower_time_simulation_inFile, sep=',', index_col=0)
+                        cluster_labels = KMeans(n_clusters=int(num_clusters)).fit(complementaryDF.T.values).labels_
+                        ClusterIds_df = pd.DataFrame(data=cluster_labels, index=complementaryDF.columns,
+                                                     columns=['cl'])
+                        write_to_file('ClusterIds_df', 'csv', lower_time_simulation_path, 1)
+                        print("The new clusters have been written to the ClusterIds.csv file.")
+                    break
+            except ValueError:
+                continue
