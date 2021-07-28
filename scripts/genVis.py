@@ -167,7 +167,7 @@ def subplot_format(f, ax, num_plots, plot_index, dataframe, method, dim, map_tit
         labels_df[str(m)] = label_list
     if dim == 3:
         ax[plot_index].set_axis_off()
-        ax[plot_index] = f.add_subplot(1, 3, plot_index+1, projection="3d")
+        ax[plot_index] = f.add_subplot(1, num_plots, plot_index+1, projection="3d")
         ax[plot_index].scatter3D(dataframe[labels_df.at[0, '1']], dataframe[labels_df.at[0, '2']],
                                  dataframe[labels_df.at[0, '2']], c=dataframe[map_title])
         ax[plot_index].set_zlabel(labels_df.at[1, '3'])

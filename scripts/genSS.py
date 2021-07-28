@@ -1,14 +1,12 @@
 __author__ = 'Jon Mallen'
 
 import os
-import random
 import sys
 import shutil
 import argparse
 import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans
-import math
 import matplotlib.pyplot as plt
 from binarize_data import binarize_data
 
