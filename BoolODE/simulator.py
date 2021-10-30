@@ -1,10 +1,14 @@
 import numpy as np
 
-def noise(x,t):
-    # Controls noise proportional to
-    # square root of activity
-    c = 10.#4.
-    return (c*np.sqrt(abs(x)))
+def noise(x,t, noiseStrength):
+    """
+    Controls noise proportional to square root of activity.
+    default setting of noise strength is 10, defined in JobSettings.
+    NOTE: We have previously tried the value of 4, it might be worth doing 
+    a scan of parameter values to see how sensitive BoolODE output is to 
+    this value.
+    """
+    return (noiseStrength*np.sqrt(abs(x)))
 
 def deltaW(N, m, h,seed=0):
     """Generate sequence of Wiener increments for m independent Wiener
@@ -17,7 +21,7 @@ def deltaW(N, m, h,seed=0):
     np.random.seed(seed)
     return np.random.normal(0.0, h, (N, m))
 
-def eulersde(f,G,y0,tspan,pars,seed=0.,dW=None):
+def eulersde(f,G,y0,tspan,pars,noiseStrength, seed=0., dW=None):
     """
     Adapted from sdeint implementation https://github.com/mattja/sdeint/
 
@@ -53,7 +57,7 @@ def eulersde(f,G,y0,tspan,pars,seed=0.,dW=None):
         tn = currtime
         yn = y[n]
         dWn = dW[n,:]
-        y[n+1] = yn + f(yn, tn,pars)*h + np.multiply(G(yn, tn),dWn)
+        y[n+1] = yn + f(yn, tn,pars)*h + np.multiply(G(yn, tn, noiseStrength),dWn)
         # Ensure positive terms
         for i in range(len(y[n+1])):
             if y[n+1][i] < 0:
@@ -62,7 +66,7 @@ def eulersde(f,G,y0,tspan,pars,seed=0.,dW=None):
         n += 1 
     return y
 
-def simulateModel(Model, y0, parameters,isStochastic, tspan,seed):
+def simulateModel(Model, y0, parameters, isStochastic, tspan, seed, noiseStength):
     """Call numerical integration functions, either odeint() from Scipy,
     or simulator.eulersde() defined in simulator.py. By default, stochastic simulations are
     carried out using simulator.eulersde.
@@ -87,7 +91,7 @@ def simulateModel(Model, y0, parameters,isStochastic, tspan,seed):
     if not isStochastic:
         P = odeint(Model,y0,tspan,args=(parameters,))
     else:
-        P = eulersde(Model,noise,y0,tspan,parameters,seed=seed)
+        P = eulersde(Model,noise,y0,tspan,parameters,noiseStength, seed=seed)
     return(P)
 
 def getInitialCondition(ss, ModelSpec, rnaIndex,
