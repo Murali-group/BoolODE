@@ -169,7 +169,7 @@ def dbscan_clustering():
 
     # Find the average k-distances then plot to find the knee,
     # which is the point of maximum curvature
-    y_values = compute_average_distances(distances)
+    y_values = _compute_average_distances(distances)
     x_values = list(range(1,len(y_values) + 1))
     knee_locator = KneeLocator(x_values, y_values, S=1.0, curve='convex', direction='increasing')
     maximum_curvature_position = round(knee_locator.knee, 20)
@@ -226,7 +226,7 @@ def dbscan_clustering():
                 average distance of the distance list occupied 
                 in the respective ordinal location of the input list
 """
-def compute_average_distances(distance_array):
+def _compute_average_distances(distance_array):
     denominator_of_average = len(distance_array[0])
     # Will be of length number of samples (cells) in the
     # ExpressionData, once full

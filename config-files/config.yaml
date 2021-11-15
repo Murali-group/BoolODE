@@ -2,32 +2,33 @@ global_settings:
   model_dir: "data"
   output_dir: "Synthetic-H"
   do_simulations: True
-  do_post_processing: False
-  modeltype: 'heaviside'
-#  modeltype: 'hill'
+  do_post_processing: True
+  modeltype: 'hill'
+#  modeltype: 'heaviside'
 
 jobs:
-  - name: "dyn-LL-1"
-    model_definition: "dyn-linear-long.txt"
-    model_initial_conditions: "dyn-linear-long_ics.txt"
-    simulation_time: 9
-    num_cells: 300
-    do_parallel: True
-    sample_cells: False
-  # - name: "dyn-LI-1"
-  #   model_definition: "dyn-linear.txt"
-  #   model_initial_conditions: "dyn-linear_ics.txt"
-  #   simulation_time: 7
-  #   num_cells: 200
-  #   do_parallel: True
-  #   sample_cells: False
+#  - name: "dyn-LL-1"
+#    model_definition: "dyn-linear-long.txt"
+#    model_initial_conditions: "dyn-linear-long_ics.txt"
+#    simulation_time: 9
+#    num_cells: 300
+#    do_parallel: False
+#    sample_cells: False
+
+   - name: "dyn-LI-1"
+     model_definition: "dyn-linear.txt"
+     model_initial_conditions: "dyn-linear_ics.txt"
+     simulation_time: 7
+     num_cells: 200
+     do_parallel: False
+     sample_cells: False
 
   # - name: "dyn-BF-1"
   #   model_definition: "dyn-bifurcating.txt"
   #   model_initial_conditions: "dyn-bifurcating_ics.txt"
   #   simulation_time: 5
   #   num_cells: 500
-  #   do_parallel: True
+  #   do_parallel: False
   #   sample_cells: False
   #   nClusters: 2
 
@@ -36,7 +37,7 @@ jobs:
   #   model_initial_conditions: "dyn-trifurcating_ics.txt"
   #   simulation_time: 8
   #   num_cells: 500
-  #   do_parallel: True
+  #   do_parallel: False
   #   sample_cells: False
   #   nClusters: 3
 
@@ -45,15 +46,17 @@ jobs:
   #   model_initial_conditions: "dyn-cycle_ics.txt"
   #   simulation_time: 8
   #   num_cells: 500
-  #   do_parallel: True
+  #   do_parallel: False
   #   sample_cells: False
   #   nClusters: 1
 
 post_processing:
-  Dropouts:
-    - dropout: False
-      nCells: 1000
-      
+#  Dropouts:
+#    - dropout: False
+#      nCells: 1000
+   DBSCAN:
+     - outputPath: /Users/neelpatel/Desktop/BoolODE/data/
+       perform_PyBoolNet: True
   #   - dropout: False
   #     nCells: 100
   #     drop_cutoff: 0.5

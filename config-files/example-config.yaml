@@ -170,3 +170,14 @@ post_processing:
   ## docker on your machine.
   # Slingshot:
   #   - perplexity: 200
+
+
+# Run DBSCAN on BoolODE ExpressionData output
+# outputPath is where the user would like output files will generate
+# For steady state calculation from PyBoolNet, set perform_PyBoolNet to True,
+# the default is false.
+# Note: If you set perform_PyBoolNet to true, you need to follow the
+# PyBoolNet installation guide provided in README.MD
+#  DBSCAN:
+#    - outputPath: /Users/userName/Desktop/BoolODE/data/dbscanOutputFolder
+#      perform_PyBoolNet: True

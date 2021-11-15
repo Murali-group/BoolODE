@@ -36,12 +36,14 @@ class PostProcSettings(object):
                  dimred_jobs,
                  slingshot_jobs,
                  gensample_jobs,
+                 dbscan_jobs,
                  geneexpression_jobs) -> None:
         
         self.dropout_jobs = dropout_jobs
         self.dimred_jobs = dimred_jobs
         self.slingshot_jobs = slingshot_jobs
         self.gensample_jobs = gensample_jobs
+        self.dbscan_jobs = dbscan_jobs
         self.geneexpression_jobs = geneexpression_jobs        
 
 class BoolODE(object):
@@ -147,6 +149,7 @@ class BoolODE(object):
         if self.post_settings.dropout_jobs\
            or self.post_settings.dimred_jobs\
            or self.post_settings.geneexpression_jobs\
+           or self.post_settings.dbscan_jobs\
            or self.post_settings.slingshot_jobs:
             doOtherAnalysis = True
         generatedPaths = {}
@@ -203,7 +206,37 @@ class BoolODE(object):
                             po.genDropouts(settings)
                     if num_invalid == len(alljobs):
                         break
-                    
+        # DBSCAN Jobs
+        if self.post_settings.dbscan_jobs is not None:
+            print("Starting DBSCAN...")
+            for dbscan_job in self.post_settings.dbscan_jobs:
+                for jobid in alljobs:
+                    for gsampPath in generatedPaths[jobid]:
+                        # outputPath = self.jobs[jobid]['outputPath']
+                        settings = {}
+                        settings['outputPath'] = dbscan_job.get('outputPath')
+                        settings['perform_PyBoolNet'] = dbscan_job.get('perform_PyBoolNet', False)
+                        # To use genSamples generated ExpressionData for
+                        # this specific post-processing test as ExpressionData
+                        # settings['expressionDataFileLocation'] = Path(gsampPath,\
+                        #                     'ExpressionData.csv')
+
+                        # Use BoolODE output (the one the user sees) as ExpressionData
+                        settings['expressionDataFileLocation'] = str(
+                            self.jobs[jobid]['outprefix']) + "/ExpressionData.csv"
+
+                        data_file_name = ""
+                        for jobid2, joby in enumerate(self.job_settings.jobs):
+                            data_file_name = str(Path(self.global_settings.model_dir, joby.get('model_definition', '')))
+                        parent_directory_path = Path(self.global_settings.model_dir)
+                        parent_directory_path = parent_directory_path.parent.absolute()
+
+                        # DBSCAN will need to know what model is being analyzed if
+                        # it is running PyBoolNet
+                        settings['modelPath'] = str(parent_directory_path) + "/" + data_file_name
+
+                        po.dbscan_run(settings)
+
         if self.post_settings.dimred_jobs is not None:
             print("Starting dimesionality reduction using tSNE")
             for dimred_jobs in self.post_settings.dimred_jobs:
@@ -342,7 +375,8 @@ class ConfigParser(object):
         slingshot_jobs = input_settings_map.get('Slingshot', None)
         dimred_jobs = input_settings_map.get('DimRed', None)
         gensample_jobs = input_settings_map.get('GenSamples', None)
+        dbscan_jobs = input_settings_map.get('DBSCAN', None)
         geneexpression_jobs = input_settings_map.get('GeneExpression', None)        
         return PostProcSettings(dropout_jobs, dimred_jobs,
                                 slingshot_jobs, gensample_jobs,
-                                geneexpression_jobs)
+                                dbscan_jobs, geneexpression_jobs)
