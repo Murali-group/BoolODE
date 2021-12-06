@@ -17,7 +17,7 @@ In the directory where you want the BoolODE files, use the following command:
 
 3) If you want to perform the optional post_processing of comparing DBSCAN with PyBoolNet (compare_pyboolnet:True), follow
 the instructions to install the requirements for PyBoolNet here:
-`https://pyboolnet.readthedocs.io/en/latest/index.html#`
+`https://pyboolnet.readthedocs.io/`
 
 ## Usage
 `python boolode.py --config path/to/config.yaml`
