@@ -7,39 +7,39 @@ global_settings:
 #  modeltype: 'heaviside'
 
 jobs:
-#  - name: "dyn-LL-1"
-#    model_definition: "dyn-linear-long.txt"
-#    model_initial_conditions: "dyn-linear-long_ics.txt"
-#    simulation_time: 9
-#    num_cells: 300
-#    do_parallel: False
-#    sample_cells: False
+    - name: dyn-LL-1
+      model_definition: "dyn-linear-long.txt"
+      model_initial_conditions: "dyn-linear-long_ics.txt"
+      simulation_time: 9
+      num_cells: 300
+      do_parallel: False
+      sample_cells: False
 
-   - name: "dyn-LI-1"
-     model_definition: "dyn-linear.txt"
-     model_initial_conditions: "dyn-linear_ics.txt"
-     simulation_time: 7
-     num_cells: 200
-     do_parallel: False
-     sample_cells: False
+#     - name: "dyn-LI-1"
+#       model_definition: "dyn-linear.txt"
+#       model_initial_conditions: "dyn-linear_ics.txt"
+#       simulation_time: 7
+#       num_cells: 200
+#       do_parallel: False
+#       sample_cells: False
 
-  # - name: "dyn-BF-1"
-  #   model_definition: "dyn-bifurcating.txt"
-  #   model_initial_conditions: "dyn-bifurcating_ics.txt"
-  #   simulation_time: 5
-  #   num_cells: 500
-  #   do_parallel: False
-  #   sample_cells: False
-  #   nClusters: 2
+#   - name: "dyn-BF-1"
+#     model_definition: "dyn-bifurcating.txt"
+#     model_initial_conditions: "dyn-bifurcating_ics.txt"
+#     simulation_time: 5
+#     num_cells: 500
+#     do_parallel: False
+#     sample_cells: False
+#   nClusters: 2
 
-  # - name: "dyn-TF-1"
-  #   model_definition: "dyn-trifurcating.txt"
-  #   model_initial_conditions: "dyn-trifurcating_ics.txt"
-  #   simulation_time: 8
-  #   num_cells: 500
-  #   do_parallel: False
-  #   sample_cells: False
-  #   nClusters: 3
+#   - name: "dyn-TF-1"
+#     model_definition: "dyn-trifurcating.txt"
+#     model_initial_conditions: "dyn-trifurcating_ics.txt"
+#     simulation_time: 8
+#     num_cells: 500
+#     do_parallel: False
+#     sample_cells: False
+#     nClusters: 3
 
   # - name: "dyn-CY-1"
   #   model_definition: "dyn-cycle.txt"
@@ -54,18 +54,20 @@ post_processing:
 #  Dropouts:
 #    - dropout: False
 #      nCells: 1000
-   DBSCAN:
-     - outputPath: /Users/neelpatel/Desktop/BoolODE/data/
-       perform_PyBoolNet: True
-  #   - dropout: False
-  #     nCells: 100
-  #     drop_cutoff: 0.5
-  #     drop_prob: 0.5
+#
+#    - dropout: False
+#      nCells: 100
+#      drop_cutoff: 0.5
+#      drop_prob: 0.5
+#
+#    - dropout: False
+#      nCells: 100
+#      drop_cutoff: 0.7
+#      drop_prob: 0.7
+
+  CompareSteadyStates:
+    - outputPath: /Users/ameliawhitehead/Desktop/boolbool/BoolODE/config-files
+      perform_PyBoolNet: True
       
-  #   - dropout: False
-  #     nCells: 100
-  #     drop_cutoff: 0.7
-  #     drop_prob: 0.7
-      
-  # Slingshot:
-  #   - perplexity: 400
+#  Slingshot:
+#     - perplexity: 400

@@ -8,27 +8,72 @@
  @Author: Amelia Whitehead (ameliafw@vt.edu)
 """
 
-"""
- Performs DBSCAN on the ExpressionData file and generates a DBSCAN_ClusterIDs.csv file, which specifies 
- which cell belongs to what cluster, according to DBSCAN. All noise points are grouped together into 
- a separate cluster for visualization purposes.
+def compare_ss(expression_data_location, output_file_path, compare_with_pyboolnet, model_path):
+    """
+     Main caller of any steady state comparison techniques.
 
- @Precondition: The number of samples (cells) needs to be greater than two 
-                times the number of genes
+     @Params:       expression_data_location: the full file path of ExpressionData
+                    output_file_path: the file path where output files should go
+                    compare_with_pyboolnet: 1 if compare output with PyBoolNet, 0 otherwise
+                    model_path: States the path of the model. Needed for PyBoolNet to analyze steady states
+    """
+    import os
+    # Perform DBSCAN, a clustering technique to approximate the number of steady states.
+    n_clusters_ = run_dbscan_clustering(expression_data_location, output_file_path)
 
- @Note:         DBSCAN does not work well with datasets of varying density
- 
- @Params:       expression_data_location: the full file path of ExpressionData
-                output_file_path: the file path where output files should go
-                compare_with_pyboolnet: 1 if compare output with PyBoolNet, 0 otherwise
-                model_path: States the path of the model. Needed for PyBoolNet to analyze steady states
+    # (Optional) Perform PyBoolNet to calculate the steady states and report the number of steady states.
+    pyboolnet_result = -1
+    if compare_with_pyboolnet:
+        # Note: run_pyboolnet still has initial conditions section to be added
+        pyboolnet_result = run_pyboolnet(False, model_path)
 
- @Citations:    https://scikit-learn.org/stable/auto_examples/cluster/plot_dbscan.html#sphx-glr-auto-examples-cluster-plot-dbscan-py
-                https://medium.com/@tarammullin/dbscan-parameter-estimation-ff8330e3a3bd  
-"""
+    # Only do these print statements if PyBoolNet was ran.
+    if pyboolnet_result != -1:
+        if n_clusters_ == pyboolnet_result:
+            if n_clusters_ == 1:
+                print("\nDBSCAN and PyBoolNet results match and found " + str(n_clusters_) + " steady state\n")
+            else:
+                print("\nDBSCAN and PyBoolNet results match and found " + str(n_clusters_) + " steady states\n")
+        else:
+            print("\nDBSCAN and PyBoolNet outputs did not match. \nDBSCAN: " + str(n_clusters_) + ", PyBoolNet: " + str(
+                pyboolnet_result) + "\n")
+    output_file_path = os.path.join(output_file_path, "steady_state_comparison.txt")
+    outputfile = open(output_file_path, "w")
+    outputfile.write("DBSCAN Number of Steady State Estimation: " + str(n_clusters_) + "\n")
+    if pyboolnet_result != -1:
+        outputfile.write("PyBoolNet Number of Steady States: " + str(pyboolnet_result) + "\n")
+        outputfile.write("\n")
+        if n_clusters_ == pyboolnet_result:
+            if n_clusters_ == 1:
+                outputfile.write("DBSCAN and PyBoolNet outputs match and found " + str(n_clusters_) + " steady state")
+            else:
+                outputfile.write("DBSCAN and PyBoolNet outputs match and found " + str(n_clusters_) + " steady states")
+        else:
+            outputfile.write("DBSCAN and PyBoolNet outputs did not match.")
+    else:
+        outputfile.write("PyBoolNet was not ran because it was not requested")
+    print("Steady state comparison results were written to steady_state_comparison.txt\n")
 
 
-def dbscan_clustering(expression_data_location, output_file_path, compare_with_pyboolnet, model_path):
+
+def run_dbscan_clustering(expression_data_location, output_file_path):
+    """
+     Performs DBSCAN on the ExpressionData file and generates a DBSCAN_ClusterIDs.csv file, which specifies
+     which cell belongs to what cluster, according to DBSCAN. All noise points are grouped together into
+     a separate cluster for visualization purposes.
+
+     @Precondition: The number of samples (cells) needs to be greater than two
+                    times the number of genes
+
+     @Note:         DBSCAN does not work well with datasets of varying density
+
+     @Params:       expression_data_location: the full file path of ExpressionData
+                    output_file_path: the file path where output files should go
+
+     @Citations:    https://scikit-learn.org/stable/auto_examples/cluster/plot_dbscan.html#sphx-glr-auto-examples-cluster-plot-dbscan-py
+                    https://medium.com/@tarammullin/dbscan-parameter-estimation-ff8330e3a3bd
+    """
+    import os
     from sklearn.cluster import DBSCAN
     from sklearn.neighbors import NearestNeighbors
     from kneed import KneeLocator
@@ -123,25 +168,22 @@ def dbscan_clustering(expression_data_location, output_file_path, compare_with_p
     cell_names = expression_df.columns.tolist()
     dictionary = {'': cell_names, 'cl': cluster_values}
     cluster_df = pandas.DataFrame(dictionary)
-    cluster_df.to_csv(output_file_path + 'DBSCAN_ClusterIDs.csv', index=False)
+    output_file_path = os.path.join(output_file_path, 'DBSCAN_ClusterIDs.csv')
+    cluster_df.to_csv(output_file_path, index=False)
 
     print("DBSCAN analysis generated a DBSCAN_ClusterIDs.csv file.")
-    pyboolnet_result = -1
-    if compare_with_pyboolnet:
-        # Note: not the correct way to express the file path.
-        pyboolnet_result = pyBoolNet_comparison(0, False, model_path)
-
-    # Only do these print statements if PyBoolNet was ran.
-    if pyboolnet_result != -1:
-        if n_clusters_ == pyboolnet_result:
-            print("\nDBSCAN and PyBoolNet results match and found " + str(n_clusters_) + "steady states\n")
-        else:
-            print("\nDBSCAN and PyBoolNet outputs did not match. \nDBSCAN: " + str(n_clusters_) + ", PyBoolNet: " + str(
-                pyboolnet_result) + "\n")
+    return n_clusters_
 
 
 # Runs PyBoolNet
-def pyBoolNet_comparison(bnet_file, ics_present, model_path):
+def run_pyboolnet(ics_present, model_path):
+    """
+         Performs PyBoolNet to get the steady states. Information on PyBoolNet can be
+         found at https://pyboolnet.readthedocs.io/en/master/
+
+         @Params:       ics_present: True if initial conditions are present, False otherwise
+                        model_path: States the path of the model. Needed for PyBoolNet to analyze steady states
+        """
     #### Still has initial conditions section to be added
     print("Starting PyBoolNet...")
 

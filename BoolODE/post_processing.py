@@ -6,7 +6,7 @@ from pathlib import Path
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
-from BoolODE import dbscan_evaluation
+from BoolODE import compare_steady_states
 
 
 def genSamples(opts):
@@ -293,9 +293,16 @@ def computeSSPT(opts):
     os.system("rm -rf temp/")
 
 
-def dbscan_run(opts):
+def compare_ss(opts):
+    """
+        Performs steady state estimation on ExpressionData
+        with compare_steady_states.py, which
+        currently performs DBSCAN to determine steady states and can be
+        optionally compared with the steady states calculated by PyBoolNet as
+        specified by opts['perform_PyBoolNet']
+    """
     expressionDataFileLocation = opts['expressionDataFileLocation']
     outputPath = opts['outputPath']
     perform_pyboolnet = opts['perform_PyBoolNet']
     modelPath = opts['modelPath']
-    dbscan_evaluation.dbscan_clustering(expressionDataFileLocation, outputPath, perform_pyboolnet, modelPath)
+    compare_steady_states.compare_ss(expressionDataFileLocation, outputPath, perform_pyboolnet, modelPath)

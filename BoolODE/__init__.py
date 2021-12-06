@@ -36,14 +36,14 @@ class PostProcSettings(object):
                  dimred_jobs,
                  slingshot_jobs,
                  gensample_jobs,
-                 dbscan_jobs,
+                 compare_ss_jobs,
                  geneexpression_jobs) -> None:
         
         self.dropout_jobs = dropout_jobs
         self.dimred_jobs = dimred_jobs
         self.slingshot_jobs = slingshot_jobs
         self.gensample_jobs = gensample_jobs
-        self.dbscan_jobs = dbscan_jobs
+        self.compare_ss_jobs = compare_ss_jobs
         self.geneexpression_jobs = geneexpression_jobs        
 
 class BoolODE(object):
@@ -149,7 +149,7 @@ class BoolODE(object):
         if self.post_settings.dropout_jobs\
            or self.post_settings.dimred_jobs\
            or self.post_settings.geneexpression_jobs\
-           or self.post_settings.dbscan_jobs\
+           or self.post_settings.compare_ss_jobs\
            or self.post_settings.slingshot_jobs:
             doOtherAnalysis = True
         generatedPaths = {}
@@ -206,16 +206,16 @@ class BoolODE(object):
                             po.genDropouts(settings)
                     if num_invalid == len(alljobs):
                         break
-        # DBSCAN Jobs
-        if self.post_settings.dbscan_jobs is not None:
-            print("Starting DBSCAN...")
-            for dbscan_job in self.post_settings.dbscan_jobs:
+        # compare_ss_jobs (compare steady states jobs)
+        if self.post_settings.compare_ss_jobs is not None:
+            print("Starting to compare steady states...")
+            for ss_comparison_job in self.post_settings.compare_ss_jobs:
                 for jobid in alljobs:
                     for gsampPath in generatedPaths[jobid]:
                         # outputPath = self.jobs[jobid]['outputPath']
                         settings = {}
-                        settings['outputPath'] = dbscan_job.get('outputPath')
-                        settings['perform_PyBoolNet'] = dbscan_job.get('perform_PyBoolNet', False)
+                        settings['outputPath'] = ss_comparison_job.get('outputPath')
+                        settings['perform_PyBoolNet'] = ss_comparison_job.get('perform_PyBoolNet', False)
                         # To use genSamples generated ExpressionData for
                         # this specific post-processing test as ExpressionData
                         # settings['expressionDataFileLocation'] = Path(gsampPath,\
@@ -231,11 +231,11 @@ class BoolODE(object):
                         parent_directory_path = Path(self.global_settings.model_dir)
                         parent_directory_path = parent_directory_path.parent.absolute()
 
-                        # DBSCAN will need to know what model is being analyzed if
+                        # Will need to know what model is being analyzed if
                         # it is running PyBoolNet
-                        settings['modelPath'] = str(parent_directory_path) + "/" + data_file_name
 
-                        po.dbscan_run(settings)
+                        settings['modelPath'] = str(parent_directory_path) + "/" + data_file_name
+                        po.compare_ss(settings)
 
         if self.post_settings.dimred_jobs is not None:
             print("Starting dimesionality reduction using tSNE")
@@ -375,8 +375,8 @@ class ConfigParser(object):
         slingshot_jobs = input_settings_map.get('Slingshot', None)
         dimred_jobs = input_settings_map.get('DimRed', None)
         gensample_jobs = input_settings_map.get('GenSamples', None)
-        dbscan_jobs = input_settings_map.get('DBSCAN', None)
+        compare_ss_jobs = input_settings_map.get('CompareSteadyStates', None)
         geneexpression_jobs = input_settings_map.get('GeneExpression', None)        
         return PostProcSettings(dropout_jobs, dimred_jobs,
                                 slingshot_jobs, gensample_jobs,
-                                dbscan_jobs, geneexpression_jobs)
+                                compare_ss_jobs, geneexpression_jobs)
