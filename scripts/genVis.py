@@ -125,13 +125,13 @@ if __name__ == '__main__':
     DRDF = pd.DataFrame(index=pd.Index(list(DF.columns)))
 
     # Do PCA, t-SNE, UMAP
-    partial_dr_function = partial(dimensional_reduction, dimred_df=DRDF)
+    partial_dimensionality_reduction = partial(dimensional_reduction, dimred_df=DRDF)
     if pca_flag:
-        pca_dim = partial_dr_function(method='PCA', method_arg=args.pca)
+        pca_dim = partial_dimensionality_reduction(method='PCA', method_arg=args.pca)
     if tsne_flag:
-        tsne_dim = partial_dr_function(method='TSNE', method_arg=args.tsne)
+        tsne_dim = partial_dimensionality_reduction(method='TSNE', method_arg=args.tsne)
     if umap_flag:
-        umap_dim = partial_dr_function(method='UMAP', method_arg=args.umap)
+        umap_dim = partial_dimensionality_reduction(method='UMAP', method_arg=args.umap)
 
     # Prepare time-dependent color scheme
     #   To prepare the time-dependent color scheme,  the pseudo-time file is read for its maximum value, i.e the
