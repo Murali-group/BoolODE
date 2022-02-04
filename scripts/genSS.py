@@ -3,6 +3,8 @@ __author__ = 'Jon Mallen'
 # genSS.py assumes a BoolODE simulation in which the time is overrun, skewing each number of cells in discrete
 # steady state(s) to be a larger value than each number of cells in discrete, non-steady states. States with a
 # multiplicity over a certain threshold are called to be steady states and are written to a steady state file.
+# The corresponding steady states are intended to be used for relabeling of simulated expression data in the
+# visualization script genVis.py
 
 import os
 import sys
@@ -30,20 +32,19 @@ def write_to_file(data_name, file_type, file_path, regulator):
 
 
 # Common method for organizing states to pandas dataframe
-def get_states(make_df):
+def get_states(make_df, sorted_states, cutoff, unique_df):
     state_list = []
-    for m in sort_states:
+    for m in sorted_states:
         state_list.append(m)
-        if m == state_cutoff:
+        if m == cutoff:
             break
-    num_states = len(state_list)
-    states_df = pd.DataFrame(columns=uniques_df.index)
-    for s in state_list:
-        states_df.loc[len(states_df.index)] = list(uniques_df[s])
     if make_df:
+        states_df = pd.DataFrame(columns=unique_df.index)
+        for s in state_list:
+            states_df.loc[len(states_df.index)] = list(unique_df[s])
         return states_df
     else:
-        return num_states
+        return len(state_list)
 
 
 if __name__ == '__main__':
@@ -61,16 +62,12 @@ if __name__ == '__main__':
     if not os.path.exists(inFile):
         sys.exit('Error: No ExpressionData.csv file is present in the specified path to files.')
 
-    # Read the data
+    # Read, binarize, and find unique states in the data
     DF = pd.read_csv(inFile, sep=',', index_col=0)
     num_nodes = len(DF)
     cell_list = DF.columns
-
-    # Binarize the data
     binDF = binarize_data(DF)
     num_cells = len(cell_list)
-
-    # Find unique states in data
     uniques_df = pd.DataFrame()
     num_uniques = 0
     for i in cell_list:
@@ -210,15 +207,14 @@ if __name__ == '__main__':
 
     # Call steady-states and majority states of dominating cycle
     if steady_states_present:
-        steady_states_df = get_states(True)
-        num_steady_states = get_states(False)
+        steady_states_df = get_states(True, sort_states, state_cutoff, uniques_df)
+        num_steady_states = get_states(False, sort_states, state_cutoff, uniques_df)
     else:
         steady_states_df = pd.DataFrame()
         num_steady_states = 0
-
     if cyclic_behavior:
-        cyclic_states_df = get_states(True)
-        num_cyclic_states = get_states(False)
+        cyclic_states_df = get_states(True, sort_states, state_cutoff, uniques_df)
+        num_cyclic_states = get_states(False, sort_states, state_cutoff, uniques_df)
     else:
         cyclic_states_df = pd.DataFrame()
         num_cyclic_states = 0
