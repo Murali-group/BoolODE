@@ -15,7 +15,8 @@ from umap import UMAP
 import matplotlib.pyplot as plt
 import pandas as pd
 import argparse
-import itertools
+from itertools import repeat
+from functools import partial
 from binarize_data import binarize_data
 
 
@@ -93,14 +94,20 @@ def make_subplot(method, dim, data_label, show_ss_flag, dimred_df, dimred_df_ss_
         num_plots = 2
         fig_width = 10
     f, ax = plt.subplots(1, num_plots, figsize=(fig_width, 5))
-    plot_ranges = subplot_format(f, ax, num_plots, 0, dimred_df, method, dim, 'Simulation Time', 'viridis', None)
+    partial_subplot_format = partial(subplot_format, f=f, ax=ax, num_plots=num_plots, method=method, dim=dim)
+    # plot_ranges = subplot_format(f, ax, num_plots, 0, dimred_df, method, dim, 'Simulation Time', 'viridis', None)
+    plot_ranges = partial_subplot_format(plot_index=0, dataframe=dimred_df, map_title='Simulation Time',
+                                         color_map='viridis', axis_limits=None)
     # Plot each cell in the dimensional reduction and map by simulation time using a color map.
-    subplot_format(f, ax, num_plots, 0, dimred_df, method, dim, 'Simulation Time', 'viridis', plot_ranges)
+    partial_subplot_format(plot_index=0, dataframe=dimred_df, map_title='Simulation Time',
+                           color_map='viridis', axis_limits=plot_ranges)
     # Plot each cell in the dimensional reduction and map by cluster using a color map.
-    subplot_format(f, ax, num_plots, 1, dimred_df, method, dim, 'k-Means Clusters', 'Spectral', plot_ranges)
+    partial_subplot_format(plot_index=1, dataframe=dimred_df, map_title='k-Means Clusters',
+                           color_map='Spectral', axis_limits=plot_ranges)
     # Plot only the cells corresponding to steady-states using a color map.
     if show_ss_flag:
-        subplot_format(f, ax, num_plots, 2, dimred_df_ss_only, method, dim, 'Steady State Groups', 'jet', plot_ranges)
+        partial_subplot_format(plot_index=2, dataframe=dimred_df_ss_only, map_title='Steady State Groups',
+                               color_map='jet', axis_limits=plot_ranges)
     plt.suptitle(plot_title, fontsize=15)
     for ax in ax.flat:
         ax.label_outer()
@@ -154,8 +161,6 @@ if __name__ == '__main__':
         ssFile = ""
     if ss_flag and not os.path.exists(ssFile):
         sys.exit('Error: No steady_states.tsv file is present in the specified path to files.')
-
-    # User-specified dimensional reduction techniques
     pca_flag = args.pca is not None
     tsne_flag = args.tsne is not None
     umap_flag = args.umap is not None
@@ -168,12 +173,13 @@ if __name__ == '__main__':
     binDF = binarize_data(DF)
 
     # Do PCA, t-SNE, UMAP
+    partial_dimensionality_reduction = partial(dimensional_reduction, dimred_df=DRDF)
     if pca_flag:
-        pca_dim = dimensional_reduction('PCA', args.pca, DRDF)
+        pca_dim = partial_dimensionality_reduction(method='PCA', method_arg=args.pca)
     if tsne_flag:
-        tsne_dim = dimensional_reduction('TSNE', args.tsne, DRDF)
+        tsne_dim = partial_dimensionality_reduction(method='TSNE', method_arg=args.tsne)
     if umap_flag:
-        umap_dim = dimensional_reduction('UMAP', args.umap, DRDF)
+        umap_dim = partial_dimensionality_reduction(method='UMAP', method_arg=args.umap)
 
     # Prepare time-dependent color scheme
     #   To prepare the time-dependent color scheme,  the pseudo-time file is read for its maximum value, i.e the
@@ -193,7 +199,7 @@ if __name__ == '__main__':
     #   assignments to values in [0,1], which can then be used to map each data point in the dimensional reduction by
     #   cluster using a color map.
 
-    single_color = list(itertools.repeat(.5, len(DF.columns)))
+    single_color = list(repeat(.5, len(DF.columns)))
     if cluster_flag:
         CF = pd.read_csv(clusterFile, sep=',', index_col=0)
         cluster_colors_raw = CF['cl'].tolist()
@@ -232,15 +238,17 @@ if __name__ == '__main__':
         DRDF_ss_only["Steady State Groups"] = ss_colors
 
     # t-SNE plotting
+    partial_make_subplot = partial(make_subplot, data_label=data_name, show_ss_flag=ss_flag, dimred_df=DRDF,
+                                   dimred_df_ss_only=DRDF_ss_only)
     if tsne_flag:
-        make_subplot('TSNE', tsne_dim, data_name, ss_flag, DRDF, DRDF_ss_only)
+        partial_make_subplot(method='TSNE', dim=tsne_dim)
         plt.savefig(inFile.split('.csv')[0] + '_tSNE_%sd.png' % tsne_dim)
-    # PCA plotting
+        # PCA plotting
     if pca_flag:
-        make_subplot('PCA', pca_dim, data_name, ss_flag, DRDF, DRDF_ss_only)
+        partial_make_subplot(method='PCA', dim=pca_dim)
         plt.savefig(inFile.split('.csv')[0] + '_PCA_%sd.png' % pca_dim)
-    # UMAP plotting
+        # UMAP plotting
     if umap_flag:
-        make_subplot('UMAP', umap_dim, data_name, ss_flag, DRDF, DRDF_ss_only)
+        partial_make_subplot(method='UMAP', dim=umap_dim)
         plt.savefig(inFile.split('.csv')[0] + '_UMAP_%sd.png' % umap_dim)
     plt.show()

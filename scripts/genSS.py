@@ -14,6 +14,7 @@ import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
+from functools import partial
 from binarize_data import binarize_data
 
 
@@ -164,8 +165,7 @@ if __name__ == '__main__':
     cyclic_behavior = False
     while True:
         try:
-            steady_state_prediction = input("Do you agree with the result of the Greedy k-Means clustering algorithm? "
-                                            "(yes or no): ")
+            steady_state_prediction = input("Do you agree with the prediction? (yes or no): ")
             if steady_state_prediction == 'yes' or steady_state_prediction == 'no':
                 if steady_state_prediction == 'no':
                     ask_for_state = True
@@ -206,25 +206,27 @@ if __name__ == '__main__':
             continue
 
     # Call steady-states and majority states of dominating cycle
+    partial_get_states = partial(get_states, sorted_states=sort_states, cutoff=state_cutoff, unique_df=uniques_df)
     if steady_states_present:
-        steady_states_df = get_states(True, sort_states, state_cutoff, uniques_df)
-        num_steady_states = get_states(False, sort_states, state_cutoff, uniques_df)
+        steady_states_df = partial_get_states(make_df=True)
+        num_steady_states = partial_get_states(make_df=False)
     else:
         steady_states_df = pd.DataFrame()
         num_steady_states = 0
     if cyclic_behavior:
-        cyclic_states_df = get_states(True, sort_states, state_cutoff, uniques_df)
-        num_cyclic_states = get_states(False, sort_states, state_cutoff, uniques_df)
+        cyclic_states_df = partial_get_states(make_df=True)
+        num_cyclic_states = partial_get_states(make_df=False)
     else:
         cyclic_states_df = pd.DataFrame()
         num_cyclic_states = 0
 
     # Write steady states or predominating states of dominant cycle to file
-    write_to_file("steady_states_df", "tsv", path, num_steady_states)
+    partial_write_to_file = partial(write_to_file, file_type="tsv", file_path=path)
+    partial_write_to_file(data_name="steady_states_df", regulator=num_steady_states)
     print("Number of Called Steady States: " + str(num_steady_states))
     if steady_states_present:
         print("The steady-states have been written to the steady_states.tsv file.")
-    write_to_file("cyclic_states_df", "tsv", path, num_cyclic_states)
+    partial_write_to_file(data_name="cyclic_states_df", regulator=num_cyclic_states)
     if cyclic_behavior:
         print("The predominant states of the dominating cycle have been written to the cyclic_states.tsv file.")
 
