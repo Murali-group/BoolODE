@@ -1,10 +1,12 @@
-import pandas as pd
-import numpy as np
-from sklearn.cluster import KMeans
+__author__ = 'Jon Mallen'
 
 # This is the common binarization method used by genSS.py and by extension, genVis.py. The expression data is sorted
 # into an ascending list and clustered into 2 clusters using k-means. The average of the centroids of the two clusters
 # is taken to be the binarization threshold for all of the data.
+
+import pandas as pd
+import numpy as np
+from sklearn.cluster import KMeans
 
 
 def binarize_data(dataframe):
