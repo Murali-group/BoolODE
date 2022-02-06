@@ -17,7 +17,7 @@ import pandas as pd
 import argparse
 from itertools import repeat
 from functools import partial
-from binarize_data import binarize_data
+from genSS import binarize_data
 
 
 # Common method for dimensional reduction
@@ -95,7 +95,6 @@ def make_subplot(method, dim, data_label, show_ss_flag, dimred_df, dimred_df_ss_
         fig_width = 10
     f, ax = plt.subplots(1, num_plots, figsize=(fig_width, 5))
     partial_subplot_format = partial(subplot_format, f=f, ax=ax, num_plots=num_plots, method=method, dim=dim)
-    # plot_ranges = subplot_format(f, ax, num_plots, 0, dimred_df, method, dim, 'Simulation Time', 'viridis', None)
     plot_ranges = partial_subplot_format(plot_index=0, dataframe=dimred_df, map_title='Simulation Time',
                                          color_map='viridis', axis_limits=None)
     # Plot each cell in the dimensional reduction and map by simulation time using a color map.

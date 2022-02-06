@@ -15,7 +15,23 @@ import numpy as np
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 from functools import partial
-from binarize_data import binarize_data
+
+
+# Method for binarization for use here as well as genVis.py
+def binarize_data(dataframe):
+    gene_values = dataframe.values.tolist()
+    all_values = [item for sublist in gene_values for item in sublist]
+    all_values.sort()
+    value_coordinate_list = [[a, all_values[a]] for a in range(len(all_values))]
+    values_array = np.array(value_coordinate_list)
+    expression_k_means = KMeans(n_clusters=2).fit(values_array)
+    threshold = np.float32(round(sum(expression_k_means.cluster_centers_[:, 1]) / 2, 3))
+    if threshold > 1:
+        threshold = 1
+    binarized_dataframe = pd.DataFrame()
+    for c in dataframe.columns:
+        binarized_dataframe[c] = (dataframe[c] >= threshold).astype(int)
+    return binarized_dataframe
 
 
 # Common method for preparing output files
@@ -81,14 +97,12 @@ if __name__ == '__main__':
             uniques_df[str(num_uniques)] = binDF[i]
             num_uniques += 1
 
-    # Find multiplicity of each state
+    # Find multiplicity of each state and sort by multiplicity
     state_multiplicities = [0] * num_uniques
     for i in cell_list:
         for j in uniques_df.columns:
             if uniques_df[j].equals(binDF[i]):
                 state_multiplicities[int(j)] += 1
-
-    # Sort states and their multiplicities by value
     sort_multiplicities = sorted(state_multiplicities, reverse=True)
     unique_multiplicities = list(np.unique(np.array(sort_multiplicities)))
     unique_multiplicities.reverse()
@@ -160,6 +174,7 @@ if __name__ == '__main__':
     write_to_file('StateMultiplicities', 'png', path, 1)
     plt.show()
 
+    # Interactive user interpret results
     ask_for_state = False
     steady_states_present = True
     cyclic_behavior = False
@@ -205,7 +220,7 @@ if __name__ == '__main__':
         except ValueError:
             continue
 
-    # Call steady-states and majority states of dominating cycle
+    # Get steady-states or majority states of dominating cycle and write to file
     partial_get_states = partial(get_states, sorted_states=sort_states, cutoff=state_cutoff, unique_df=uniques_df)
     if steady_states_present:
         steady_states_df = partial_get_states(make_df=True)
@@ -219,8 +234,6 @@ if __name__ == '__main__':
     else:
         cyclic_states_df = pd.DataFrame()
         num_cyclic_states = 0
-
-    # Write steady states or predominating states of dominant cycle to file
     partial_write_to_file = partial(write_to_file, file_type="tsv", file_path=path)
     partial_write_to_file(data_name="steady_states_df", regulator=num_steady_states)
     print("Number of Called Steady States: " + str(num_steady_states))
@@ -230,7 +243,7 @@ if __name__ == '__main__':
     if cyclic_behavior:
         print("The predominant states of the dominating cycle have been written to the cyclic_states.tsv file.")
 
-    # Re-perform k-Means clustering, if necessary
+    # User interactive re-perform k-Means clustering, if necessary
     do_k_means = False
     while True:
         try:
