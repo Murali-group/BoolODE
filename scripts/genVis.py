@@ -236,17 +236,18 @@ if __name__ == '__main__':
                     DRDF_ss_only.loc[len(DRDF_ss_only.index)] = DRDF.iloc[i]
         DRDF_ss_only["Steady State Groups"] = ss_colors
 
-    # t-SNE plotting
+    # Plot the data
     partial_make_subplot = partial(make_subplot, data_label=data_name, show_ss_flag=ss_flag, dimred_df=DRDF,
                                    dimred_df_ss_only=DRDF_ss_only)
+    # t-SNE plotting
     if tsne_flag:
         partial_make_subplot(method='TSNE', dim=tsne_dim)
         plt.savefig(inFile.split('.csv')[0] + '_tSNE_%sd.png' % tsne_dim)
-        # PCA plotting
+    # PCA plotting
     if pca_flag:
         partial_make_subplot(method='PCA', dim=pca_dim)
         plt.savefig(inFile.split('.csv')[0] + '_PCA_%sd.png' % pca_dim)
-        # UMAP plotting
+    # UMAP plotting
     if umap_flag:
         partial_make_subplot(method='UMAP', dim=umap_dim)
         plt.savefig(inFile.split('.csv')[0] + '_UMAP_%sd.png' % umap_dim)
