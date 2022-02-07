@@ -166,8 +166,9 @@ if __name__ == '__main__':
         os.remove(path + '/ExpressionData_dimred.csv')
     shutil.move(os.path.abspath('ExpressionData_dimred.csv'), path)
 
-    # t-SNE plotting
+    # Plot the data
     partial_make_subplot = partial(make_subplot, data_label=data_name, dataframe=DRDF)
+    # t-SNE plotting
     if tsne_flag:
         partial_make_subplot(method='TSNE', dim=tsne_dim)
         plt.savefig(inFile.split('.csv')[0] + '_tSNE_%sd.png' % tsne_dim)
