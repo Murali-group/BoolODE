@@ -197,8 +197,7 @@ def Experiment(mg, Model,
         print('Clustering simulations...')
         start = time.time()            
         # Find clusters in the experiments
-        clusterLabels= KMeans(n_clusters=settings['nClusters'],
-                              n_jobs=8).fit(groupedDF.T.values).labels_
+        clusterLabels= KMeans(n_clusters=settings['nClusters']).fit(groupedDF.T.values).labels_
         print('Clustering took %0.3fs' % (time.time() - start))
         clusterDF = pd.DataFrame(data=clusterLabels, index =\
                                  groupedDF.columns, columns=['cl'])

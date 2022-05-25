@@ -1,58 +1,183 @@
+__author__ = 'Jon Mallen'
+
+# Visualize simulated expression data produced from a BoolODE simulation through the dimensional reduction technique
+# of the user's choice. Expression data is labeled with pseudo-time and k-means clustering.
+
+import os
+import sys
+import shutil
 from sklearn.manifold import TSNE
-#from MulticoreTSNE import MulticoreTSNE as TSNE
 from sklearn.decomposition import PCA
-import numpy as np
+from umap import UMAP
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import pandas as pd
-from optparse import OptionParser 
-parser = OptionParser()
-
-parser.add_option('-i','--inFile',default='',type=str,
-                  help='Specify input expression matrix file name')
-
-parser.add_option('-p','--pseudoTimeFile',default='',type=str,
-                  help='Specify pseudoTimeFile file name')
-
-parser.add_option('-t','--tsne',action='store_true',default=False,
-                  help='Visualized tsne instead of default PCA')
-
-(opts, args) = parser.parse_args()
-inFile = opts.inFile
-tsne_flag = opts.tsne
+import argparse
+from itertools import repeat
+from functools import partial
 
 
+# Common method for dimensional reduction
+def dimensional_reduction(method, method_arg, dimred_df):
+    # Check dimensions
+    if len(method_arg) == 0:
+        dim = 2
+    elif len(method_arg) > 1:
+        sys.exit('Error: Gave too many values for the number of dimensions. Please specify only a single number of '
+                 'dimensions (2 or 3) for each dimensional reduction method.')
+    else:
+        dim = int(method_arg[0])
+    if dim != 2 and dim != 3:
+        sys.exit('Error: Specified an invalid number of dimensions. Only 2 and 3 are valid dimensions.')
+    # Perform dimensional reduction
+    embed = eval("%s(n_components=%s).fit_transform(Cells)" % (method, dim))
+    for n in range(dim):
+        dimred_df['%s%d' % (method, n+1)] = embed[:, n]
+    return dim
 
 
-DF = pd.read_csv(inFile,sep=',',index_col=0)
-Cells = DF.T.values
+def subplot_format(f, ax, plot_index, method, dataframe, dim, map_title, color_map):
+    plt.rcParams['image.cmap'] = color_map
+    labels_df = pd.DataFrame()
+    for m in range(1, dim + 1):
+        label_list = ['%s%d' % (method, m)]
+        if method == 'TSNE':
+            label_list.append('t-SNE %d' % m)
+        else:
+            label_list.append('%s %d' % (method, m))
+        labels_df[str(m)] = label_list
+    if dim == 3:
+        ax[plot_index].set_axis_off()
+        ax[plot_index] = f.add_subplot(1, 2, plot_index+1, projection="3d")
+        ax[plot_index].scatter3D(dataframe[labels_df.at[0, '1']], dataframe[labels_df.at[0, '2']],
+                                 dataframe[labels_df.at[0, '2']], c=dataframe[map_title])
+        ax[plot_index].set_zlabel(labels_df.at[1, '3'])
+    else:
+        ax[plot_index].scatter(dataframe[labels_df.at[0, '1']], dataframe[labels_df.at[0, '2']],
+                               c=dataframe[map_title])
+    ax[plot_index].set_xlabel(labels_df.at[1, '1'], fontsize=14)
+    ax[plot_index].set_ylabel(labels_df.at[1, '2'], fontsize=14)
+    ax[plot_index].set_aspect('auto')
+    ax[plot_index].set_title(map_title, fontsize=12)
 
-####################
-# Do PCA and tSNE
-PC = PCA(n_components=2).fit_transform(Cells)
-embed = TSNE(n_components=2).fit_transform(Cells)
-####################    
-ptDF = pd.read_csv(opts.pseudoTimeFile, sep=',', index_col=0)
 
-colors = ptDF.min(axis='columns').values
-print(colors)
-experiments = set([h.split('_')[0] for h in DF.columns])
-PCDF = pd.DataFrame(PC,columns=['PC1','PC2'],index=pd.Index(list(DF.columns)))
+def make_subplot(method, dim, data_label, dataframe):
+    if method == 'TSNE':
+        method_name = 't-SNE'
+    else:
+        method_name = method
+    plot_title = ' '.join(data_label) + ': Dimensional Reduction of Simulated Expression Data via %d-D %s' \
+                 % (dim, method_name)
+    f, ax = plt.subplots(1, 2, figsize=(10, 5))
+    partial_subplot_format = partial(subplot_format, f=f, ax=ax, method=method, dataframe=dataframe, dim=dim)
+    # Plot each cell in the dimensional reduction and map by simulation time using a color map.
+    partial_subplot_format(plot_index=0, map_title='Simulation Time', color_map='viridis')
+    # Plot each cell in the dimensional reduction and map by cluster using a color map.
+    partial_subplot_format(plot_index=1, map_title='k-Means Clusters', color_map='Spectral')
+    plt.suptitle(plot_title, fontsize=15)
+    for ax in ax.flat:
+        ax.label_outer()
 
-PCDF['tsne1'] = embed[:,0]
-PCDF['tsne2'] = embed[:,1]
-    
-PCDF['time'] = colors
-PCDF.to_csv(inFile + '_dimred.txt')
 
-f,ax = plt.subplots(2,1,figsize=(5,10))
+if __name__ == '__main__':
 
-colors = [h.split('_')[1] for h in DF.columns]
-ax[0].scatter(PCDF['PC1'], PCDF['PC2'], c= PCDF['time'])
-ax[0].set_title('PCA')
-ax[1].scatter(PCDF['tsne1'], PCDF['tsne2'], c= PCDF['time'])
-ax[1].set_title('tSNE')
+    # Define arguments
+    parser = argparse.ArgumentParser("Visualize the simulated single-cell gene expression data output by BoolODE.")
+    parser.add_argument('-f', '--pathToFiles', default='', type=str, help='Specify path to folder containing the '
+                                                                          'ExpressionData.csv and PseudoTime.csv files '
+                                                                          'generated by the BoolODE simulation, as '
+                                                                          'well as the ClusterIds.csv if it is '
+                                                                          'present.')
+    parser.add_argument('-p', '--pca', nargs='*', help='Use PCA for visualizing the data. '
+                                                       'Specify the number of dimensions (2 or 3) as argument. '
+                                                       'Default is 2.')
+    parser.add_argument('-t', '--tsne', nargs='*', help='Use t-SNE for visualizing the data. '
+                                                        'Specify the number of dimensions (2 or 3) as argument. '
+                                                        'Default is 2.')
+    parser.add_argument('-u', '--umap', nargs='*', help='Use UMAP for visualizing the data. '
+                                                        'Specify the number of dimensions (2 or 3) as argument. '
+                                                        'Default is 2.')
+    parser.add_argument('-c', '--clusterFile', action='store_true', default=False,
+                        help='Use the cluster file ClusterIds.csv to assign clusters if the user specified at least 2 '
+                             'clusters in the simulation.')
+    parser.add_argument('-n', '--dataName', default='Network', nargs='*', help='Enter name of the regulatory network.')
 
-    
-plt.legend('')
-plt.savefig(inFile.split('.csv')[0] + '_dimensionality-reduction.png')    
+    # Parse arguments and exit if proper files are not present
+    args = parser.parse_args()
+    path = args.pathToFiles
+    inFile = path + "/ExpressionData.csv"
+    if not os.path.exists(inFile):
+        sys.exit('Error: No ExpressionData.csv file is present in the specified path to files.')
+    timeFile = path + "/PseudoTime.csv"
+    if not os.path.exists(timeFile):
+        sys.exit('Error: No PseudoTime.csv file is present in the specified path to files.')
+    cluster_flag = args.clusterFile
+    clusterFile = args.pathToFiles + "/ClusterIds.csv"
+    if cluster_flag and not os.path.exists(clusterFile):
+        sys.exit('Error: No ClusterIds.csv file is present in the specified path to files.')
+    data_name = args.dataName
+    pca_flag = args.pca is not None
+    tsne_flag = args.tsne is not None
+    umap_flag = args.umap is not None
+
+    # Read the expression data
+    DF = pd.read_csv(inFile, sep=',', index_col=0)
+    Cells = DF.T.values
+    DRDF = pd.DataFrame(index=pd.Index(list(DF.columns)))
+
+    # Do PCA, t-SNE, UMAP
+    partial_dimensional_reduction = partial(dimensional_reduction, dimred_df=DRDF)
+    if pca_flag:
+        pca_dim = partial_dimensional_reduction(method='PCA', method_arg=args.pca)
+    if tsne_flag:
+        tsne_dim = partial_dimensional_reduction(method='TSNE', method_arg=args.tsne)
+    if umap_flag:
+        umap_dim = partial_dimensional_reduction(method='UMAP', method_arg=args.umap)
+
+    # Prepare time-dependent color scheme
+    #   To prepare the time-dependent color scheme,  the pseudo-time file is read for its maximum value, i.e the
+    #   simulation time. Then, the list of times corresponding to each cell is acquired as a list by splitting the
+    #   title of each cell into its sample number and time slice, and choosing only the time slice value. The time
+    #   slice values can then be scaled by the maximum value such that they are a value in [0,1], and can then be
+    #   used to map each data point in the dimensional reduction by time using a color map.
+
+    ptDF = pd.read_csv(timeFile, sep=',', index_col=0)
+    time_color_scale = max(ptDF["Time"])
+    time_colors = [int(h.split('_')[1]) / time_color_scale for h in DF.columns]
+    DRDF['Simulation Time'] = time_colors
+
+    # Prepare cluster-dependent color scheme
+    #   Just like the list of times for the time-dependent color scheme, the cluster values for each cell prepared from
+    #   k-means clustering are read for their maximum value. The maximum value is used to scale the list of cluster
+    #   assignments to values in [0,1], which can then be used to map each data point in the dimensional reduction by
+    #   cluster using a color map.
+
+    if cluster_flag:
+        CF = pd.read_csv(clusterFile, sep=',', index_col=0)
+        cluster_colors_raw = CF['cl'].tolist()
+        cluster_color_scale = max(CF['cl'])
+        cluster_colors = [y / cluster_color_scale for y in cluster_colors_raw]
+    else:
+        cluster_colors = list(repeat(.5, len(DF.columns)))
+    DRDF['k-Means Clusters'] = cluster_colors
+
+    # Write dimensionality reduction data to text file
+    DRDF.to_csv('ExpressionData_dimred.csv', sep=",")
+    if os.path.exists(path + '/ExpressionData_dimred.csv'):
+        os.remove(path + '/ExpressionData_dimred.csv')
+    shutil.move(os.path.abspath('ExpressionData_dimred.csv'), path)
+
+    # Plot the data
+    partial_make_subplot = partial(make_subplot, data_label=data_name, dataframe=DRDF)
+    # t-SNE plotting
+    if tsne_flag:
+        partial_make_subplot(method='TSNE', dim=tsne_dim)
+        plt.savefig(inFile.split('.csv')[0] + '_tSNE_%sd.png' % tsne_dim)
+    # PCA plotting
+    if pca_flag:
+        partial_make_subplot(method='PCA', dim=pca_dim)
+        plt.savefig(inFile.split('.csv')[0] + '_PCA_%sd.png' % pca_dim)
+    # UMAP plotting
+    if umap_flag:
+        partial_make_subplot(method='UMAP', dim=umap_dim)
+        plt.savefig(inFile.split('.csv')[0] + '_UMAP_%sd.png' % umap_dim)
+    plt.show()
