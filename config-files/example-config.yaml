@@ -107,6 +107,11 @@ jobs:
     ## by a smaller threshold of activation. Specify the strength
     ## as a number between 1 and 20. (Max protein level=20)
     interaction_strengths: "dyn-linear_strengths.txt"
+
+    ################ EXPERIMENTAL FEATURES ################
+    ## Noise strength to use in stochastic simulations
+    # noise_strength: 10
+
     
 post_processing:
   ## Once the simulations have been performed, individual trajectories are

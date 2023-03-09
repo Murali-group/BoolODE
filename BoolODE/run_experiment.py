@@ -129,6 +129,7 @@ def Experiment(mg, Model,
     argdict['proteinIndex'] = proteinIndex
     argdict['revvarmapper'] = revvarmapper
     argdict['x_max'] = mg.kineticParameterDefaults['x_max']
+    argdict['noiseStrength'] = settings['noise_strength']
 
     if settings['sample_cells']:
         # pre-define the time points from which a cell will be sampled
@@ -297,6 +298,7 @@ def simulateAndSample(argdict):
     seed = argdict['seed']
     pars = argdict['pars']
     x_max = argdict['x_max']
+    noiseStrength = argdict['noiseStrength']
     
     # Retained for debugging
     isStochastic = True
@@ -324,7 +326,7 @@ def simulateAndSample(argdict):
                                      genelist, proteinlist,
                                      varmapper,revvarmapper)
         
-        P = simulator.simulateModel(Model, y0_exp, pars, isStochastic, tspan, seed)
+        P = simulator.simulateModel(Model, y0_exp, pars, isStochastic, tspan, seed, noiseStrength)
         P = P.T
         retry = False
         ## Extract Time points

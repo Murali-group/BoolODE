@@ -67,6 +67,7 @@ class BoolODE(object):
         Default parameter values are specified here.
         '''
         jobs = {}
+        experimental_settings = {'noise_strength':10}
         for jobid, job in enumerate(self.job_settings.jobs):
             data = {}
             # Create output folder if it doesnt exist
@@ -99,7 +100,15 @@ class BoolODE(object):
             data['add_dummy'] = job.get('add_dummy',False)
             data['max_parents'] = job.get('max_parents',1)
             data['modeltype'] = self.global_settings.modeltype
+            data['noise_strength'] = job.get('noise_strength', 10)
 
+            warnlist = [setting for setting in data.keys()\
+                        if (setting in experimental_settings.keys())\
+                        and (data[setting] != experimental_settings[setting])]
+            for ef in warnlist:
+                print(f"___WARNING___\ntIN JOB [{data['name']}] SETTING [{ef}: {data[ef]}]")
+                print(f"={ef}= is currently an experimental feature in BoolODE!")
+                print(f"Results obtained by varying this parameter are\nnot guaranteed to produce optimal results!")
             jobs[jobid] = data
         return(jobs)
 
