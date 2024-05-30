@@ -1,0 +1,8 @@
+base_directory_path: path_where_you_want_the_config_files
+name: "dyn-LL-1"
+model_definition: "dyn-linear-long.txt"
+model_initial_conditions: "dyn-linear-long_ics.txt"
+simulation_times: 10, 12, 14, 16
+num_cells: 100, 200, 300
+CompareSteadyStates: True
+perform_PyBoolNet: True
