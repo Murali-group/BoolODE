@@ -264,7 +264,7 @@ class BoolODE(object):
                     for gsampPath in generatedPaths[jobid]:
                         settings = {}
                         invalid = False
-                        settings['outPrefix'] = gsampPath + '/' + gsampPath.split('/')[-1] + '-ss'
+                        settings['outPrefix'] = gsampPath + '/' + gsampPath.split(os.sep)[-1] + '-ss'
                         settings['expr'] = Path(gsampPath\
                                                 ,'ExpressionData.csv')
                         settings['pseudo'] = Path(gsampPath\

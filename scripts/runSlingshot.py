@@ -23,7 +23,7 @@ np.random.seed(seed)
 def parseArgs(args):
     parser = OptionParser()
     
-    parser.add_option('', '--outPrefix', type = 'str',default='',
+    parser.add_option('', '--outPrefix', type = 'str', default='',
                       help='Prefix for output files.')
     
     parser.add_option('-e', '--expr', type='str',
@@ -70,8 +70,10 @@ def computeSSPT(ExpDF, ptDF, nClust, outPaths, noEnd = False, perplexity = 500):
     '''
     if nClust == 1:
         # Return simulation time as PseduoTime
-        for outPath in outPaths:
-            ptDF.loc[ExpDF.columns].to_csv(outPath+"/PseudoTime.csv", columns =['Time'])
+        ptDF.loc[ExpDF.columns].to_csv(outPaths + "/PseudoTime.csv", columns=['Time'])
+        # for outPath in outPaths:
+        #     print(outPath)
+        #     ptDF.loc[ExpDF.columns].to_csv(outPath+"/PseudoTime.csv", columns =['Time'])
  
     else:
         ### Compute PseudoTime ordering using slingshot
@@ -212,7 +214,8 @@ def computeSSPT(ExpDF, ptDF, nClust, outPaths, noEnd = False, perplexity = 500):
         tn.to_csv(outPaths+"/Updated_rd.tsv",
                   sep='\t')
         plt.savefig(outPaths+"/SlingshotOutput.png")
-    os.system("rm -rf temp/")
+    if sys.platform.startswith("linux"):
+        os.system("rm -rf temp/")
 
 def main(args):
     opts, args = parseArgs(args)
