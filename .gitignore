@@ -104,6 +104,8 @@ venv.bak/
 .mypy_cache/
 
 # Local files
+*.sh
+*.out
 *.png
 *.csv
 model.py
