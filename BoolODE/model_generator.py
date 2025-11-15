@@ -110,10 +110,9 @@ class GenerateModel:
         self.withoutRules = list(self.allnodes.difference(set(self.withRules)))
 
         ## Every node without a rule is treated as follows:
-        ## If the user has specified a Parameter Input file treat as parameter, else 
+        ## If the user has specified a Parameter Input file treat as parameter, else
         for n in self.withoutRules:
-            if not self.parameterInputsDF.empty\
-               and n in self.parameterInputsDF['Input'] :
+            if not self.parameterInputsDF.empty and n in self.parameterInputsDF.values:
                 print("Treating %s as parameter" % {n})                
             else:
                 print(n, "has no rule, adding self-activation.")

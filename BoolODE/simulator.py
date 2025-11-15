@@ -140,5 +140,5 @@ def getInitialCondition(ss, ModelSpec, rnaIndex,
         pss = ((ModelSpec['pars']['r_' + genename])/\
                                       (ModelSpec['pars']['l_p_' + genename]))\
                                       *new_ics[revvarmapper['x_' + genename]]
-        new_ics[revvarmapper['p_' + genename.replace('_','')]] = pss
+        new_ics[revvarmapper['p_' + genename]] = pss
     return(new_ics)
